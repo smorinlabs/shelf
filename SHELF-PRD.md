@@ -110,14 +110,14 @@ This section answers "how does shelf know where to keep and find `catalog.json` 
 
 ### Config file
 
-XDG-based, TOML: `${XDG_CONFIG_HOME:-~/.config}/shelf/shelf-config.toml` — the filename carries the tool prefix so the file stays self-identifying when copied or grepped. Created by `shelf init`. It holds the library path and user defaults:
+XDG-based, TOML: `${XDG_CONFIG_HOME:-~/.config}/shelf/shelf_config.toml` — the CLI Design Standard's canonical `<tool>_config.toml` name (R5.2), which keeps the file self-identifying when copied or grepped. Created by `shelf init`. It holds the library path and user defaults, with kebab-case keys for flag/env/config name parity (R3.8):
 
 ```toml
 library = "/Users/<user>/.local/share/shelf"
-remove_source = true          # default for `shelf add` / `shelf add-format`
-server_port = 8765            # local UI server port
+remove-source = true          # default for `doc add` / `doc format add`
+server-port = 8765            # local UI server port
 browser = "Google Chrome"     # browser for `shelf open` on macOS
-handoff_agent = "claude"      # agent launched by the `shelf add` handoff: claude | codex
+handoff-agent = "claude"      # agent launched by the `doc add` handoff: claude | codex
 ```
 
 ### Library path resolution
@@ -126,7 +126,7 @@ Highest precedence first:
 
 1. `--library <path>` — CLI flag.
 2. `SHELF_LIBRARY` — environment variable.
-3. The `library` key in the **active config file**, where the active config file is `--config <path>` if given, otherwise `${XDG_CONFIG_HOME:-~/.config}/shelf/shelf-config.toml`.
+3. The `library` key in the **active config file**, where the active config file is `--config <path>` if given, otherwise `${XDG_CONFIG_HOME:-~/.config}/shelf/shelf_config.toml`.
 4. None of the above → the library is unconfigured. The CLI exits with guidance to run `shelf init`; the `shelf-add` skill triggers first-run setup automatically (§12).
 
 This provides a **direct** override (`--library` / `SHELF_LIBRARY`) and an **indirect** one — `XDG_CONFIG_HOME` relocates the config directory, and the config file carries the library path.
@@ -151,26 +151,28 @@ Nothing machine-specific that is ever resolved is committed. `catalog.json` stor
 
 The CLI is the **single writer** of `catalog.json` and the only thing that mutates library state. Skills call the CLI rather than editing `catalog.json` directly — this allows validated writes and is far more context-efficient for the skill.
 
-Every **mutating subcommand** (`init`, `add`, `add-format`, `edit`, `move`, `remove`, `topic add`, `kind add`) performs two actions as one atomic unit: it updates `catalog.json`, and it regenerates `index.html` from the template. The exception is `shelf regen` (§11.12), which rewrites only `index.html`.
+Every **mutating subcommand** (`init`, `doc add`, `doc format add`, `doc format delete`, `doc update`, `doc move`, `doc delete`, `doc adopt`, `orphan delete`, `topic add`, `kind add`, `migrate`) performs two actions as one atomic unit: it updates `catalog.json`, and it regenerates `index.html` from the template. The exception is `shelf regen` (§11.12), which rewrites only `index.html`.
 
-Atomicity is achieved by ordering, with the catalog write as the **commit point**. Everything is prepared first — files staged, the new `catalog.json` and `index.html` rendered to temp files — then `catalog.json` is atomically renamed into place, then `index.html`. Failure before the commit point discards the staged work and leaves the library untouched. Failure after it leaves the catalog authoritative and some derived or residual state to reconcile, and every such state is **audit-detectable and repairable**: a stale index (check 4 → `shelf regen`), a duplicate folder from an interrupted `move` or an undeleted folder from an interrupted `remove` (check 1 → orphan remediation, §11.6), an uncommitted library after a failed `--commit` (check 5). Source removal (§11.2) runs only after everything else has succeeded. External effects are not rolled back: a failed `shelf init --github` may leave a created GitHub repository to remove manually. Every command that writes library files — the mutating commands and `shelf regen` — takes an exclusive advisory lock (`.shelf.lock` at the library root); `shelf audit` acquires it briefly to snapshot, so it never observes a mid-transaction state.
+Atomicity is achieved by ordering, with the catalog write as the **commit point**. Everything is prepared first — files staged, the new `catalog.json` and `index.html` rendered to temp files — then `catalog.json` is atomically renamed into place, then `index.html`. Failure before the commit point discards the staged work and leaves the library untouched. Failure after it leaves the catalog authoritative and some derived or residual state to reconcile, and every such state is **audit-detectable and repairable**: a stale index (check 4 → `shelf regen`), a duplicate folder from an interrupted `doc move` or an undeleted folder from an interrupted `doc delete` (check 1 → orphan remediation, §11.6), an uncommitted library after a failed `--commit` (check 5). Source removal (§11.2) runs only after everything else has succeeded. External effects are not rolled back: a failed `shelf init --github` may leave a created GitHub repository to remove manually. Every command that writes library files — the mutating commands and `shelf regen` — takes an exclusive advisory lock (`.shelf.lock` at the library root); `shelf audit` acquires it briefly to snapshot, so it never observes a mid-transaction state.
 
 ### Subcommands
 
 Detailed in §11.
 
-- `shelf init` — create and register a library.
-- `shelf add` — add a new document (one or more format files → one entry).
-- `shelf add-format` — add a format variant to an existing document.
-- `shelf remove-format` — remove a format variant from a document.
-- `shelf edit` — change a document's metadata (pure catalog changes).
-- `shelf move` — relocate a document (topic, repo, or anchoring change).
-- `shelf remove <id>` — remove a document (entry + folder).
+- `shelf init` — create, adopt, and register a library.
+- `shelf doc add <file>...` — add a new document (one or more format files → one entry).
+- `shelf doc format add <id> <file>...` — add a format variant to an existing document.
+- `shelf doc format delete <id> <format>` — remove a format variant from a document.
+- `shelf doc update <id>` — change a document's metadata (pure catalog changes).
+- `shelf doc move <id>` — relocate a document (topic, repo, or anchoring change).
+- `shelf doc delete <id>` — delete a document (entry + folder); alias `rm`.
+- `shelf doc list` — filter and query documents; alias `ls`.
+- `shelf doc view <id>` — print one document in full.
+- `shelf doc adopt <folder>` — register an existing in-library folder (orphan adoption).
+- `shelf orphan list` / `shelf orphan delete <path>` — manage uncataloged files.
 - `shelf audit` — run the library consistency check.
 - `shelf open` — open the UI (§13).
 - `shelf path [config|index]` — print resolved locations.
-- `shelf list` — filter and query documents.
-- `shelf show <id>` — print one document in full.
 - `shelf regen` — regenerate `index.html` from the current catalog.
 - `shelf migrate` — migrate the catalog to the current schema version.
 - `shelf topic add <name>` / `shelf topic list` — manage topic buckets.
@@ -181,6 +183,16 @@ The CLI validates every write: a topical document's `category` must exist in the
 ### Runtime
 
 The CLI is a Python package in the **src layout**, following py-launch-blueprint conventions (click, uv-managed, pytest/ruff/ty). It installs as a tool — `uv tool install shelf` (or from git) — which places `shelf` on `PATH`. The UI server is part of the package and is started by `shelf open`; there is no separate script to manage. The UI template ships inside the package and is read via `importlib.resources`, so a tool-installed CLI renders `index.html` with no repo checkout present.
+
+### Standards conformance
+
+The CLI conforms to the org **CLI Design Standard** (cli-standards repo, v1.4.14). The standard's §6 (exit codes), §7 (streams, machine-error schema, help shape, bare/unknown invocation), §8 (interaction and safety), and R9.6 (signals) apply **by reference**. Specific bindings: a nonexistent `<id>` exits `3`; `shelf audit` exits `1` when findings exist (a documented predicate result per R6.2 — no stderr error object accompanies it); bare `shelf` prints help and exits `0`; a bare group (`shelf doc`) is a usage error, exit `2`; `doc delete` prompts on a TTY with `--yes` as non-interactive consent; under `--no-input` the CLI never prompts and never launches the handoff — missing classification flags exit `2`.
+
+**Documented waivers** (rule / deviation / rationale — owner Steve, 2026-07-18):
+
+- **R2.1 — `add` instead of `create`** for `doc add`, `topic add`, `kind add`. Shelf ingests existing artifacts rather than creating them, and "add to shelf" is the product's language; one waiver covers all three for consistency.
+- **R2.2 — `regen` abbreviation.** Rare, mostly skill-invoked maintenance command; the abbreviation is well understood in context.
+- **R5.1/R5.2 — no project or system config scopes.** Shelf is a per-user library tool; only the user scope (`$XDG_CONFIG_HOME/shelf/shelf_config.toml`) and the `--config` override exist.
 
 ---
 
@@ -201,7 +213,7 @@ Each logical document gets its own folder, holding all of its format variants an
 
 ### Path stability
 
-Physical location is permanent; classification is metadata. The copy-path action hands out paths that get pasted into skills and other repositories, so a document's folder must not move when it is re-tagged. Re-tagging is a metadata change. Relocating a document between buckets is the deliberate, rare `shelf move` operation (§11.5).
+Physical location is permanent; classification is metadata. The copy-path action hands out paths that get pasted into skills and other repositories, so a document's folder must not move when it is re-tagged. Re-tagging is a metadata change. Relocating a document between buckets is the deliberate, rare `shelf doc move` operation (§11.5).
 
 ---
 
@@ -210,10 +222,10 @@ Physical location is permanent; classification is metadata. The copy-path action
 A document's slug is its stable identifier (`id`) and its folder name. Variant files share the slug as their stem.
 
 - **Format:** `YYYY-MM-DD-<kebab-title>` — date prefix, then the kebab-cased title or subject.
-- **Date:** the date the document was **added to shelf** — always known, unambiguous, and never becomes wrong. The date prefix makes slug collisions unlikely; an exact collision (the same title added on the same day) is detected and rejected at `shelf add` (§11.2). The content's own publication date, when relevant, is stored separately as `doc_date`.
+- **Date:** the date the document was **added to shelf** — always known, unambiguous, and never becomes wrong. The date prefix makes slug collisions unlikely; an exact collision (the same title added on the same day) is detected and rejected at `shelf doc add` (§11.2). The content's own publication date, when relevant, is stored separately as `doc_date`.
 - The kebab title is truncated to roughly 60 characters.
-- The slug is auto-derived from the title, with a `--slug` override at `shelf add`.
-- **The slug is immutable.** It is the permanent `id`; neither `shelf edit` nor `shelf move` ever re-slugs a document.
+- The slug is auto-derived from the title, with a `--slug` override at `shelf doc add`.
+- **The slug is immutable.** It is the permanent `id`; neither `shelf doc update` nor `shelf doc move` ever re-slugs a document.
 
 Example: `docs/repos/flox-cli/2026-05-22-cli-extension-prd/2026-05-22-cli-extension-prd.md`
 
@@ -325,7 +337,12 @@ Notes:
 
 ## 11. Command Reference
 
-Common conventions: every mutating command supports `--commit` (default `--no-commit`; the auto-generated message describes the change, e.g. `shelf: add <slug>`), `--commit-message`, `--dry-run`, `--json`, `-y/--yes`, and `-q/-v`. `--commit` requires the library to be a git repository and errors otherwise; `shelf init` is the exception — its initial commit is governed by `--git` (§11.1), not `--commit`. Every mutating command updates `catalog.json` and regenerates `index.html` atomically (`shelf regen`, §11.12, rewrites only `index.html`).
+Common conventions — the CLI implements the CLI Design Standard's option tiers (R4.1):
+
+- **Global core**: `-h/--help`, `-V/--version` (`-v` is *not* version), `-v/--verbose` (repeatable), `-q/--quiet`, `--config <path>`, `--debug`, `--no-input` (never prompt; fail instead — it also implies `--no-handoff`, §11.2).
+- **Result output**: `-o/--output <table|json>` — `table` is the human default and may change between releases; `json` is machine-stable within a major version. `--json` is exact shorthand for `-o json`; every `--json` reference in this document means this pair. The enum is extensible (`jsonl`, `name` may be added later).
+- **Safety/action**: `--dry-run`; `-f/--force` (guard override — protected or inconsistent state; never implies consent); `-y/--yes` (consent to prompts).
+- **Mutations**: every mutating command supports `--commit` (default off; the auto-generated message describes the change, e.g. `shelf: doc add <slug>`) and `--commit-message`. `--commit` requires the library to be a git repository and errors otherwise; `shelf init` is the exception — its initial commit is governed by `--git` (§11.1), not `--commit`. Every mutating command updates `catalog.json` and regenerates `index.html` atomically (`shelf regen`, §11.12, rewrites only `index.html`).
 
 ### 11.1 `shelf init`
 
@@ -339,91 +356,91 @@ shelf init [--library <path>] [--adopt <path>] [--git] [--github] [--owner <gh-o
 - `--git` — initialize the library as a git repository.
 - `--github` — create a private GitHub repository and set it as the remote, via `gh repo create <owner>/shelf-library --private`. Implies `--git`. Both `--git` and `--github` are optional and offered, not assumed.
 - `--owner <gh-owner>` — GitHub owner for `--github`; defaults to the authenticated `gh` user.
-- `--adopt <path>` — register an **existing** library instead of scaffolding one: validate it (parseable `catalog.json`, supported `schema_version`, `docs/repos/` and `docs/topics/` present), then write `shelf-config.toml` pointing at it. Touches nothing inside the library. Mutually exclusive with `--git`, `--github`, and `--force`. This is the new-machine flow: clone `shelf-library`, then `shelf init --adopt <path>`.
+- `--adopt <path>` — register an **existing** library instead of scaffolding one: validate it (parseable `catalog.json`, supported `schema_version`, `docs/repos/` and `docs/topics/` present), then write `shelf_config.toml` pointing at it. Touches nothing inside the library. Mutually exclusive with `--git`, `--github`, and `--force`. This is the new-machine flow: clone `shelf-library`, then `shelf init --adopt <path>`.
 
-Behavior: scaffolds `catalog.json` (empty `topics`, `kinds` seeded with the six default kinds, empty `documents`), `docs/repos/`, `docs/topics/`, the generated `index.html`, and a README; then writes `${XDG_CONFIG_HOME:-~/.config}/shelf/shelf-config.toml` with `library` pointing at the new library. With `--git`, the scaffolded files are recorded as the library's initial commit. Refuses to overwrite an existing configured library unless `--force`.
+Behavior: scaffolds `catalog.json` (empty `topics`, `kinds` seeded with the six default kinds, empty `documents`), `docs/repos/`, `docs/topics/`, the generated `index.html`, and a README; then writes `${XDG_CONFIG_HOME:-~/.config}/shelf/shelf_config.toml` with `library` pointing at the new library. With `--git`, the scaffolded files are recorded as the library's initial commit. Refuses to overwrite an existing configured library unless `--force`.
 
-### 11.2 `shelf add`
+### 11.2 `shelf doc add`
 
 Adds a **new document**.
 
 ```
-shelf add <file>... (--repo <name> | --topic <name>) --kind <kind>
-          --title <text> --description <text> [options]
+shelf doc add <file>... (--repo <name> | --topic <name>) --kind <kind>
+              --title <text> --description <text> [options]
 ```
 
-All positional files are **format variants of one document** → one entry. Format is inferred from extension (`.md`, `.html`/`.htm`, `.pdf`). Two files of the same format is an error. For two documents, run `shelf add` twice.
+All positional files are **format variants of one document** → one entry. Format is inferred from extension (`.md`, `.html`/`.htm`, `.pdf`). Two files of the same format is an error. For two documents, run `shelf doc add` twice.
 
-**Interactive handoff** — when the required classification flags are missing, `shelf add` does not error: it launches the configured **handoff agent** — `--handoff-agent <claude|codex>` flag, else the `handoff_agent` key in `shelf-config.toml`, else `claude` — with a primed introductory prompt that references the `shelf-add` skill and passes the input file paths (for example: *"Use the shelf-add skill to add `/Users/<user>/Downloads/cli-extension-prd.md` to shelf. Walk me through classification."*). The user lands in an interactive session where the skill drives classification, confirmation, and the eventual fully-flagged CLI call. `--no-handoff` suppresses the handoff, making missing flags an error. When the CLI is already running inside a Claude Code or Codex session (detected via environment, §14), it never nests a session — it errors with a message asking the assistant to invoke the `shelf-add` skill directly. This makes the `shelf` CLI the single entry point whether the user starts in the shell or in an AI session: fully-flagged invocations run non-interactively; judgment-needing invocations hand off to the skill, which lives in exactly one place.
+**Interactive handoff** — when the required classification flags are missing, `shelf doc add` does not error: it launches the configured **handoff agent** — `--handoff-agent <claude|codex>` flag, else the `handoff-agent` key in `shelf_config.toml`, else `claude` — with a primed introductory prompt that references the `shelf-add` skill and passes the input file paths (for example: *"Use the shelf-add skill to add `/Users/<user>/Downloads/cli-extension-prd.md` to shelf. Walk me through classification."*). The user lands in an interactive session where the skill drives classification, confirmation, and the eventual fully-flagged CLI call. `--no-handoff` suppresses the handoff, making missing flags an error; `--no-input` implies it (§5, standards conformance). When the CLI is already running inside a Claude Code or Codex session (detected via environment, §14), it never nests a session — it errors with a message asking the assistant to invoke the `shelf-add` skill directly. This makes the `shelf` CLI the single entry point whether the user starts in the shell or in an AI session: fully-flagged invocations run non-interactively; judgment-needing invocations hand off to the skill, which lives in exactly one place.
 
-**Input** — `<file>...` (≥1); `--assets <path>` (repeatable; files or directories copied into the document folder so HTML relative links resolve); `--format <ext>` (override inference). `--in-place <folder>` instead registers an existing per-document folder already under `docs/` without copying — anchoring derived from the folder's location, slug from the folder name, classification flags still required; this is the orphan-adoption repair (§11.6).
+**Input** — `<file>...` (≥1); `--assets <path>` (repeatable; files or directories copied into the document folder so HTML relative links resolve); `--format <ext>` (long-only, since `-f` is `--force`; overrides inference). Registering a folder already inside the library is `shelf doc adopt` (§11.15).
 
 **Anchoring** — exactly one of: `--repo <name>` (with `--repo-url <url>`, inferred from the git remote of the repository containing the source file when there is one, otherwise required, and `--subject <label>`); or `--topic <name>` (with `--create-topic` to authorize creating an unknown topic — without it, an unknown topic is an error).
 
-**Classification** — `--kind <kind>` (required; must exist; `shelf add` never creates kinds); `--tag <tag>` (repeatable, free-form).
+**Classification** — `--kind <kind>` (required; must exist; `shelf doc add` never creates kinds); `--tag <tag>` (repeatable, free-form).
 
 **Identity/metadata** — `--title` (required), `--description` (required), `--slug` (override), `--primary <format>` (default heuristic: md, else html, else pdf, else first), `--doc-date <YYYY-MM-DD>`, `--source <text>` (default: absolute path of the first input file).
 
-**Source handling** — by default the original input files are **removed** after a fully successful add; this default is the `remove_source` config key. `--keep-source` / `--remove-source` override it explicitly. The `shelf-add` skill asks the user and passes the explicit flag.
+**Source handling** — by default the original input files are **removed** after a fully successful add; this default is the `remove-source` config key. `--remove-source` / `--no-remove-source` override it explicitly (R3.6 negation). The `shelf-add` skill asks the user and passes the explicit flag.
 
-**Behavior** — validation order: exactly one anchor; kind exists; topic exists or `--create-topic`; no duplicate format; slug/folder free. Duplicate slug → error pointing at `--slug` or `shelf add-format`. Atomic with rollback; files copied (never moved) and renamed to `<slug>.<ext>`; source removal runs only after copy, catalog write, index regeneration, and any commit all succeed.
+**Behavior** — validation order: exactly one anchor; kind exists; topic exists or `--create-topic`; no duplicate format; slug/folder free. Duplicate slug → error pointing at `--slug` or `shelf doc format add`. Atomic with rollback; files copied (never moved) and renamed to `<slug>.<ext>`; source removal runs only after copy, catalog write, index regeneration, and any commit all succeed.
 
 ```
-shelf add ./cli-extension-prd.md ./cli-extension-prd.pdf \
+shelf doc add ./cli-extension-prd.md ./cli-extension-prd.pdf \
   --repo flox-cli --repo-url https://github.com/flox/flox \
   --subject cli-extensions --kind spec --primary md \
   --title "Flox CLI Extension System — PRD" \
   --description "Porting the gh extension model into the Flox CLI." --commit
 ```
 
-### 11.3 `shelf add-format`
+### 11.3 `shelf doc format add`
 
 Adds a **new format variant to an existing document**.
 
 ```
-shelf add-format <id> <file>... [options]
+shelf doc format add <id> <file>... [options]
 ```
 
 `<id>` is the exact slug of an existing document. Positional files are new variants of that document; format is inferred. Adding a format the document already has is an error unless `--replace`.
 
-It never re-anchors or re-classifies — `--repo`/`--topic`, `kind`, `tags`, and `title` are unchanged by this command (they are edited via `shelf edit`, §11.4); only the slug is immutable (§7).
+It never re-anchors or re-classifies — `--repo`/`--topic`, `kind`, `tags`, and `title` are unchanged by this command (they are edited via `shelf doc update`, §11.4); only the slug is immutable (§7).
 
-**Options** — `--assets <path>` (repeatable); `--format <ext>`; `--replace` (overwrite an existing same-format variant); `--primary <format>` (set/change the primary; must be a format the document will have after the operation); `--source <text>` (recorded on the new file entry); `--keep-source`/`--remove-source` (same default-remove behavior as `shelf add`).
+**Options** — `--assets <path>` (repeatable); `--format <ext>`; `--replace` (overwrite an existing same-format variant); `--primary <format>` (set/change the primary; must be a format the document will have after the operation); `--source <text>` (recorded on the new file entry); `--remove-source`/`--no-remove-source` (same default-remove behavior as `shelf doc add`).
 
 **Behavior** — `<id>` exists; each new format absent unless `--replace`; new files copied into the document's existing folder and renamed to `<slug>.<ext>` (the folder never moves); appended to `files[]`; atomic with rollback.
 
 ```
-shelf add-format 2026-05-22-cli-extension-prd ./cli-extension-prd.pdf --commit
+shelf doc format add 2026-05-22-cli-extension-prd ./cli-extension-prd.pdf --commit
 ```
 
-### 11.4 `shelf edit`
+### 11.4 `shelf doc update`
 
 Changes a document's metadata. Covers only changes that are a **pure `catalog.json` rewrite** — no files move.
 
 ```
-shelf edit <id> [field options...] [--force] [options]
+shelf doc update <id> [field options...] [--force] [options]
 ```
 
 **Freely editable** — `--title` (display title only; never re-slugs or moves the folder), `--description`, `--kind` (validated), `--add-tag`/`--remove-tag` (repeatable) / `--set-tags <a,b,c>`, `--primary <format>` (must be a format the document has), `--doc-date <YYYY-MM-DD>` / `--clear-doc-date`, `--source`, and for repo-anchored documents `--repo-url` / `--subject` / `--clear-subject`.
 
 **`--force`-gated** — fields that are dangerous but do not move files: `--added <date>` (coupled to the slug; editing it desynchronizes the slug) and low-level `files[]` corrections. These warn and require `--force`.
 
-**Not editable here** — the topic, the repo, and topical↔repo anchoring all relocate the document's folder and belong to `shelf move`; attempting them errors and points there. The `id`/slug is immutable.
+**Not editable here** — the topic, the repo, and topical↔repo anchoring all relocate the document's folder and belong to `shelf doc move`; attempting them errors and points there. The `id`/slug is immutable.
 
 **Behavior** — `<id>` must exist; at least one field option required (or `-i` for a guided edit on a TTY); pure atomic `catalog.json` rewrite plus `index.html` regeneration; `--dry-run` shows a before/after diff.
 
 ```
-shelf edit 2026-05-22-cli-extension-prd \
+shelf doc update 2026-05-22-cli-extension-prd \
   --kind reference --add-tag rust --remove-tag draft \
   --description "Reference for the Flox CLI extension system." --commit
 ```
 
-### 11.5 `shelf move`
+### 11.5 `shelf doc move`
 
-Relocates a document — the changes `shelf edit` excludes because they move files on disk.
+Relocates a document — the changes `shelf doc update` excludes because they move files on disk.
 
 ```
-shelf move <id> (--topic <name> [--create-topic] | --repo <name> [--repo-url <url>] [--subject <label>])
+shelf doc move <id> (--topic <name> [--create-topic] | --repo <name> [--repo-url <url>] [--subject <label>])
 ```
 
 Handles the three relocation operations: change a document's topic; change its repo; switch its anchoring (passing `--topic` for a currently repo-anchored document converts it to topical and drops the `repo` object; passing `--repo` for a topical document does the reverse).
@@ -431,7 +448,7 @@ Handles the three relocation operations: change a document's topic; change its r
 **Behavior** — `<id>` must exist; physically moves the document folder from the old bucket to the new one, updates every `files[]` path, and updates `catalog.json`; honors governed growth (`--create-topic` for an unknown topic). It **warns** that absolute paths previously copied from the UI for this document will no longer resolve — accepted as rare by design. Atomic with rollback; `--dry-run` shows the old and new paths.
 
 ```
-shelf move 2026-05-22-cli-extension-prd --topic dev-tooling --create-topic --commit
+shelf doc move 2026-05-22-cli-extension-prd --topic dev-tooling --create-topic --commit
 ```
 
 ### 11.6 `shelf audit`
@@ -443,16 +460,16 @@ It flags:
 1. Files present under `docs/` but missing from the catalog (orphans).
 2. Catalog entries whose `files[]` point at files that do not exist (dead references).
 3. Entries that are malformed or uncategorized — missing required fields, a `kind` not in the kind list, a `category` not in the topic list, a per-document folder that does not match its anchoring, an `added` date that does not match the slug's date prefix, or a `schema_version` older than current.
-4. Missing or unparseable `shelf-config.toml`, `catalog.json`, or `index.html`, and an `index.html` whose embedded catalog fingerprint does not match the current `catalog.json` — stale; fixed by `shelf regen` (§11.12).
+4. Missing or unparseable `shelf_config.toml`, `catalog.json`, or `index.html`, and an `index.html` whose embedded catalog fingerprint does not match the current `catalog.json` — stale; fixed by `shelf regen` (§11.12).
 5. When the library is a git repository, uncommitted (dirty) changes to `catalog.json`, `index.html`, or `docs/`. This check is skipped in pre-commit mode (`--pre-commit`) — as a hook, the staged changes are precisely what is being committed, so flagging them would make every commit fail.
 
 Each finding has a legal remediation, so the `shelf-audit` skill can offer fixes without ever mutating the library itself:
 
 | Finding | Remediation |
 |---|---|
-| 1. Orphan files | adopt in place — `shelf add --in-place <folder>` — or delete — `shelf remove --orphan <path>` |
-| 2. Dead `files[]` references | `shelf remove-format <id> <format> --force` (§11.13) |
-| 3. Malformed or uncategorized entries | `shelf edit`; an old `schema_version` → `shelf migrate` (§11.14) |
+| 1. Orphan files | list with `shelf orphan list`; adopt in place — `shelf doc adopt <folder>` (§11.15) — or delete — `shelf orphan delete <path>` |
+| 2. Dead `files[]` references | `shelf doc format delete <id> <format> --force` (§11.13) |
+| 3. Malformed or uncategorized entries | `shelf doc update`; an old `schema_version` → `shelf migrate` (§11.14) |
 | 4. Missing, unparseable, or stale files | config → `shelf init --adopt`; index → `shelf regen` (§11.12) |
 | 5. Dirty git state | the `shelf-audit` skill offers `git add` / `git commit` run in the library — recording history is not library mutation |
 
@@ -466,7 +483,7 @@ Opens the UI.
 shelf open [--static]
 ```
 
-By default `shelf open` starts the local server (part of the shelf package, on the configured `server_port`, reusing an already-running instance) and opens the configured browser to `http://localhost:<port>` — **enhanced mode**, with copy-contents and inline HTML rendering. `--static` instead opens the on-disk `index.html` directly as a `file://` page — **core mode** (browse, search, copy-path). If the configured port is occupied, the server falls back to the next free port. Works from any directory because the CLI resolves the library location. The server binds `127.0.0.1` only and refuses to serve any path outside the library root.
+By default `shelf open` starts the local server (part of the shelf package, on the configured `server-port`, reusing an already-running instance) and opens the configured browser to `http://localhost:<port>` — **enhanced mode**, with copy-contents and inline HTML rendering. `--static` instead opens the on-disk `index.html` directly as a `file://` page — **core mode** (browse, search, copy-path). If the configured port is occupied, the server falls back to the next free port. Works from any directory because the CLI resolves the library location. The server binds `127.0.0.1` only and refuses to serve any path outside the library root.
 
 ### 11.8 `shelf path`
 
@@ -476,37 +493,47 @@ Prints resolved locations: `shelf path` → library root; `shelf path config` �
 
 `shelf topic add <name>` / `shelf topic list`; `shelf kind add <name>` / `shelf kind list`. Both `add` forms append to the relevant top-level array in `catalog.json` after validation. Topic creation is the explicit step in governed growth; kind creation is deliberate and rare.
 
-### 11.10 `shelf remove`
+### 11.10 `shelf doc delete`
 
-`shelf remove <id>` removes a document — deletes its entry from the catalog and its folder from `docs/`. Atomic; `--dry-run` previews; `--commit` available. On a TTY it prompts before deleting; non-interactive invocation requires `--yes`. `shelf remove --orphan <path>` instead deletes files under `docs/` that have **no** catalog entry — the orphan-deletion repair (§11.6) — and errors if the path is referenced by the catalog.
+`shelf doc delete <id>` (alias `rm`) deletes a document — its entry from the catalog and its folder from `docs/`. Atomic; `--dry-run` previews; `--commit` available. On a TTY it prompts before deleting; non-interactive invocation requires `--yes`. Deleting uncataloged files is `shelf orphan delete` (§11.15).
 
-### 11.11 `shelf list` and `shelf show`
+### 11.11 `shelf doc list` and `shelf doc view`
 
 Read-only; neither touches the library.
 
 ```
-shelf list [--repo <name>] [--topic <name>] [--kind <kind>] [--tag <tag>]
-           [--query <text>] [--limit <n>] [--sort added|title] [--json]
-shelf show <id> [--json]
+shelf doc list [--repo <name>] [--topic <name>] [--kind <kind>] [--tag <tag>]
+               [--query <text>] [--limit <n>] [--sort-by added|title] [--json]
+shelf doc view <id> [--json]
 ```
 
-`shelf list` prints matching documents (id, title, kind, anchor). Filters AND together; `--query` substring-matches over id, title, description, tags, and repo `subject`; `--limit <n>` caps results and `--sort added|title` orders them (default `added`, newest first). `shelf show` prints a single entry in full, including `files[]` with both library-relative and resolved absolute paths. These are the intended way for skills to resolve ids and inspect state — a skill should never need to open `catalog.json` itself.
+`shelf doc list` (alias `ls`) prints matching documents (id, title, kind, anchor). Filters AND together; `--query` substring-matches over id, title, description, tags, and repo `subject`; `--limit <n>` caps results and `--sort-by added|title` orders them (default `added`, newest first). `shelf doc view` prints a single entry in full, including `files[]` with both library-relative and resolved absolute paths. These are the intended way for skills to resolve ids and inspect state — a skill should never need to open `catalog.json` itself.
 
 ### 11.12 `shelf regen`
 
 Regenerates `index.html` from the current catalog and the installed template. It never touches `catalog.json`. This is the escape hatch for CLI/template upgrades, when no mutation has occurred to trigger regeneration. Supports `--dry-run`, `--commit`, `--json`.
 
-### 11.13 `shelf remove-format`
+### 11.13 `shelf doc format delete`
 
 ```
-shelf remove-format <id> <format> [--primary <format>] [--force]
+shelf doc format delete <id> <format> [--primary <format>] [--force]
 ```
 
-Removes one format variant: deletes the file and its `files[]` entry. Refuses to remove the last variant (that is `shelf remove`). Removing the current primary requires `--primary` to name the successor. `--force` also drops an entry whose file is already missing — the dead-reference repair (§11.6). Atomic; `--dry-run`, `--commit` as usual.
+Removes one format variant: deletes the file and its `files[]` entry. Refuses to remove the last variant (that is `shelf doc delete`). Removing the current primary requires `--primary` to name the successor. `--force` also drops an entry whose file is already missing — the dead-reference repair (§11.6). Atomic; `--dry-run`, `--commit` as usual.
 
 ### 11.14 `shelf migrate`
 
 Migrates `catalog.json` to the current `schema_version`, atomically, then regenerates `index.html`. No-op when already current. Supports `--dry-run`, `--json`, `--commit`.
+
+### 11.15 `shelf doc adopt` and `shelf orphan`
+
+```
+shelf doc adopt <folder> --kind <kind> --title <text> --description <text> [options]
+shelf orphan list [--json]
+shelf orphan delete <path> [--yes]
+```
+
+`shelf doc adopt` registers an existing per-document folder already under `docs/` without copying: anchoring is derived from the folder's location, the slug from the folder name; classification flags are required as for `shelf doc add`. This is the orphan-adoption repair (§11.6). `shelf orphan list` enumerates files under `docs/` with no catalog entry — the same detection as audit check 1. `shelf orphan delete` deletes such a file or folder and errors if the path is referenced by the catalog. Both `doc adopt` and `orphan delete` are mutating commands with the usual conventions; `orphan delete` prompts on a TTY.
 
 ---
 
@@ -519,22 +546,24 @@ The ownership table is normative — every CLI capability either has a skill own
 | CLI surface | Skill owner |
 |---|---|
 | `init`, `init --adopt` | `shelf-init` (first-run path: `shelf-add`) |
-| `add`, `add-format`, `topic add`, `kind add` | `shelf-add` (governance flows) |
-| `edit`, `move`, `remove-format` | `shelf-edit` (owns relocation intents; routes to `move`) |
-| `remove` | `shelf-remove` |
-| `audit`, `regen`, `migrate`, `add --in-place`, `remove --orphan` | `shelf-audit` (repair flows) |
+| `doc add`, `doc format add`, `topic add`, `kind add` | `shelf-add` (governance flows) |
+| `doc update`, `doc move`, `doc format delete` | `shelf-edit` (owns relocation intents; routes to `doc move`) |
+| `doc delete` | `shelf-remove` |
+| `audit`, `regen`, `migrate`, `doc adopt`, `orphan list|delete` | `shelf-audit` (repair flows) |
 | `open` | `shelf-open` |
-| `list`, `show` | `shelf-find` (also used internally by every skill) |
+| `doc list`, `doc view` | `shelf-find` (also used internally by every skill) |
 | `path`, `topic list`, `kind list` | direct CLI — no skill |
+
+Skill names follow the user's intent language ("edit the description", "remove that doc"), not CLI verb spellings — the skill translates intent to the conforming command.
 
 ### `shelf-add` (skill)
 
-Triggered when the user indicates they have a document to add — either directly inside a Claude Code/Codex session, or via the `shelf add` interactive handoff (§11.2), which launches Claude Code with this skill primed.
+Triggered when the user indicates they have a document to add — either directly inside a Claude Code/Codex session, or via the `shelf doc add` interactive handoff (§11.2), which launches the configured agent with this skill primed.
 
 1. **First-run setup.** If no library is configured, the skill runs the init flow before anything else — it proposes the default on-disk location, asks whether to make it a git repo, and if so offers to create the private GitHub repo — then invokes `shelf init` and continues. This is the primary path by which a library comes to exist; the user never has to know `shelf init` exists.
 2. **URL inputs.** When the input is a URL rather than a file, the skill fetches it to a temporary file, shows the user what it retrieved (title, size, format), and on confirmation continues with that file. The CLI never fetches.
-3. Determines whether this is a **new document** or a **new format for an existing document** and routes to `shelf add` or `shelf add-format`.
-4. Classifies it — repo-anchored vs. topical, `kind`, `tags` — running the topic governed-growth flow and surfacing a trend-triggered kind suggestion when warranted — and asks whether to keep or remove the original source, so the explicit `--keep-source`/`--remove-source` flag is part of the invocation.
+3. Determines whether this is a **new document** or a **new format for an existing document** and routes to `shelf doc add` or `shelf doc format add`.
+4. Classifies it — repo-anchored vs. topical, `kind`, `tags` — running the topic governed-growth flow and surfacing a trend-triggered kind suggestion when warranted — and asks whether to keep or remove the original source, so the explicit `--remove-source`/`--no-remove-source` flag is part of the invocation.
 5. Invokes the CLI, which copies the document into `docs/repos/...` or `docs/topics/...` and writes the catalog — the skill never mutates library state itself (§5).
 6. Confirms the result.
 
@@ -542,7 +571,7 @@ Triggered when the user indicates they have a document to add — either directl
 
 ### `shelf-edit` (skill)
 
-Edits document metadata. The user can speak in intent ("reclassify X as a tutorial", "tighten the description on Y") and the skill resolves the `id` and fields and calls `shelf edit`. When the request is actually a relocation (a different topic or repo), the skill explains that this moves the document and routes to `shelf move` instead. It also owns variant maintenance: removing an obsolete format variant runs `shelf remove-format` (§11.13).
+Edits document metadata. The user can speak in intent ("reclassify X as a tutorial", "tighten the description on Y") and the skill resolves the `id` and fields and calls `shelf doc update`. When the request is actually a relocation (a different topic or repo), the skill explains that this moves the document and routes to `shelf doc move` instead. It also owns variant maintenance: removing an obsolete format variant runs `shelf doc format delete` (§11.13).
 
 ### `shelf-init` (skill)
 
@@ -550,11 +579,11 @@ A deliberate, re-runnable setup path — for repairing configuration or creating
 
 ### `shelf-find` (skill)
 
-Triggered when the user wants shelf content in the current session — "what do I have on X?", "grab my flox PRD from shelf", "use my provider-config notes as context". Read-only. Drive pattern: `shelf list --query` (narrowing with `--repo`/`--topic`/`--kind`/`--tag`) → disambiguate conversationally when matches are plural → `shelf show <id>` → read the primary variant at its resolved path, or hand the path to the user. It never mutates the library.
+Triggered when the user wants shelf content in the current session — "what do I have on X?", "grab my flox PRD from shelf", "use my provider-config notes as context". Read-only. Drive pattern: `shelf doc list --query` (narrowing with `--repo`/`--topic`/`--kind`/`--tag`) → disambiguate conversationally when matches are plural → `shelf doc view <id>` → read the primary variant at its resolved path, or hand the path to the user. It never mutates the library.
 
 ### `shelf-remove` (skill)
 
-Owns destructive removal. Resolves intent ("remove the old auth guide") to an id via `shelf list`, shows exactly what will be deleted — the entry and its folder with every variant and asset — asks for confirmation, then calls `shelf remove <id> --yes` (adding `--commit` when the library is a git repository).
+Owns destructive removal. Resolves intent ("remove the old auth guide") to an id via `shelf doc list`, shows exactly what will be deleted — the entry and its folder with every variant and asset — asks for confirmation, then calls `shelf doc delete <id> --yes` (adding `--commit` when the library is a git repository).
 
 ### `shelf-audit` and `shelf-open` (skills)
 
@@ -600,6 +629,6 @@ The split exists because browsers block a `file://` page from fetching neighbori
 1. **Plugin manifests.** The exact `.claude-plugin/plugin.json` fields and the Codex plugin manifest/adapter format are verified against current Claude Code and Codex plugin documentation at build time. The plugin is built to support and is tested against both ecosystems. (PATH placement is resolved: the CLI installs via `uv tool install`, §5.)
 2. **Local server port.** Default `8765` from config, with fallback to the next free port when occupied. Confirm whether a fixed port with an error is preferred over automatic fallback.
 3. **Multiple libraries.** The design assumes a single library. Named multi-library support is deferred; the resolution scheme in §4 can accommodate it later without breaking changes.
-4. **AI-session detection for the handoff.** The exact mechanism by which `shelf add` detects it is already running inside a Claude Code or Codex session (environment variable vs. parent-process inspection) is verified at build time, so the CLI never nests an interactive session (§11.2). Claude Code sets `CLAUDECODE=1` in its sessions — the candidate mechanism; the Codex equivalent is identified at build time.
+4. **AI-session detection for the handoff.** The exact mechanism by which `shelf doc add` detects it is already running inside a Claude Code or Codex session (environment variable vs. parent-process inspection) is verified at build time, so the CLI never nests an interactive session (§11.2). Claude Code sets `CLAUDECODE=1` in its sessions — the candidate mechanism; the Codex equivalent is identified at build time.
 5. **Taxonomy maintenance.** `topic rename`, `topic remove`, and `kind remove` do not exist; a topic rename implies folder moves under `docs/topics/`. Deferred deliberately.
 6. **Scaffolding sequencing.** The `shelf` repo starts with py-launch-blueprint's core conventions only (src layout, click, pytest/ruff/ty, just + make check). The remaining scaffolding — CI, release automation, hooks, docs — is layered on by template-press when it is ready; those files are additive and do not disturb the package.

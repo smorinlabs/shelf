@@ -1,6 +1,6 @@
 # PROJECTS.md — shelf
 
-Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-launch-blueprint-shaped package from day one; the remaining scaffolding is layered on by template-press when it is ready (SHELF-PRD.md §14.6). The `shelf-skill` and `shelf-library` repos get their own plans later. Source spec: `SHELF-PRD.md` (amendments A1–A6 and B1–B15 applied).
+Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-launch-blueprint-shaped package from day one; the remaining scaffolding is layered on by template-press when it is ready (SHELF-PRD.md §14.6). The `shelf-skill` and `shelf-library` repos get their own plans later. Source spec: `SHELF-PRD.md` (amendments A1–A6, B1–B15, and C1–C6 applied; CLI grammar conforms to cli-design-standard v1.4.14).
 
 ---
 
@@ -9,52 +9,54 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ### Tests & Tasks
 - [ ] [P01-TS01] CLI smoke tests: `shelf --version` and `shelf --help` exit 0 (click test runner)
+- [ ] [P01-TS02] Standard-conformance smoke (R9.14 seed): bare `shelf` → help/exit 0; unknown command → exit 2; `-V` prints `shelf <semver>`; `--help` on stdout
 - [ ] [P01-T01] Scaffold `pyproject.toml`: src layout, click dependency, dependency-groups (pytest/ruff/ty), `[project.scripts] shelf = "shelf.cli.main:cli"`
 - [ ] [P01-T02] Click command tree with stubs for every PRD §11 subcommand
 - [ ] [P01-T03] Justfile (`all`: format, lint, typecheck, test) and Makefile (`check`: dependency preflight)
 - [ ] Regression Test Status
 
 ## [ ] Project P02: Config and catalog core (v0.2.0)
-**Goal**: Location resolution (PRD §4), `shelf-config.toml` read/write, catalog model with `schema_version`, atomic save with `.shelf.lock`, and the read surface — `init` (no git) with `--adopt`, `migrate`, `topic`/`kind` add+list, `path`, `list`, `show`.
+**Goal**: Location resolution (PRD §4), `shelf_config.toml` read/write (kebab keys), catalog model with `schema_version`, atomic save with `.shelf.lock`, standard option tiers, and the read surface — `init` (no git) with `--adopt`, `migrate`, `topic`/`kind` add+list, `path`, `doc list`, `doc view`.
 
 ### Tests & Tasks
 - [ ] [P02-TS01] Resolution precedence matrix: `--library` > `SHELF_LIBRARY` > active config > unconfigured error (§4)
 - [ ] [P02-TS02] Atomic save: injected failure leaves catalog untouched; lock serializes concurrent writers (§5)
-- [ ] [P02-TS03] `shelf list` filter/query matrix (`--query` over id/title/description/tags/subject, `--limit`, `--sort`) and `shelf show` output, `--json` shapes (§11.11)
+- [ ] [P02-TS03] `shelf doc list` filter/query matrix (`--query` over id/title/description/tags/subject, `--limit`, `--sort-by`) and `shelf doc view` output, `-o/--output` + `--json` shapes (§11.11)
 - [ ] [P02-TS04] Adopt/migrate matrix: valid clone adopts; unsupported schema refused; old schema blocks mutation until `migrate`; read commands stay read-compatible
-- [ ] [P02-T01] Config module: XDG paths, `shelf-config.toml` read/write (incl. `handoff_agent`)
+- [ ] [P02-T01] Config module: XDG paths, `shelf_config.toml` read/write, kebab keys (incl. `handoff-agent`)
 - [ ] [P02-T02] Catalog model: `schema_version` 1, topics/kinds/documents, validation (kind exists, topic exists)
 - [ ] [P02-T03] `shelf init` — scaffold library, seed six kinds, write config, `--force` (§11.1, git flags deferred to P07)
 - [ ] [P02-T04] `shelf topic add|list`, `shelf kind add|list`, `shelf path [config|index]`
-- [ ] [P02-T05] `shelf list` and `shelf show <id>`
+- [ ] [P02-T05] `shelf doc list` (alias `ls`) and `shelf doc view <id>`
 - [ ] [P02-T06] `shelf init --adopt` — validate + register an existing library (§11.1)
 - [ ] [P02-T07] `shelf migrate` + schema refusal rules (§11.14, §10)
+- [ ] [P02-T08] Standard option tiers (§11 conventions): global core (`-V`, repeatable `-v`, `--debug`, `--no-input`), `-o/--output table|json` with `--json` shorthand
 - [ ] Regression Test Status
 
 ## [ ] Project P03: Document lifecycle (v0.3.0)
-**Goal**: `shelf add`, `shelf add-format`, `shelf remove-format`, `shelf remove` per PRD §11.2–.3, §11.13, §11.10 — slug derivation, validation order, copy+rename, rollback, source handling, orphan repairs (`add --in-place`, `remove --orphan`) — with a placeholder index template so the atomic regen contract holds from the start.
+**Goal**: `shelf doc add`, `doc format add`, `doc format delete`, `doc delete` per PRD §11.2–.3, §11.13, §11.10 — slug derivation, validation order, copy+rename, rollback, source handling, orphan repairs (`doc adopt`, `orphan list|delete`, §11.15) — with a placeholder index template so the atomic regen contract holds from the start.
 
 ### Tests & Tasks
 - [ ] [P03-TS01] Slug derivation: date prefix, kebab truncation ~60 chars, same-day collision rejected, `--slug` override (§7)
-- [ ] [P03-TS02] `shelf add` validation order and rollback: failure at each stage leaves library untouched (§11.2)
-- [ ] [P03-TS03] Source handling: `remove_source` default, `--keep-source`/`--remove-source`, removal only after full success
-- [ ] [P03-T01] `shelf add` — anchoring (repo/topic, `--create-topic`), format inference, `--assets`, copy+rename to `<slug>.<ext>`
-- [ ] [P03-T02] `shelf add-format` — `--replace`, `--primary`, folder never moves (§11.3)
-- [ ] [P03-TS04] `remove-format` rules: last-variant refusal, primary reassignment, `--force` dead-entry drop; `remove` TTY prompt / `--yes`
-- [ ] [P03-T03] `shelf remove` — entry + folder deletion, `--dry-run`, TTY prompt / `--yes`, `--orphan` (§11.10)
-- [ ] [P03-T05] `shelf remove-format` (§11.13)
-- [ ] [P03-T06] `shelf add --in-place` — orphan adoption (§11.2, §11.6)
+- [ ] [P03-TS02] `shelf doc add` validation order and rollback: failure at each stage leaves library untouched (§11.2)
+- [ ] [P03-TS03] Source handling: `remove-source` default, `--remove-source`/`--no-remove-source`, removal only after full success
+- [ ] [P03-T01] `shelf doc add` — anchoring (repo/topic, `--create-topic`), format inference, `--assets`, copy+rename to `<slug>.<ext>`
+- [ ] [P03-T02] `shelf doc format add` — `--replace`, `--primary`, folder never moves (§11.3)
+- [ ] [P03-TS04] `doc format delete` rules: last-variant refusal, primary reassignment, `--force` dead-entry drop; `doc delete` TTY prompt / `--yes`
+- [ ] [P03-T03] `shelf doc delete` (alias `rm`) — entry + folder deletion, `--dry-run`, TTY prompt / `--yes` (§11.10)
+- [ ] [P03-T05] `shelf doc format delete` (§11.13)
+- [ ] [P03-T06] `shelf doc adopt` + `shelf orphan list|delete` (§11.15)
 - [ ] [P03-T04] Placeholder `index.html.tmpl` as package data + regeneration wired into every mutation
 - [ ] Regression Test Status
 
 ## [ ] Project P04: Edit and move (v0.4.0)
-**Goal**: `shelf edit` (pure catalog rewrites, `--force`-gated fields) and `shelf move` (the three relocations with `files[]` path rewrites) per PRD §11.4–.5.
+**Goal**: `shelf doc update` (pure catalog rewrites, `--force`-gated fields) and `shelf doc move` (the three relocations with `files[]` path rewrites) per PRD §11.4–.5.
 
 ### Tests & Tasks
-- [ ] [P04-TS01] Edit field matrix: freely editable vs `--force`-gated vs routed-to-move errors
+- [ ] [P04-TS01] Update field matrix: freely editable vs `--force`-gated vs routed-to-move errors
 - [ ] [P04-TS02] Move relocations: topic→topic, repo→repo, topical↔repo-anchored conversions; path rewrites verified
-- [ ] [P04-T01] `shelf edit` including `--dry-run` before/after diff
-- [ ] [P04-T02] `shelf move` including relocation warning
+- [ ] [P04-T01] `shelf doc update` including `--dry-run` before/after diff
+- [ ] [P04-T02] `shelf doc move` including relocation warning
 - [ ] Regression Test Status
 
 ## [ ] Project P05: Audit and regen (v0.5.0)
@@ -89,7 +91,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [ ] Regression Test Status
 
 ## [ ] Project P08: Claude handoff (v0.8.0)
-**Goal**: `shelf add` missing-flags handoff — launch the configured agent (`--handoff-agent` flag > `handoff_agent` config > claude; codex allowed) with the primed shelf-add prompt, `--no-handoff` opt-out, and in-session detection via `CLAUDECODE` (Codex equivalent verified) so sessions never nest (PRD §11.2, §14.4).
+**Goal**: `shelf doc add` missing-flags handoff — launch the configured agent (`--handoff-agent` flag > `handoff-agent` config > claude; codex allowed) with the primed shelf-add prompt, `--no-handoff` opt-out (`--no-input` implies it), and in-session detection via `CLAUDECODE` (Codex equivalent verified) so sessions never nest (PRD §11.2, §14.4).
 
 ### Tests & Tasks
 - [ ] [P08-TS01] Missing flags + `--no-handoff` → error; inside-session env → error asking for the skill; flags complete → no handoff; agent precedence flag > config > default
