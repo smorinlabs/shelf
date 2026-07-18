@@ -26,7 +26,7 @@ The library content is the user's data. By default it is stored in the standard 
 - A generated single-page `index.html` UI with autocomplete search over name, description, and tags, organized by subject, with per-file copy actions.
 - A `shelf` CLI that is the single writer of the catalog and the only thing that mutates library state.
 - Management skills usable from any other repository, in both Claude Code and Codex.
-- Reproducible, self-contained tooling (uv inline-scripts).
+- Reproducible, self-contained tooling (a uv-managed package installed via `uv tool install`).
 - Stable file paths, so references handed out by the UI remain valid over time.
 - A machine-portable library — no machine-specific data is committed.
 
@@ -36,6 +36,7 @@ The library content is the user's data. By default it is stored in the standard 
 - No marketplace distribution initially — the `shelf-skill` plugin is installed directly; a marketplace manifest can be added later.
 - No automated ingestion — every catalog mutation is user-initiated. The UI and skills assist, but the human stays in the loop and confirms classification.
 - No heavy build pipeline. The only runtime is an optional lightweight local server for the UI's enhanced mode (§13).
+- No Windows support. macOS is the primary platform; Linux is expected to work.
 
 ---
 
@@ -47,12 +48,14 @@ Shelf is split across three repositories. The CLI is a tool that releases on its
 
 ```
 shelf/
-├── bin/
-│   └── shelf                     # CLI entry point — a uv inline-script
-├── templates/
-│   └── index.html.tmpl           # the UI template (rendered into the library)
-├── scripts/
-│   └── serve.py                   # local UI server — a uv inline-script
+├── pyproject.toml                # [project.scripts] shelf = "shelf.cli.main:cli"
+├── src/shelf/
+│   ├── cli/                      # click command tree
+│   ├── core/                     # config, catalog, paths, slugs, atomic writes
+│   ├── server/                   # local UI server (enhanced mode)
+│   └── templates/
+│       └── index.html.tmpl       # package data — rendered into the library
+├── tests/
 └── README.md
 ```
 
@@ -89,7 +92,7 @@ shelf-library/                     # default on-disk location: ${XDG_DATA_HOME:-
 └── README.md
 ```
 
-`catalog.json`, `index.html`, and all of `docs/` are committed when the library is a git repo. `index.html` is generated from the template in the `shelf` repo and rewritten on every mutating command. Making the library a git repo (and creating a GitHub remote) is offered, optionally, at `shelf init` (§11.1).
+`catalog.json`, `index.html`, and all of `docs/` are committed when the library is a git repo. `index.html` is generated from the template that ships with the `shelf` CLI and rewritten on every mutating command. Making the library a git repo (and creating a GitHub remote) is offered, optionally, at `shelf init` (§11.1).
 
 ### Tooling primitives
 
@@ -145,7 +148,9 @@ Nothing machine-specific is committed. `catalog.json` stores only library-relati
 
 The CLI is the **single writer** of `catalog.json` and the only thing that mutates library state. Skills call the CLI rather than editing `catalog.json` directly — this allows validated writes and is far more context-efficient for the skill.
 
-Every **mutating subcommand** (`init`, `add`, `add-format`, `edit`, `move`, `remove`, `topic add`, `kind add`) performs two actions as one atomic unit: it updates `catalog.json`, and it regenerates `index.html` from the template. Any failure rolls back, leaving no partial state.
+Every **mutating subcommand** (`init`, `add`, `add-format`, `edit`, `move`, `remove`, `topic add`, `kind add`) performs two actions as one atomic unit: it updates `catalog.json`, and it regenerates `index.html` from the template. Any failure rolls back, leaving no partial state. The exception is `shelf regen` (§11.12), which rewrites only `index.html`.
+
+Atomicity is achieved by ordering, with the catalog write as the **commit point**. Everything is prepared first: document files are copied into a freshly created folder, and the new `catalog.json` and `index.html` are rendered to temp files. Then `catalog.json` is atomically renamed into place, then `index.html`. A failure before the catalog rename deletes the copied folder and leaves the library untouched; a failure between the two renames (vanishingly rare) leaves a valid catalog with a stale index — which `shelf audit` detects and `shelf regen` repairs (§11.12). Source removal (§11.2) runs only after everything else has succeeded. Mutating commands take an exclusive advisory lock (`.shelf.lock` at the library root) so concurrent invocations — a shell command racing a skill-driven one — serialize instead of interleaving.
 
 ### Subcommands
 
@@ -160,6 +165,9 @@ Detailed in §11.
 - `shelf audit` — run the library consistency check.
 - `shelf open` — open the UI (§13).
 - `shelf path [config|index]` — print resolved locations.
+- `shelf list` — filter and query documents.
+- `shelf show <id>` — print one document in full.
+- `shelf regen` — regenerate `index.html` from the current catalog.
 - `shelf topic add <name>` / `shelf topic list` — manage topic buckets.
 - `shelf kind add <name>` / `shelf kind list` — manage kinds.
 
@@ -167,7 +175,7 @@ The CLI validates every write: a document's `category` must exist in the topic l
 
 ### Runtime
 
-The CLI and the auxiliary UI server are **uv inline-script files**: a `#!/usr/bin/env -S uv run --script` shebang with a PEP 723 `# /// script` dependency block. Self-contained and reproducible, with no virtualenv to manage.
+The CLI is a Python package in the **src layout**, following py-launch-blueprint conventions (click, uv-managed, pytest/ruff/ty). It installs as a tool — `uv tool install shelf` (or from git) — which places `shelf` on `PATH`. The UI server is part of the package and is started by `shelf open`; there is no separate script to manage. The UI template ships inside the package and is read via `importlib.resources`, so a tool-installed CLI renders `index.html` with no repo checkout present.
 
 ---
 
@@ -255,6 +263,7 @@ Tags are free-form and assigned on demand with no list and no confirmation. All 
 
 ```json
 {
+  "schema_version": 1,
   "topics": ["agentic-infra", "claude-code", "dev-tooling"],
   "kinds": ["reference", "explainer", "tutorial", "playbook", "spec", "cheatsheet"],
   "documents": [
@@ -277,6 +286,21 @@ Tags are free-form and assigned on demand with no list and no confirmation. All 
       "added": "2026-05-22",
       "doc_date": null,
       "source": "/Users/<user>/Downloads/cli-extension-prd.md"
+    },
+    {
+      "id": "2026-06-03-uv-inline-scripts-explainer",
+      "title": "uv Inline Scripts — Explainer",
+      "description": "...",
+      "category": "dev-tooling",
+      "kind": "explainer",
+      "tags": ["python", "uv", "packaging"],
+      "files": [
+        { "format": "md", "path": "docs/topics/dev-tooling/2026-06-03-uv-inline-scripts-explainer/2026-06-03-uv-inline-scripts-explainer.md" }
+      ],
+      "primary": "md",
+      "added": "2026-06-03",
+      "doc_date": null,
+      "source": "/Users/<user>/Downloads/uv-scripts.md"
     }
   ]
 }
@@ -284,6 +308,7 @@ Tags are free-form and assigned on demand with no list and no confirmation. All 
 
 Notes:
 
+- `schema_version` tracks the catalog format. The CLI refuses to operate on a catalog whose `schema_version` is newer than it understands, and migrates older ones forward explicitly.
 - A **topical** entry omits `repo` and instead carries `category` (a value from `topics`).
 - `files[]` lists every format variant — `format`, library-relative `path`, and an optional per-variant `source`.
 - `primary` names the variant the UI links on click.
@@ -295,7 +320,7 @@ Notes:
 
 ## 11. Command Reference
 
-Common conventions: every mutating command supports `--commit` (default `--no-commit`; the auto-generated message describes the change, e.g. `shelf: add <slug>`), `--commit-message`, `--dry-run`, `--json`, `-y/--yes`, and `-q/-v`. `--commit` requires the library to be a git repository and errors otherwise; `shelf init` is the exception — its initial commit is governed by `--git` (§11.1), not `--commit`. Every mutating command updates `catalog.json` and regenerates `index.html` atomically.
+Common conventions: every mutating command supports `--commit` (default `--no-commit`; the auto-generated message describes the change, e.g. `shelf: add <slug>`), `--commit-message`, `--dry-run`, `--json`, `-y/--yes`, and `-q/-v`. `--commit` requires the library to be a git repository and errors otherwise; `shelf init` is the exception — its initial commit is governed by `--git` (§11.1), not `--commit`. Every mutating command updates `catalog.json` and regenerates `index.html` atomically (`shelf regen`, §11.12, rewrites only `index.html`).
 
 ### 11.1 `shelf init`
 
@@ -412,7 +437,7 @@ It flags:
 1. Files present under `docs/` but missing from the catalog (orphans).
 2. Catalog entries whose `files[]` point at files that do not exist (dead references).
 3. Entries that are malformed or uncategorized — missing required fields, a `kind` not in the kind list, a `category` not in the topic list, or a per-document folder that does not match its anchoring.
-4. Missing or unparseable `config.toml`, `catalog.json`, or `index.html`, and an `index.html` that is stale relative to `catalog.json`.
+4. Missing or unparseable `config.toml`, `catalog.json`, or `index.html`, and an `index.html` whose embedded catalog fingerprint does not match the current `catalog.json` — stale; fixed by `shelf regen` (§11.12).
 5. When the library is a git repository, uncommitted (dirty) changes to `catalog.json`, `index.html`, or `docs/`. This check is skipped in pre-commit mode (`--pre-commit`) — as a hook, the staged changes are precisely what is being committed, so flagging them would make every commit fail.
 
 `--json` emits a structured report.
@@ -425,7 +450,7 @@ Opens the UI.
 shelf open [--static]
 ```
 
-By default `shelf open` starts the local server (`scripts/serve.py`, on the configured `server_port`, reusing an already-running instance) and opens the configured browser to `http://localhost:<port>` — **enhanced mode**, with copy-contents and inline HTML rendering. `--static` instead opens the on-disk `index.html` directly as a `file://` page — **core mode** (browse, search, copy-path). If the configured port is occupied, the server falls back to the next free port. Works from any directory because the CLI resolves the library location.
+By default `shelf open` starts the local server (part of the shelf package, on the configured `server_port`, reusing an already-running instance) and opens the configured browser to `http://localhost:<port>` — **enhanced mode**, with copy-contents and inline HTML rendering. `--static` instead opens the on-disk `index.html` directly as a `file://` page — **core mode** (browse, search, copy-path). If the configured port is occupied, the server falls back to the next free port. Works from any directory because the CLI resolves the library location. The server binds `127.0.0.1` only and refuses to serve any path outside the library root.
 
 ### 11.8 `shelf path`
 
@@ -438,6 +463,22 @@ Prints resolved locations: `shelf path` → library root; `shelf path config` �
 ### 11.10 `shelf remove`
 
 `shelf remove <id>` removes a document — deletes its entry from the catalog and its folder from `docs/`. Atomic; `--dry-run` previews; `--commit` available.
+
+### 11.11 `shelf list` and `shelf show`
+
+Read-only; neither touches the library.
+
+```
+shelf list [--repo <name>] [--topic <name>] [--kind <kind>] [--tag <tag>]
+           [--query <text>] [--json]
+shelf show <id> [--json]
+```
+
+`shelf list` prints matching documents (id, title, kind, anchor). Filters AND together; `--query` substring-matches over title, description, and tags. `shelf show` prints a single entry in full, including `files[]` with both library-relative and resolved absolute paths. These are the intended way for skills to resolve ids and inspect state — a skill should never need to open `catalog.json` itself.
+
+### 11.12 `shelf regen`
+
+Regenerates `index.html` from the current catalog and the installed template. It never touches `catalog.json`. This is the escape hatch for CLI/template upgrades, when no mutation has occurred to trigger regeneration. Supports `--dry-run`, `--commit`, `--json`.
 
 ---
 
@@ -481,7 +522,7 @@ A generated single-page interface for finding and accessing documents.
 
 ### Generated static file, optionally served
 
-`index.html` is **generated by the CLI from a template** (`templates/index.html.tmpl` in the `shelf` repo) and **regenerated on every mutating command**. The generated file is committed in `shelf-library` and lives on disk alongside the docs — so it can be viewed without running anything. Only the **catalog metadata** is embedded into it; document contents are never bulk-embedded.
+`index.html` is **generated by the CLI from a template** (`index.html.tmpl`, shipped as package data with the CLI) and **regenerated on every mutating command**. The generated file is committed in `shelf-library` and lives on disk alongside the docs — so it can be viewed without running anything. Only the **catalog metadata** is embedded into it; document contents are never bulk-embedded. The generator also embeds a fingerprint: a content hash of `catalog.json` plus the shelf version that rendered it. Staleness is therefore deterministic — `shelf audit` recomputes the hash and compares (§11.6), and `shelf regen` (§11.12) refreshes the file after a CLI or template upgrade.
 
 The UI runs in one of two modes:
 
@@ -506,7 +547,9 @@ The split exists because browsers block a `file://` page from fetching neighbori
 
 ## 14. Open / Deferred Items
 
-1. **Plugin manifests.** The exact `.claude-plugin/plugin.json` fields, the Codex plugin manifest/adapter format, and how the `shelf` CLI is placed on `PATH` (`uv tool install` vs. symlink) are verified against current Claude Code and Codex plugin documentation at build time. The plugin is built to support and is tested against both ecosystems.
+1. **Plugin manifests.** The exact `.claude-plugin/plugin.json` fields and the Codex plugin manifest/adapter format are verified against current Claude Code and Codex plugin documentation at build time. The plugin is built to support and is tested against both ecosystems. (PATH placement is resolved: the CLI installs via `uv tool install`, §5.)
 2. **Local server port.** Default `8765` from config, with fallback to the next free port when occupied. Confirm whether a fixed port with an error is preferred over automatic fallback.
 3. **Multiple libraries.** The design assumes a single library. Named multi-library support is deferred; the resolution scheme in §4 can accommodate it later without breaking changes.
-4. **AI-session detection for the handoff.** The exact mechanism by which `shelf add` detects it is already running inside a Claude Code or Codex session (environment variable vs. parent-process inspection) is verified at build time, so the CLI never nests an interactive session (§11.2).
+4. **AI-session detection for the handoff.** The exact mechanism by which `shelf add` detects it is already running inside a Claude Code or Codex session (environment variable vs. parent-process inspection) is verified at build time, so the CLI never nests an interactive session (§11.2). Claude Code sets `CLAUDECODE=1` in its sessions — the candidate mechanism; the Codex equivalent is identified at build time.
+5. **Taxonomy maintenance.** `topic rename`, `topic remove`, and `kind remove` do not exist; a topic rename implies folder moves under `docs/topics/`. Deferred deliberately.
+6. **Scaffolding sequencing.** The `shelf` repo starts with py-launch-blueprint's core conventions only (src layout, click, pytest/ruff/ty, just + make check). The remaining scaffolding — CI, release automation, hooks, docs — is layered on by template-press when it is ready; those files are additive and do not disturb the package.
