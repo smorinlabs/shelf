@@ -4,16 +4,16 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [ ] Project P01: Package foundation (v0.1.0)
+## [x] Project P01: Package foundation (v0.1.0)
 **Goal**: A src-layout uv package with the blueprint's core conventions — click CLI skeleton, pytest/ruff/ty wired, `just all` + `make check` — installable via `uv tool install`, answering `shelf --version`.
 
 ### Tests & Tasks
-- [ ] [P01-TS01] CLI smoke tests: `shelf --version` and `shelf --help` exit 0 (click test runner)
-- [ ] [P01-TS02] Standard-conformance smoke (R9.14 seed): bare `shelf` → help/exit 0; unknown command → exit 2; `-V` prints `shelf <semver>`; `--help` on stdout
-- [ ] [P01-T01] Scaffold `pyproject.toml`: src layout, click dependency, dependency-groups (pytest/ruff/ty), `[project.scripts] shelf = "shelf.cli.main:cli"`
-- [ ] [P01-T02] Click command tree with stubs for every PRD §11 subcommand
-- [ ] [P01-T03] Justfile (`all`: format, lint, typecheck, test) and Makefile (`check`: dependency preflight)
-- [ ] Regression Test Status
+- [x] [P01-TS01] CLI smoke tests: `shelf --version` and `shelf --help` exit 0 (click test runner)
+- [x] [P01-TS02] Standard-conformance smoke (R9.14 seed): bare `shelf` → help/exit 0; unknown command → exit 2; `-V` prints `shelf <semver>`; `--help` on stdout
+- [x] [P01-T01] Scaffold `pyproject.toml`: src layout, click dependency, dependency-groups (pytest/ruff/ty), `[project.scripts] shelf = "shelf.cli.main:cli"`
+- [x] [P01-T02] Click command tree with stubs for every PRD §11 subcommand
+- [x] [P01-T03] Justfile (`all`: format, lint, typecheck, test) and Makefile (`check`: dependency preflight)
+- [x] Regression Test Status — 9/9 passing (smoke + conformance) at v0.1.0; `make check` and `just all` green
 
 ## [ ] Project P02: Config and catalog core (v0.2.0)
 **Goal**: Location resolution (PRD §4), `shelf_config.toml` read/write (kebab keys), catalog model with `schema_version`, atomic save with `.shelf.lock`, standard option tiers, and the read surface — `init` (no git) with `--adopt`, `migrate`, `topic`/`kind` add+list, `path`, `doc list`, `doc view`.
