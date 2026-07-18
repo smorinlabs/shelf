@@ -1,0 +1,27 @@
+[project]
+name = "shelf"
+version = "0.1.0"
+description = "A private documentation library and management CLI"
+readme = "README.md"
+authors = [
+    { name = "Steve Morin", email = "steve.morin@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.1",
+]
+
+[project.scripts]
+shelf = "shelf.cli.main:cli"
+
+[build-system]
+requires = ["uv_build>=0.10.5,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.22",
+    "ty>=0.0.61",
+]
