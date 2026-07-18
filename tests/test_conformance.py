@@ -1,14 +1,30 @@
 """P01-TS02 — cli-design-standard conformance smoke (R9.14 seed)."""
+
 import re
 import subprocess
 
 STUB_HELP_PATHS = [
-    ["doc", "add"], ["doc", "list"], ["doc", "view"], ["doc", "update"],
-    ["doc", "move"], ["doc", "delete"], ["doc", "adopt"],
-    ["doc", "format", "add"], ["doc", "format", "delete"],
-    ["orphan", "list"], ["orphan", "delete"],
-    ["topic", "add"], ["topic", "list"], ["kind", "add"], ["kind", "list"],
-    ["init"], ["audit"], ["open"], ["path"], ["regen"], ["migrate"],
+    ["doc", "add"],
+    ["doc", "list"],
+    ["doc", "view"],
+    ["doc", "update"],
+    ["doc", "move"],
+    ["doc", "delete"],
+    ["doc", "adopt"],
+    ["doc", "format", "add"],
+    ["doc", "format", "delete"],
+    ["orphan", "list"],
+    ["orphan", "delete"],
+    ["topic", "add"],
+    ["topic", "list"],
+    ["kind", "add"],
+    ["kind", "list"],
+    ["init"],
+    ["audit"],
+    ["open"],
+    ["path"],
+    ["regen"],
+    ["migrate"],
 ]
 
 

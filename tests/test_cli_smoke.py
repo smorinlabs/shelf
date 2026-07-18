@@ -1,4 +1,5 @@
 """P01-TS01 — CLI smoke tests."""
+
 from click.testing import CliRunner
 
 from shelf.cli.main import cli
