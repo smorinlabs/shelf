@@ -154,7 +154,8 @@ def doc_add(
                     before_text is not None and (root / CATALOG_FILENAME).read_text() != before_text
                 )
             except OSError:
-                committed = False
+                # unreadable witness: keep data — residue is orphan-detectable.
+                committed = True
             if not committed:
                 shutil.rmtree(dest, ignore_errors=True)
             raise

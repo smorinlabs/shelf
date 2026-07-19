@@ -66,7 +66,8 @@ def doc_move(ctx, doc_id, topic_, create_topic, repo_, repo_url, subject, dry_ru
             try:
                 committed = (root / CATALOG_FILENAME).read_text(encoding="utf-8") != before_text
             except OSError:
-                committed = False
+                # unreadable witness: keep data — residue is orphan-detectable.
+                committed = True
             if not committed:
                 shutil.rmtree(dest_dir, ignore_errors=True)
             raise

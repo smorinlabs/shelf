@@ -88,7 +88,8 @@ def format_add(ctx, doc_id, files, assets_, format_, replace, primary_, source_,
                     before_text is not None and (root / CATALOG_FILENAME).read_text() != before_text
                 )
             except OSError:
-                committed = False
+                # unreadable witness: keep data — residue is orphan-detectable.
+                committed = True
             if not committed:
                 for target in reversed(created):
                     if target.is_dir():
