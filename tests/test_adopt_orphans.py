@@ -193,3 +193,45 @@ def test_orphan_delete_removes_stray(isolated_env):
     assert not d.exists()
     r = run(["orphan", "delete", "docs/topics/nope", "--yes"])
     assert r.exit_code == 3
+
+
+def test_adopt_absolute_path_outside_library_is_usage_error(isolated_env, tmp_path):
+    _init()
+    outside = tmp_path / "elsewhere" / "docs" / "topics" / "dev-tooling" / "2026-01-01-x"
+    outside.mkdir(parents=True)
+    r = run(
+        ["doc", "adopt", str(outside), "--kind", "reference", "--title", "X", "--description", "d"]
+    )
+    assert r.exit_code == 2, r.output
+    assert not isinstance(r.exception, ValueError)
+
+
+def test_orphan_delete_absolute_path_outside_library_is_usage_error(isolated_env, tmp_path):
+    _init()
+    stray = tmp_path / "elsewhere.md"
+    stray.write_text("x")
+    r = run(["orphan", "delete", str(stray), "--yes"])
+    assert r.exit_code == 2, r.output
+    assert not isinstance(r.exception, ValueError)
+
+
+def test_adopt_validates_primary_against_found_formats(isolated_env):
+    root = _init()
+    _orphan_folder(root)
+    r = run(
+        [
+            "doc",
+            "adopt",
+            "docs/topics/dev-tooling/2026-01-01-strays",
+            "--kind",
+            "reference",
+            "--title",
+            "S",
+            "--description",
+            "d",
+            "--primary",
+            "pdf",
+        ]
+    )
+    assert r.exit_code == 2, r.output
+    assert json.loads((root / "catalog.json").read_text())["documents"] == []
