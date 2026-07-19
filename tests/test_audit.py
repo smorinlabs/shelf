@@ -120,7 +120,7 @@ def test_index_and_config_findings(isolated_env, tmp_path):
     from shelf.core.config import default_config_path
 
     default_config_path().unlink()
-    assert "config-missing" in _codes(run(["audit", "--json"]))
+    assert "config-missing" in _codes(run(["--library", str(root), "audit", "--json"]))
 
 
 def test_template_change_makes_index_stale(isolated_env, tmp_path, monkeypatch):
