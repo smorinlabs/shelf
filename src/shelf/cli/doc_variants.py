@@ -102,11 +102,11 @@ def format_delete(ctx, doc_id, fmt, primary_, force):
             raise NotFoundError(f"document '{doc_id}' has no '{fmt}' variant")
         if len(doc.files) == 1:
             raise ConflictError("cannot remove the last variant — use 'shelf doc delete'")
-        if doc.primary == fmt:
-            if primary_ is None:
-                raise click.UsageError("deleting the primary variant — pass --primary <successor>")
-            if primary_ not in {f.format for f in doc.files if f.format != fmt}:
-                raise click.UsageError(f"--primary '{primary_}' is not a remaining format")
+        remaining = {f.format for f in doc.files if f.format != fmt}
+        if doc.primary == fmt and primary_ is None:
+            raise click.UsageError("deleting the primary variant — pass --primary <successor>")
+        if primary_ is not None and primary_ not in remaining:
+            raise click.UsageError(f"--primary '{primary_}' is not a remaining format")
         target = root / variant.path
         if not target.exists() and not force:
             raise click.ClickException(
