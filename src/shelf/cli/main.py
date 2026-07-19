@@ -4,7 +4,7 @@ from importlib.metadata import version
 
 import click
 
-from shelf.cli.library import path_cmd
+from shelf.cli.library import init_cmd, path_cmd
 
 _VERSION = version("shelf")
 
@@ -101,7 +101,6 @@ for _name, _help in [
     _stub(kind, _name, _help)
 
 for _name, _help in [
-    ("init", "Create, adopt, and register a library."),
     ("audit", "Run the library consistency check."),
     ("open", "Open the UI."),
     ("regen", "Regenerate index.html from the catalog."),
@@ -109,4 +108,5 @@ for _name, _help in [
 ]:
     _stub(cli, _name, _help)
 
+cli.add_command(init_cmd)
 cli.add_command(path_cmd)
