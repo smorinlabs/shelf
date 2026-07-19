@@ -81,3 +81,40 @@ def format_add(ctx, doc_id, files, assets_, format_, replace, primary_, source_,
         for p in paths:
             p.unlink(missing_ok=True)
     click.echo(f"added format(s) {', '.join(new_formats)} to '{doc_id}'")
+
+
+@click.command("delete")
+@click.argument("doc_id")
+@click.argument("fmt")
+@click.option(
+    "--primary", "primary_", default=None, help="New primary when deleting the current one."
+)
+@click.option("--force", "-f", is_flag=True, help="Drop the entry even if its file is missing.")
+@click.pass_context
+def format_delete(ctx, doc_id, fmt, primary_, force):
+    """Remove one format variant."""
+    root = get_library(ctx)
+    with library_lock(root):
+        catalog = load_catalog(root, for_write=True)
+        doc = find_doc(catalog, doc_id)
+        variant = next((f for f in doc.files if f.format == fmt), None)
+        if variant is None:
+            raise NotFoundError(f"document '{doc_id}' has no '{fmt}' variant")
+        if len(doc.files) == 1:
+            raise ConflictError("cannot remove the last variant — use 'shelf doc delete'")
+        if doc.primary == fmt:
+            if primary_ is None:
+                raise click.UsageError("deleting the primary variant — pass --primary <successor>")
+            if primary_ not in {f.format for f in doc.files if f.format != fmt}:
+                raise click.UsageError(f"--primary '{primary_}' is not a remaining format")
+        target = root / variant.path
+        if not target.exists() and not force:
+            raise click.ClickException(
+                f"file '{variant.path}' is already missing — pass --force to drop the entry"
+            )
+        doc.files = [f for f in doc.files if f.format != fmt]
+        if primary_ is not None:
+            doc.primary = primary_
+        commit_library(root, catalog)
+        target.unlink(missing_ok=True)
+    click.echo(f"removed '{fmt}' from '{doc_id}'")
