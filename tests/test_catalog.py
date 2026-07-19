@@ -2,6 +2,7 @@
 
 import json
 import re
+from typing import Any
 
 import click
 import pytest
@@ -19,8 +20,8 @@ from shelf.core.catalog import (
 from shelf.core.errors import SchemaTooOldError
 
 
-def _doc(**over):
-    base = dict(
+def _doc(**over: Any) -> Document:
+    base: dict[str, Any] = dict(
         id="2026-01-01-a",
         title="A",
         description="d",
@@ -37,8 +38,8 @@ def _doc(**over):
     return Document(**base)
 
 
-def _catalog(**over):
-    base = dict(topics=["dev-tooling"], kinds=list(SEED_KINDS), documents=[_doc()])
+def _catalog(**over: Any) -> Catalog:
+    base: dict[str, Any] = dict(topics=["dev-tooling"], kinds=list(SEED_KINDS), documents=[_doc()])
     base.update(over)
     return Catalog(**base)
 
