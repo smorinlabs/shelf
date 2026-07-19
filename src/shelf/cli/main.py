@@ -6,6 +6,7 @@ import click
 
 from shelf.cli import docs as doc_cmds
 from shelf.cli import taxonomy
+from shelf.cli.doc_add import doc_add
 from shelf.cli.library import init_cmd, migrate_cmd, path_cmd
 
 _VERSION = version("shelf")
@@ -68,7 +69,6 @@ topic = _group(cli, "topic", "Manage topic buckets.")
 kind = _group(cli, "kind", "Manage kinds.")
 
 for _name, _help in [
-    ("add", "Add a new document."),
     ("update", "Change a document's metadata."),
     ("move", "Relocate a document."),
     ("delete", "Delete a document."),
@@ -95,6 +95,7 @@ kind.add_command(taxonomy.kind_list)
 doc.add_command(doc_cmds.doc_list)
 doc.add_command(doc_cmds.doc_list, "ls")
 doc.add_command(doc_cmds.doc_view)
+doc.add_command(doc_add)
 
 for _name, _help in [
     ("audit", "Run the library consistency check."),
