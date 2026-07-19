@@ -150,3 +150,31 @@ def test_postcommit_failure_leaves_old_folder_as_orphan(isolated_env, tmp_path, 
     assert (root / "docs" / "topics" / "claude-code" / SLUG / f"{SLUG}.md").is_file()
     orphans = CliRunner().invoke(cli, ["orphan", "list"]).output
     assert f"docs/topics/dev-tooling/{SLUG}" in orphans  # old folder detectable
+
+
+def test_unreadable_witness_keeps_staged_data(isolated_env, tmp_path, monkeypatch):
+    """Double fault: commit fails AND the witness re-read fails — never delete."""
+    root = _seed_topical(tmp_path)
+    from pathlib import Path as _P
+
+    import shelf.cli.doc_move as mod
+
+    def boom(*a, **k):
+        raise OSError("injected commit failure")
+
+    monkeypatch.setattr(mod, "commit_library", boom)
+    calls = {"n": 0}
+    real_read = _P.read_text
+
+    def flaky(self, *args, **kwargs):
+        if self.name == "catalog.json":
+            calls["n"] += 1
+            if calls["n"] >= 3:  # 1=load_catalog, 2=before_text, 3=witness re-read
+                raise OSError("injected witness read failure")
+        return real_read(self, *args, **kwargs)
+
+    monkeypatch.setattr(_P, "read_text", flaky)
+    r = run(["doc", "move", SLUG, "--topic", "claude-code"])
+    assert r.exit_code != 0
+    assert (root / "docs" / "topics" / "dev-tooling" / SLUG).is_dir()  # original kept
+    assert (root / "docs" / "topics" / "claude-code" / SLUG).is_dir()  # staged copy KEPT
