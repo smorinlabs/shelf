@@ -86,8 +86,16 @@ def doc_update(
             raise click.ClickException(f"kind '{kind_}' is not in the kind list")
         if primary_ is not None and primary_ not in {f.format for f in doc.files}:
             raise click.UsageError(f"--primary '{primary_}' is not a format this document has")
-        if (repo_url is not None or subject is not None or clear_subject) and doc.repo is None:
-            raise click.ClickException("repo fields only apply to repo-anchored documents")
+        if repo_url is not None or subject is not None or clear_subject:
+            repo_ref = doc.repo
+            if repo_ref is None:
+                raise click.ClickException("repo fields only apply to repo-anchored documents")
+            if repo_url is not None:
+                repo_ref.url = repo_url
+            if subject is not None:
+                repo_ref.subject = subject
+            if clear_subject:
+                repo_ref.subject = None
         if added is not None and not force:
             raise click.ClickException(
                 "--added desyncs the slug's date prefix — pass --force to proceed"
@@ -115,12 +123,6 @@ def doc_update(
             doc.doc_date = None
         if source_ is not None:
             doc.source = source_
-        if repo_url is not None:
-            doc.repo.url = repo_url
-        if subject is not None:
-            doc.repo.subject = subject
-        if clear_subject:
-            doc.repo.subject = None
         if added is not None:
             doc.added = added
             click.echo(
