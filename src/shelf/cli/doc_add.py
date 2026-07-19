@@ -140,7 +140,12 @@ def doc_add(
             catalog.documents.append(doc)
             commit_library(root, catalog)
         except BaseException:
-            shutil.rmtree(dest, ignore_errors=True)
+            try:
+                committed = any(d.id == slug for d in load_catalog(root).documents)
+            except Exception:
+                committed = False
+            if not committed:
+                shutil.rmtree(dest, ignore_errors=True)
             raise
 
     effective_remove = get_config(ctx).remove_source if remove_source_ is None else remove_source_

@@ -61,6 +61,8 @@ def format_add(ctx, doc_id, files, assets_, format_, replace, primary_, source_,
             for a in assets_:
                 ap = Path(a)
                 target = dest / ap.name
+                if not target.exists():
+                    created.append(target)
                 if ap.is_dir():
                     shutil.copytree(ap, target, dirs_exist_ok=True)
                 else:
@@ -72,8 +74,21 @@ def format_add(ctx, doc_id, files, assets_, format_, replace, primary_, source_,
                 doc.primary = primary_
             commit_library(root, catalog)
         except BaseException:
-            for target in created:
-                target.unlink(missing_ok=True)
+            try:
+                committed_doc = next(
+                    (d for d in load_catalog(root).documents if d.id == doc_id), None
+                )
+                committed = committed_doc is not None and set(new_formats).issubset(
+                    {f.format for f in committed_doc.files}
+                )
+            except Exception:
+                committed = False
+            if not committed:
+                for target in reversed(created):
+                    if target.is_dir():
+                        shutil.rmtree(target, ignore_errors=True)
+                    else:
+                        target.unlink(missing_ok=True)
             raise
 
     effective_remove = get_config(ctx).remove_source if remove_source_ is None else remove_source_
