@@ -40,6 +40,8 @@ def doc_adopt(
     root = get_library(ctx)
     rel = Path(folder)
     if rel.is_absolute():
+        if not rel.is_relative_to(root):
+            raise click.UsageError(f"'{rel}' is outside the library at {root}")
         rel = rel.relative_to(root)
     parts = rel.parts
     if len(parts) != 4 or parts[0] != "docs" or parts[1] not in ("repos", "topics"):
@@ -57,6 +59,8 @@ def doc_adopt(
     if not variant_files:
         raise click.ClickException(f"'{rel}' contains no known-format files (md/html/pdf)")
     formats = [FORMAT_MAP[p.suffix.lower()] for p in variant_files]
+    if primary_ is not None and primary_ not in formats:
+        raise click.UsageError(f"--primary '{primary_}' is not among the folder's formats")
 
     with library_lock(root):
         catalog = load_catalog(root, for_write=True)

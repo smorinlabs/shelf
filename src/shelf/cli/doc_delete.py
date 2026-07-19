@@ -73,6 +73,8 @@ def orphan_delete(ctx, path, yes):
         catalog = load_catalog(root)
         rel = Path(path)
         if rel.is_absolute():
+            if not rel.is_relative_to(root):
+                raise click.UsageError(f"'{rel}' is outside the library at {root}")
             rel = rel.relative_to(root)
         target = root / rel
         if not str(rel).startswith("docs/"):
