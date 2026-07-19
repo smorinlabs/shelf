@@ -53,7 +53,7 @@ class Document:
             "title": self.title,
             "description": self.description,
             "kind": self.kind,
-            "tags": self.tags,
+            "tags": list(self.tags),
         }
         if self.repo is not None:
             out["repo"] = {k: v for k, v in vars(self.repo).items() if v is not None}
