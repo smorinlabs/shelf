@@ -403,3 +403,50 @@ def test_format_add_replace_with_new_asset_precommit_leaks_residue(seeded, tmp_p
         "format add --replace left a new asset inside a cataloged folder — invisible "
         "to orphan list and not rolled back (§5c; committed-check regression for --replace)"
     )
+
+
+def test_format_add_replace_byte_identical_commit_is_safe(seeded, tmp_path, monkeypatch):
+    """Adversarial probe of the byte-snapshot witness (commit ad9a80b): the witness
+    can read 'not committed' even when the catalog write PHYSICALLY happened, because
+    a --replace of the same format on a single-variant doc (no --source/--primary
+    change) produces a BYTE-IDENTICAL catalog. This test proves that misclassification
+    is BENIGN.
+
+    When the catalog bytes are unchanged, nothing catalog-referenced can be in
+    `created` (any new variant would change the bytes), so `created` holds only the
+    un-referenced asset. A post-'commit' index-write failure therefore: keeps the
+    overwritten variant (accepted edge, decision 2), rolls back only the asset, leaves
+    no dead refs, no orphans, and no stale index (the catalog never changed). The
+    witness is sound: bytes-change is a faithful commit witness, and byte-identical is
+    safe to treat as not-committed.
+    """
+    root, _ = seeded
+    slug, folder = _add_doc(tmp_path)  # single md variant, variant.source is None
+    before = (root / "catalog.json").read_text()
+
+    new_md = tmp_path / "new.md"
+    new_md.write_text("# UPDATED CONTENT")
+    asset = tmp_path / "pic.png"
+    asset.write_text("PNGDATA")
+
+    _fail_nth_write(monkeypatch, None, 2)  # index write fails; catalog write wrote identical bytes
+    r = run(
+        [
+            "doc",
+            "format",
+            "add",
+            slug,
+            str(new_md),
+            "--replace",
+            "--assets",
+            str(asset),
+            "--no-remove-source",
+        ]
+    )
+    assert r.exit_code != 0
+
+    assert (root / "catalog.json").read_text() == before  # byte-identical → unchanged
+    assert (folder / f"{slug}.md").read_text() == "# UPDATED CONTENT"  # overwrite persists
+    assert not (folder / "pic.png").exists()  # un-referenced asset rolled back — no residue
+    _library_invariant(root)
+    assert _orphans(root) == set()
