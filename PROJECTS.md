@@ -49,15 +49,15 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P03-T04] Index regeneration already wired via commit_library (landed in P02); extend the placeholder template only as needed
 - [x] Regression Test Status — 121/121 passing at v0.3.0 incl. 12-test opus crash-injection suite; `make check` and `just all` green; live lifecycle smoke verified
 
-## [ ] Project P04: Edit and move (v0.4.0)
+## [x] Project P04: Edit and move (v0.4.0)
 **Goal**: `shelf doc update` (pure catalog rewrites, `--force`-gated fields) and `shelf doc move` (the three relocations with `files[]` path rewrites) per PRD §11.4–.5.
 
 ### Tests & Tasks
-- [ ] [P04-TS01] Update field matrix: freely editable vs `--force`-gated vs routed-to-move errors
-- [ ] [P04-TS02] Move relocations: topic→topic, repo→repo, topical↔repo-anchored conversions; path rewrites verified
-- [ ] [P04-T01] `shelf doc update` including `--dry-run` before/after diff
-- [ ] [P04-T02] `shelf doc move` including relocation warning
-- [ ] Regression Test Status
+- [x] [P04-TS01] Update field matrix: freely editable vs `--force`-gated vs routed-to-move errors
+- [x] [P04-TS02] Move relocations: topic→topic, repo→repo, topical↔repo-anchored conversions; path rewrites verified
+- [x] [P04-T01] `shelf doc update` including `--dry-run` before/after diff
+- [x] [P04-T02] `shelf doc move` including relocation warning
+- [x] Regression Test Status — 147/147 passing at v0.4.0; witness double-fault hardening closes the P03 2b residual; `make check` and `just all` green; live update+move smoke verified
 
 ## [ ] Project P05: Audit and regen (v0.5.0)
 **Goal**: `shelf audit` — all five checks (orphans, dead references, malformed entries incl. added↔slug and old schema, fingerprint staleness, dirty git) with `--json`, `--pre-commit`, and the §11.6 remediation matrix — plus `shelf regen` and the catalog+template fingerprint (PRD §11.6, §11.12).
