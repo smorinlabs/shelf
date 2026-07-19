@@ -53,10 +53,12 @@ def test_pick_primary_heuristic():
 def test_doc_rel_dir_both_anchors():
     from shelf.core.catalog import Document, RepoRef
 
-    topical = Document(id="2026-01-01-a", title="A", description="d", kind="spec",
-                       category="dev-tooling")
-    repo = Document(id="2026-01-01-b", title="B", description="d", kind="spec",
-                    repo=RepoRef(name="flox"))
+    topical = Document(
+        id="2026-01-01-a", title="A", description="d", kind="spec", category="dev-tooling"
+    )
+    repo = Document(
+        id="2026-01-01-b", title="B", description="d", kind="spec", repo=RepoRef(name="flox")
+    )
     assert doc_rel_dir(topical) == "docs/topics/dev-tooling/2026-01-01-a"
     assert doc_rel_dir(repo) == "docs/repos/flox/2026-01-01-b"
 

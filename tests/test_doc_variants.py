@@ -8,8 +8,7 @@ from shelf.cli.main import cli
 from shelf.core.paths import default_library_path
 
 SLUG = "2026-01-01-uv-notes"
-BASE = ["--kind", "reference", "--title", "UV Notes", "--description", "d",
-        "--slug", SLUG]
+BASE = ["--kind", "reference", "--title", "UV Notes", "--description", "d", "--slug", SLUG]
 
 
 def run(args, **kw):

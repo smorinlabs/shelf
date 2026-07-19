@@ -2,7 +2,6 @@
 
 import datetime
 import json
-from pathlib import Path
 
 from click.testing import CliRunner
 
@@ -97,8 +96,21 @@ def test_unknown_topic_needs_create_topic(isolated_env, tmp_path):
 def test_unknown_kind_never_created(isolated_env, tmp_path):
     root = _init()
     src = _src(tmp_path)
-    r = run(["doc", "add", str(src), "--topic", "dev-tooling", "--kind", "novel",
-             "--title", "T", "--description", "d"])
+    r = run(
+        [
+            "doc",
+            "add",
+            str(src),
+            "--topic",
+            "dev-tooling",
+            "--kind",
+            "novel",
+            "--title",
+            "T",
+            "--description",
+            "d",
+        ]
+    )
     assert r.exit_code == 1
     assert "novel" not in _catalog(root)["kinds"]
 
@@ -107,8 +119,12 @@ def test_slug_collision_conflict(isolated_env, tmp_path):
     _init()
     a = _src(tmp_path, "a.md")
     fixed = ["--slug", "2026-01-01-fixed"]
-    assert run(["doc", "add", str(a), "--topic", "dev-tooling", *BASE, *fixed,
-                "--no-remove-source"]).exit_code == 0
+    assert (
+        run(
+            ["doc", "add", str(a), "--topic", "dev-tooling", *BASE, *fixed, "--no-remove-source"]
+        ).exit_code
+        == 0
+    )
     b = _src(tmp_path, "b.md")
     r = run(["doc", "add", str(b), "--topic", "dev-tooling", *BASE, *fixed])
     assert r.exit_code == 5
@@ -118,8 +134,20 @@ def test_slug_collision_conflict(isolated_env, tmp_path):
 def test_repo_anchored_layout(isolated_env, tmp_path):
     root = _init()
     src = _src(tmp_path)
-    r = run(["doc", "add", str(src), "--repo", "flox", "--repo-url", "https://github.com/flox/flox",
-             "--subject", "cli", *BASE])
+    r = run(
+        [
+            "doc",
+            "add",
+            str(src),
+            "--repo",
+            "flox",
+            "--repo-url",
+            "https://github.com/flox/flox",
+            "--subject",
+            "cli",
+            *BASE,
+        ]
+    )
     assert r.exit_code == 0
     entry = _catalog(root)["documents"][0]
     assert entry["repo"]["name"] == "flox"
@@ -140,8 +168,22 @@ def test_tags_and_assets(isolated_env, tmp_path):
     root = _init()
     src = _src(tmp_path)
     asset = _src(tmp_path, "diagram.pdf", "%PDF")
-    r = run(["doc", "add", str(src), "--topic", "dev-tooling", *BASE,
-             "--tag", "python", "--tag", "uv", "--assets", str(asset)])
+    r = run(
+        [
+            "doc",
+            "add",
+            str(src),
+            "--topic",
+            "dev-tooling",
+            *BASE,
+            "--tag",
+            "python",
+            "--tag",
+            "uv",
+            "--assets",
+            str(asset),
+        ]
+    )
     assert r.exit_code == 0
     entry = _catalog(root)["documents"][0]
     assert entry["tags"] == ["python", "uv"]
@@ -174,4 +216,5 @@ def test_rollback_on_commit_failure(isolated_env, tmp_path, monkeypatch):
     assert r.exit_code != 0
     assert (root / "catalog.json").read_text() == before
     assert src.exists()  # source never removed on failure
-    assert not (root / "docs" / "topics" / "dev-tooling" / "2026-01-01-fixed").exists()  # rolled back
+    # staged folder rolled back:
+    assert not (root / "docs" / "topics" / "dev-tooling" / "2026-01-01-fixed").exists()
