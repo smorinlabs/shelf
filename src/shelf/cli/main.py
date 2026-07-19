@@ -7,6 +7,7 @@ import click
 from shelf.cli import docs as doc_cmds
 from shelf.cli import taxonomy
 from shelf.cli.doc_add import doc_add
+from shelf.cli.doc_variants import format_add
 from shelf.cli.library import init_cmd, migrate_cmd, path_cmd
 
 _VERSION = version("shelf")
@@ -76,11 +77,7 @@ for _name, _help in [
 ]:
     _stub(doc, _name, _help)
 
-for _name, _help in [
-    ("add", "Add a format variant."),
-    ("delete", "Remove a format variant."),
-]:
-    _stub(doc_format, _name, _help)
+_stub(doc_format, "delete", "Remove a format variant.")
 
 for _name, _help in [
     ("list", "List uncataloged files."),
@@ -96,6 +93,7 @@ doc.add_command(doc_cmds.doc_list)
 doc.add_command(doc_cmds.doc_list, "ls")
 doc.add_command(doc_cmds.doc_view)
 doc.add_command(doc_add)
+doc_format.add_command(format_add)
 
 for _name, _help in [
     ("audit", "Run the library consistency check."),
