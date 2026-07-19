@@ -52,9 +52,16 @@ def init_cmd(ctx: click.Context, library_: str | None, adopt_: str | None, force
         return
 
     root = Path(library_ or ctx.obj.get("library") or default_library_path())
-    if cfg.library and Path(cfg.library, CATALOG_FILENAME).is_file() and not force:
+    target_exists = (root / CATALOG_FILENAME).is_file()
+    configured_root = Path(cfg.library) if cfg.library else None
+    configured_exists = (
+        configured_root is not None and (configured_root / CATALOG_FILENAME).is_file()
+    )
+    if (target_exists or configured_exists) and not force:
+        existing_root = root if target_exists else configured_root
         raise ConflictError(
-            f"a library is already configured at {cfg.library} — pass --force to re-initialize"
+            f"a library already exists at {existing_root} — pass --force to re-initialize "
+            f"or 'shelf init --adopt {existing_root}' to register it"
         )
     (root / "docs" / "repos").mkdir(parents=True, exist_ok=True)
     (root / "docs" / "topics").mkdir(parents=True, exist_ok=True)
