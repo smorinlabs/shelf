@@ -4,14 +4,39 @@ from importlib.metadata import version
 
 import click
 
+from shelf.cli.library import path_cmd
+
 _VERSION = version("shelf")
 
 
-@click.group("shelf", invoke_without_command=True)
+@click.group(
+    "shelf",
+    invoke_without_command=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
 @click.version_option(_VERSION, "-V", "--version", prog_name="shelf", message="shelf %(version)s")
+@click.option(
+    "--library", "library_", type=click.Path(), default=None, help="Library path override."
+)
+@click.option(
+    "--config", "config_", type=click.Path(), default=None, help="Config file overriding discovery."
+)
+@click.option("-v", "--verbose", count=True, help="Increase diagnostic detail (repeatable).")
+@click.option("-q", "--quiet", is_flag=True, help="Suppress non-essential output.")
+@click.option("--debug", is_flag=True, help="Maximum diagnostics.")
+@click.option("--no-input", is_flag=True, help="Never prompt; fail if input would be required.")
 @click.pass_context
-def cli(ctx: click.Context) -> None:
+def cli(ctx, library_, config_, verbose, quiet, debug, no_input):
     """Shelf — a private documentation library."""
+    ctx.ensure_object(dict)
+    ctx.obj.update(
+        library=library_,
+        config=config_,
+        verbose=verbose,
+        quiet=quiet,
+        debug=debug,
+        no_input=no_input,
+    )
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
         ctx.exit(0)
@@ -79,8 +104,9 @@ for _name, _help in [
     ("init", "Create, adopt, and register a library."),
     ("audit", "Run the library consistency check."),
     ("open", "Open the UI."),
-    ("path", "Print resolved locations."),
     ("regen", "Regenerate index.html from the catalog."),
     ("migrate", "Migrate the catalog to the current schema version."),
 ]:
     _stub(cli, _name, _help)
+
+cli.add_command(path_cmd)
