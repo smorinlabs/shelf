@@ -218,3 +218,23 @@ def test_rollback_on_commit_failure(isolated_env, tmp_path, monkeypatch):
     assert src.exists()  # source never removed on failure
     # staged folder rolled back:
     assert not (root / "docs" / "topics" / "dev-tooling" / "2026-01-01-fixed").exists()
+
+
+def test_explicit_dated_slug_sets_added(isolated_env, tmp_path):
+    root = _init()
+    src = _src(tmp_path)
+    r = run(
+        ["doc", "add", str(src), "--topic", "dev-tooling", *BASE, "--slug", "1999-05-05-old-doc"]
+    )
+    assert r.exit_code == 0, r.output
+    assert _catalog(root)["documents"][0]["added"] == "1999-05-05"
+
+
+def test_explicit_undated_slug_keeps_today(isolated_env, tmp_path):
+    root = _init()
+    src = _src(tmp_path)
+    before = datetime.date.today().isoformat()
+    r = run(["doc", "add", str(src), "--topic", "dev-tooling", *BASE, "--slug", "custom-name-here"])
+    after = datetime.date.today().isoformat()
+    assert r.exit_code == 0, r.output
+    assert before <= _catalog(root)["documents"][0]["added"] <= after

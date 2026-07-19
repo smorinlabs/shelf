@@ -200,3 +200,39 @@ def test_audit_blocks_on_lock_no_false_stale(isolated_env, tmp_path):
     t.join(timeout=5)
     assert not t.is_alive()
     assert results["audit"].exit_code == 0, results["audit"].output
+
+
+def test_audit_unresolvable_library_errors_cleanly(isolated_env, tmp_path):
+    """Custom library + lost config: clean resolve error, never a traceback."""
+    custom = tmp_path / "custom-lib"
+    assert run(["init", "--library", str(custom)]).exit_code == 0
+    from shelf.core.config import default_config_path
+
+    default_config_path().unlink()
+    r = run(["audit", "--json"])
+    assert r.exit_code == 1
+    assert "shelf init" in r.output
+    assert not isinstance(r.exception, FileNotFoundError)
+
+
+def test_audit_resolvable_root_reports_config_missing(isolated_env, tmp_path):
+    custom = tmp_path / "custom-lib"
+    assert run(["init", "--library", str(custom)]).exit_code == 0
+    from shelf.core.config import default_config_path
+
+    default_config_path().unlink()
+    r = run(["--library", str(custom), "audit", "--json"])
+    assert r.exit_code == 1
+    assert "config-missing" in _codes(r)
+    assert not isinstance(r.exception, FileNotFoundError)
+
+
+def test_audit_orphan_parity_stray_file_under_docs(isolated_env, tmp_path):
+    """A stray file directly under docs/ must be found by audit AND orphan list."""
+    root = _seeded(tmp_path)
+    (root / "docs" / "stray.md").write_text("x")
+    r = run(["audit", "--json"])
+    assert r.exit_code == 1
+    assert "orphan" in _codes(r)
+    assert "docs/stray.md" in r.output
+    assert "docs/stray.md" in run(["orphan", "list"]).output
