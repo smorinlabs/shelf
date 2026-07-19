@@ -1,0 +1,202 @@
+"""P05-TS01 + TS03 — the five audit checks, remediations, and snapshot-under-lock."""
+
+import json
+import subprocess
+import threading
+
+from click.testing import CliRunner
+
+from shelf.cli.main import cli
+from shelf.core.paths import default_library_path
+
+SLUG = "2026-01-01-uv-notes"
+BASE = [
+    "--kind",
+    "reference",
+    "--title",
+    "UV Notes",
+    "--description",
+    "d",
+    "--slug",
+    SLUG,
+]
+
+
+def run(args, **kw):
+    return CliRunner().invoke(cli, args, **kw)
+
+
+def _seeded(tmp_path):
+    assert run(["init"]).exit_code == 0
+    assert run(["topic", "add", "dev-tooling"]).exit_code == 0
+    src = tmp_path / "uv-notes.md"
+    src.write_text("# hi")
+    assert run(["doc", "add", str(src), "--topic", "dev-tooling", *BASE]).exit_code == 0
+    return default_library_path()
+
+
+def _raw(root):
+    return json.loads((root / "catalog.json").read_text())
+
+
+def _write_raw(root, raw):
+    (root / "catalog.json").write_text(json.dumps(raw, indent=2) + "\n")
+
+
+def _codes(result):
+    return {f["code"] for f in json.loads(result.output)}
+
+
+def test_clean_library_exits_zero(isolated_env, tmp_path):
+    _seeded(tmp_path)
+    assert run(["regen"]).exit_code == 0  # hand: seeded lib is consistent already
+    r = run(["audit"])
+    assert r.exit_code == 0, r.output
+    assert "consistent" in r.output
+
+
+def test_orphan_finding(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    stray = root / "docs" / "topics" / "dev-tooling" / "2026-02-02-stray"
+    stray.mkdir(parents=True)
+    (stray / "x.md").write_text("x")
+    r = run(["audit", "--json"])
+    assert r.exit_code == 1
+    assert "orphan" in _codes(r)
+    table = run(["audit"])
+    assert "orphan" in table.output and (
+        "doc adopt" in table.output or "orphan delete" in table.output
+    )
+
+
+def test_dead_reference_finding(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    (root / "docs" / "topics" / "dev-tooling" / SLUG / f"{SLUG}.md").unlink()
+    r = run(["audit", "--json"])
+    assert r.exit_code == 1
+    assert "dead-reference" in _codes(r)
+    assert "format delete" in run(["audit"]).output
+
+
+def test_malformed_entry_findings(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    raw = _raw(root)
+    raw["documents"][0]["kind"] = "made-up"
+    raw["documents"][0]["added"] = "1999-01-01"
+    del raw["documents"][0]["description"]
+    _write_raw(root, raw)
+    r = run(["audit", "--json"])
+    assert r.exit_code == 1
+    codes = _codes(r)
+    assert {"unknown-kind", "added-slug-mismatch", "missing-field"} <= codes
+
+
+def test_schema_findings(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    raw = _raw(root)
+    del raw["schema_version"]
+    _write_raw(root, raw)
+    r = run(["audit", "--json"])
+    assert "schema-old" in _codes(r)
+    assert "migrate" in run(["audit"]).output
+    raw = _raw(root)
+    raw["schema_version"] = 99
+    _write_raw(root, raw)
+    assert "schema-newer" in _codes(run(["audit", "--json"]))
+
+
+def test_index_and_config_findings(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    (root / "index.html").unlink()
+    r = run(["audit", "--json"])
+    assert "index-missing" in _codes(r)
+    assert run(["regen"]).exit_code == 0
+    raw = _raw(root)
+    raw["topics"].append("hand-added")
+    _write_raw(root, raw)
+    r = run(["audit", "--json"])
+    assert "index-stale" in _codes(r)
+    assert "regen" in run(["audit"]).output
+    from shelf.core.config import default_config_path
+
+    default_config_path().unlink()
+    assert "config-missing" in _codes(run(["audit", "--json"]))
+
+
+def test_template_change_makes_index_stale(isolated_env, tmp_path, monkeypatch):
+    _seeded(tmp_path)
+    import shelf.core.index as index_mod
+
+    monkeypatch.setattr(
+        index_mod, "template_text", lambda: "<html>$fingerprint v2 $doc_count</html>"
+    )
+    r = run(["audit", "--json"])
+    assert r.exit_code == 1
+    assert "index-stale" in _codes(r)
+    assert run(["regen"]).exit_code == 0
+    assert run(["audit"]).exit_code == 0  # fresh under the new template
+
+
+def _git(root, *args):
+    import os
+
+    env = dict(os.environ, GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_NOSYSTEM="1")
+    subprocess.run(["git", *args], cwd=root, check=True, env=env)
+
+
+def test_git_dirty_finding_and_pre_commit_skip(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init")
+    assert run(["audit"]).exit_code == 0  # committed clean library
+    assert run(["topic", "add", "makes-dirty"]).exit_code == 0
+    r = run(["audit", "--json"])
+    assert r.exit_code == 1
+    assert "git-dirty" in _codes(r)
+    r = run(["audit", "--pre-commit", "--json"])
+    assert r.exit_code == 0, r.output
+    assert "git-dirty" not in _codes(r)
+
+
+def test_audit_blocks_on_lock_no_false_stale(isolated_env, tmp_path):
+    """TS03: audit snapshots under the lock; a mid-transaction state is never observed."""
+    root = _seeded(tmp_path)
+    from shelf.core.atomic import library_lock
+    from shelf.core.catalog import load_catalog
+
+    results = {}
+    attempting = threading.Event()
+    import shelf.core.audit as audit_mod
+
+    real_lock = audit_mod.library_lock
+
+    def signaling_lock(*args, **kwargs):
+        attempting.set()
+        return real_lock(*args, **kwargs)
+
+    def run_audit_thread():
+        results["audit"] = CliRunner().invoke(cli, ["audit"])
+
+    import unittest.mock
+
+    with unittest.mock.patch.object(audit_mod, "library_lock", signaling_lock), library_lock(root):
+        # simulate mid-transaction: catalog advanced, index not yet rewritten
+        catalog = load_catalog(root, for_write=True)
+        catalog.topics.append("mid-transaction")
+        from shelf.core.atomic import atomic_write_text
+        from shelf.core.catalog import dumps_catalog
+
+        atomic_write_text(root / "catalog.json", dumps_catalog(catalog))
+        t = threading.Thread(target=run_audit_thread)
+        t.start()
+        assert attempting.wait(2)  # audit has reached its lock acquisition
+        t.join(timeout=0.3)
+        assert t.is_alive()  # audit is blocked on the lock, not reading torn state
+        # finish the transaction before releasing
+        from shelf.core.index import render_index
+
+        atomic_write_text(root / "index.html", render_index(dumps_catalog(catalog)))
+    t.join(timeout=5)
+    assert not t.is_alive()
+    assert results["audit"].exit_code == 0, results["audit"].output

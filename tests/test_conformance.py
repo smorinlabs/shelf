@@ -63,6 +63,7 @@ def test_every_command_has_help():
 
 
 def test_stub_leaf_errors_cleanly():
-    r = run_shelf("audit")
+    # open is the last stub; P06 deletes this test when it becomes real
+    r = run_shelf("open")
     assert r.returncode == 1
     assert "not implemented" in r.stderr.lower()
