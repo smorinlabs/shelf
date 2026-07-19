@@ -185,6 +185,20 @@ def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> lis
                                 ),
                             )
                         )
+        for entry in sorted(docs_dir.iterdir()):
+            if entry.is_file():
+                findings.append(
+                    Finding(
+                        1,
+                        "orphan",
+                        str(entry.relative_to(root)),
+                        (
+                            "inspect with 'shelf orphan list'; "
+                            "adopt with 'shelf doc adopt' or "
+                            "delete with 'shelf orphan delete'"
+                        ),
+                    )
+                )
 
     if index_text is None:
         findings.append(Finding(4, "index-missing", "index.html", "regenerate with 'shelf regen'"))
