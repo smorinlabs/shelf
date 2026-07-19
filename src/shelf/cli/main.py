@@ -9,6 +9,7 @@ from shelf.cli import taxonomy
 from shelf.cli.doc_add import doc_add
 from shelf.cli.doc_adopt import doc_adopt
 from shelf.cli.doc_delete import doc_delete, orphan_delete, orphan_list
+from shelf.cli.doc_move import doc_move
 from shelf.cli.doc_update import doc_update
 from shelf.cli.doc_variants import format_add, format_delete
 from shelf.cli.library import init_cmd, migrate_cmd, path_cmd
@@ -72,8 +73,6 @@ orphan = _group(cli, "orphan", "Manage uncataloged files.")
 topic = _group(cli, "topic", "Manage topic buckets.")
 kind = _group(cli, "kind", "Manage kinds.")
 
-_stub(doc, "move", "Relocate a document.")
-
 topic.add_command(taxonomy.topic_add)
 topic.add_command(taxonomy.topic_list)
 kind.add_command(taxonomy.kind_add)
@@ -85,6 +84,7 @@ doc.add_command(doc_add)
 doc.add_command(doc_adopt)
 doc.add_command(doc_delete)
 doc.add_command(doc_delete, "rm")
+doc.add_command(doc_move)
 doc.add_command(doc_update)
 doc_format.add_command(format_add)
 doc_format.add_command(format_delete)
