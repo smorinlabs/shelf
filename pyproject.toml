@@ -1,6 +1,6 @@
 [project]
 name = "shelf"
-version = "0.2.0"
+version = "0.3.0"
 description = "A private documentation library and management CLI"
 readme = "README.md"
 authors = [
