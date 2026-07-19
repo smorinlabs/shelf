@@ -11,7 +11,9 @@ from shelf.core.paths import default_library_path, resolve_library
 
 
 def test_default_paths_follow_xdg(isolated_env):
-    assert default_config_path() == Path(os.environ["XDG_CONFIG_HOME"]) / "shelf" / "shelf_config.toml"
+    assert (
+        default_config_path() == Path(os.environ["XDG_CONFIG_HOME"]) / "shelf" / "shelf_config.toml"
+    )
     assert default_library_path() == Path(os.environ["XDG_DATA_HOME"]) / "shelf"
 
 
@@ -19,7 +21,7 @@ def test_config_round_trip_kebab_keys(tmp_path):
     path = tmp_path / "shelf_config.toml"
     save_config(path, ShelfConfig(library="/tmp/lib", server_port=9000))
     text = path.read_text()
-    assert 'server-port = 9000' in text
+    assert "server-port = 9000" in text
     assert "server_port" not in text  # kebab keys on disk (R3.8)
     cfg = load_config(path)
     assert cfg.library == "/tmp/lib"

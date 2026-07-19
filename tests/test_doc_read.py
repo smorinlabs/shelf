@@ -21,19 +21,56 @@ def _seed():
         cat = load_catalog(root, for_write=True)
         cat.topics = ["dev-tooling", "claude-code"]
         cat.documents = [
-            Document(id="2026-01-01-uv-notes", title="UV Notes", description="python packaging",
-                     kind="reference", tags=["python", "uv"], category="dev-tooling",
-                     files=[FileVariant(format="md", path="docs/topics/dev-tooling/2026-01-01-uv-notes/2026-01-01-uv-notes.md")],
-                     primary="md", added="2026-01-01"),
-            Document(id="2026-02-01-flox-prd", title="Flox PRD", description="cli extensions",
-                     kind="spec", tags=["rust"],
-                     repo=RepoRef(name="flox-cli", url="https://github.com/flox/flox", subject="cli-extensions"),
-                     files=[FileVariant(format="md", path="docs/repos/flox-cli/2026-02-01-flox-prd/2026-02-01-flox-prd.md")],
-                     primary="md", added="2026-02-01"),
-            Document(id="2026-03-01-hooks-guide", title="Hooks Guide", description="claude hooks",
-                     kind="tutorial", tags=["claude-code"], category="claude-code",
-                     files=[FileVariant(format="md", path="docs/topics/claude-code/2026-03-01-hooks-guide/2026-03-01-hooks-guide.md")],
-                     primary="md", added="2026-03-01"),
+            Document(
+                id="2026-01-01-uv-notes",
+                title="UV Notes",
+                description="python packaging",
+                kind="reference",
+                tags=["python", "uv"],
+                category="dev-tooling",
+                files=[
+                    FileVariant(
+                        format="md",
+                        path="docs/topics/dev-tooling/2026-01-01-uv-notes/2026-01-01-uv-notes.md",
+                    )
+                ],
+                primary="md",
+                added="2026-01-01",
+            ),
+            Document(
+                id="2026-02-01-flox-prd",
+                title="Flox PRD",
+                description="cli extensions",
+                kind="spec",
+                tags=["rust"],
+                repo=RepoRef(
+                    name="flox-cli", url="https://github.com/flox/flox", subject="cli-extensions"
+                ),
+                files=[
+                    FileVariant(
+                        format="md",
+                        path="docs/repos/flox-cli/2026-02-01-flox-prd/2026-02-01-flox-prd.md",
+                    )
+                ],
+                primary="md",
+                added="2026-02-01",
+            ),
+            Document(
+                id="2026-03-01-hooks-guide",
+                title="Hooks Guide",
+                description="claude hooks",
+                kind="tutorial",
+                tags=["claude-code"],
+                category="claude-code",
+                files=[
+                    FileVariant(
+                        format="md",
+                        path="docs/topics/claude-code/2026-03-01-hooks-guide/2026-03-01-hooks-guide.md",
+                    )
+                ],
+                primary="md",
+                added="2026-03-01",
+            ),
         ]
         commit_library(root, cat)
     return root
@@ -83,7 +120,9 @@ def test_list_json_equals_o_json(isolated_env):
     assert a.output == b.output
     docs = json.loads(a.output)
     assert {d["id"] for d in docs} == {
-        "2026-01-01-uv-notes", "2026-02-01-flox-prd", "2026-03-01-hooks-guide"
+        "2026-01-01-uv-notes",
+        "2026-02-01-flox-prd",
+        "2026-03-01-hooks-guide",
     }
 
 

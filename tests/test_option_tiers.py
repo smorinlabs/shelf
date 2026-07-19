@@ -1,7 +1,5 @@
 """P02-T08 + TS01 (CLI level) — global core options and shelf path."""
 
-from pathlib import Path
-
 from click.testing import CliRunner
 
 from shelf.cli.main import cli

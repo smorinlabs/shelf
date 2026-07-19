@@ -2,7 +2,6 @@
 
 import json
 import re
-from pathlib import Path
 
 import click
 import pytest
@@ -15,7 +14,6 @@ from shelf.core.catalog import (
     FileVariant,
     RepoRef,
     commit_library,
-    dumps_catalog,
     load_catalog,
 )
 from shelf.core.errors import SchemaTooOldError
@@ -23,10 +21,17 @@ from shelf.core.errors import SchemaTooOldError
 
 def _doc(**over):
     base = dict(
-        id="2026-01-01-a", title="A", description="d", kind="spec",
-        tags=["t"], category="dev-tooling",
-        files=[FileVariant(format="md", path="docs/topics/dev-tooling/2026-01-01-a/2026-01-01-a.md")],
-        primary="md", added="2026-01-01",
+        id="2026-01-01-a",
+        title="A",
+        description="d",
+        kind="spec",
+        tags=["t"],
+        category="dev-tooling",
+        files=[
+            FileVariant(format="md", path="docs/topics/dev-tooling/2026-01-01-a/2026-01-01-a.md")
+        ],
+        primary="md",
+        added="2026-01-01",
     )
     base.update(over)
     return Document(**base)
@@ -118,6 +123,7 @@ def test_commit_point_ordering(tmp_path, monkeypatch):
     import shelf.core.catalog as cat_mod
 
     real = cat_mod.atomic_write_text
+
     def fail_on_index(path, text):
         if path.name == "index.html":
             raise OSError("injected index failure")
