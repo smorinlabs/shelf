@@ -59,3 +59,15 @@ def test_doc_rel_dir_both_anchors():
                     repo=RepoRef(name="flox"))
     assert doc_rel_dir(topical) == "docs/topics/dev-tooling/2026-01-01-a"
     assert doc_rel_dir(repo) == "docs/repos/flox/2026-01-01-b"
+
+
+def test_infer_repo_url_timeout_returns_none(monkeypatch, tmp_path):
+    import subprocess
+
+    from shelf.core import ingest
+
+    def hang(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="git", timeout=5)
+
+    monkeypatch.setattr(ingest.subprocess, "run", hang)
+    assert ingest.infer_repo_url(tmp_path / "x.md") is None
