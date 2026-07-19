@@ -4,6 +4,7 @@ from importlib.metadata import version
 
 import click
 
+from shelf.cli import taxonomy
 from shelf.cli.library import init_cmd, path_cmd
 
 _VERSION = version("shelf")
@@ -88,17 +89,10 @@ for _name, _help in [
 ]:
     _stub(orphan, _name, _help)
 
-for _name, _help in [
-    ("add", "Add a topic."),
-    ("list", "List topics."),
-]:
-    _stub(topic, _name, _help)
-
-for _name, _help in [
-    ("add", "Add a kind."),
-    ("list", "List kinds."),
-]:
-    _stub(kind, _name, _help)
+topic.add_command(taxonomy.topic_add)
+topic.add_command(taxonomy.topic_list)
+kind.add_command(taxonomy.kind_add)
+kind.add_command(taxonomy.kind_list)
 
 for _name, _help in [
     ("audit", "Run the library consistency check."),
