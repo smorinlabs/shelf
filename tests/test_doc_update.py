@@ -158,3 +158,19 @@ def test_dry_run_shows_diff_changes_nothing(isolated_env, tmp_path):
     assert r.exit_code == 0
     assert "title: UV Notes -> Changed" in r.output
     assert (root / "catalog.json").read_text() == before
+
+
+def test_dry_run_shows_tag_diff(isolated_env, tmp_path):
+    root = _seed_topical(tmp_path)
+    before = (root / "catalog.json").read_text()
+    r = run(["doc", "update", SLUG, "--add-tag", "foo", "--dry-run"])
+    assert r.exit_code == 0
+    assert "tags" in r.output and "foo" in r.output
+    assert (root / "catalog.json").read_text() == before
+
+
+def test_tag_change_echoes_diff(isolated_env, tmp_path):
+    _seed_topical(tmp_path)
+    r = run(["doc", "update", SLUG, "--add-tag", "bar"])
+    assert r.exit_code == 0
+    assert "tags" in r.output and "bar" in r.output
