@@ -6,7 +6,7 @@ import click
 
 from shelf.cli import docs as doc_cmds
 from shelf.cli import taxonomy
-from shelf.cli.library import init_cmd, path_cmd
+from shelf.cli.library import init_cmd, migrate_cmd, path_cmd
 
 _VERSION = version("shelf")
 
@@ -100,9 +100,9 @@ for _name, _help in [
     ("audit", "Run the library consistency check."),
     ("open", "Open the UI."),
     ("regen", "Regenerate index.html from the catalog."),
-    ("migrate", "Migrate the catalog to the current schema version."),
 ]:
     _stub(cli, _name, _help)
 
 cli.add_command(init_cmd)
+cli.add_command(migrate_cmd)
 cli.add_command(path_cmd)

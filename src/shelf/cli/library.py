@@ -1,14 +1,23 @@
 """Library-level commands: path (this task); init/adopt and migrate follow."""
 
+import json
 from pathlib import Path
 
 import click
 
 from shelf.cli.runtime import active_config_path, get_config, get_library
 from shelf.core.atomic import library_lock
-from shelf.core.catalog import CATALOG_FILENAME, SEED_KINDS, Catalog, commit_library, load_catalog
+from shelf.core.catalog import (
+    CATALOG_FILENAME,
+    CURRENT_SCHEMA_VERSION,
+    SEED_KINDS,
+    Catalog,
+    commit_library,
+    load_catalog,
+)
 from shelf.core.config import save_config
 from shelf.core.errors import ConflictError
+from shelf.core.migrations import MIGRATIONS
 from shelf.core.paths import default_library_path
 
 README_TEXT = "# shelf library\n\nManaged by the `shelf` CLI — do not edit catalog.json by hand.\n"
@@ -84,3 +93,41 @@ def path_cmd(ctx: click.Context, which: str | None) -> None:
         return
     root = get_library(ctx)
     click.echo(root / "index.html" if which == "index" else root)
+
+
+@click.command("migrate")
+@click.option("--dry-run", is_flag=True, help="Report the migration without applying it.")
+@click.option("--json", "json_", is_flag=True, help="Machine-readable report.")
+@click.pass_context
+def migrate_cmd(ctx: click.Context, dry_run: bool, json_: bool) -> None:
+    """Migrate the catalog to the current schema version."""
+    root = get_library(ctx)
+    with library_lock(root):
+        raw = json.loads((root / CATALOG_FILENAME).read_text(encoding="utf-8"))
+        found = raw.get("schema_version", 0)
+        if found > CURRENT_SCHEMA_VERSION:
+            raise click.ClickException(
+                f"catalog schema_version {found} is newer than this shelf understands "
+                "— upgrade shelf"
+            )
+        report = {"from": found, "to": CURRENT_SCHEMA_VERSION}
+        if found == CURRENT_SCHEMA_VERSION:
+            click.echo(
+                json.dumps(report) if json_ else "catalog is already at the current schema version"
+            )
+            return
+        if dry_run:
+            click.echo(
+                json.dumps(report)
+                if json_
+                else f"would migrate schema_version {found} -> {CURRENT_SCHEMA_VERSION}"
+            )
+            return
+        for step in range(found, CURRENT_SCHEMA_VERSION):
+            raw = MIGRATIONS[step](raw)
+        commit_library(root, Catalog.from_dict(raw))
+    click.echo(
+        json.dumps(report)
+        if json_
+        else f"migrated schema_version {found} -> {CURRENT_SCHEMA_VERSION}"
+    )
