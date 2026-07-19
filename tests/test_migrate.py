@@ -42,12 +42,12 @@ def test_old_schema_blocks_mutation_until_migrate(isolated_env):
 def test_migrate_sets_current_version_and_regenerates_index(isolated_env):
     run(["init"])
     root = _downgrade_to_v0()
-    before = (root / "index.html").read_text()
+    (root / "index.html").unlink()  # migrate must regenerate the index
     r = run(["migrate"])
     assert r.exit_code == 0
     raw = json.loads((root / "catalog.json").read_text())
     assert raw["schema_version"] == 1
-    assert (root / "index.html").read_text() != before
+    assert "shelf:fingerprint" in (root / "index.html").read_text()
 
 
 def test_migrate_dry_run_changes_nothing(isolated_env):
