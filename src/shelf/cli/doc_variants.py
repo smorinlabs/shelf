@@ -7,7 +7,14 @@ import click
 
 from shelf.cli.runtime import get_config, get_library
 from shelf.core.atomic import library_lock
-from shelf.core.catalog import Catalog, Document, FileVariant, commit_library, load_catalog
+from shelf.core.catalog import (
+    CATALOG_FILENAME,
+    Catalog,
+    Document,
+    FileVariant,
+    commit_library,
+    load_catalog,
+)
 from shelf.core.errors import ConflictError, NotFoundError
 from shelf.core.ingest import doc_rel_dir, infer_format
 
@@ -52,6 +59,7 @@ def format_add(ctx, doc_id, files, assets_, format_, replace, primary_, source_,
         rel_dir = doc_rel_dir(doc)
         dest = root / rel_dir
         created: list[Path] = []
+        before_text: str | None = None
         try:
             for p, fmt in zip(paths, new_formats, strict=True):
                 target = dest / f"{doc.id}.{fmt}"
@@ -72,16 +80,14 @@ def format_add(ctx, doc_id, files, assets_, format_, replace, primary_, source_,
                 doc.files = [f for f in doc.files if f.format != fmt] + [variant]
             if primary_ is not None:
                 doc.primary = primary_
+            before_text = (root / CATALOG_FILENAME).read_text()
             commit_library(root, catalog)
         except BaseException:
             try:
-                committed_doc = next(
-                    (d for d in load_catalog(root).documents if d.id == doc_id), None
+                committed = (
+                    before_text is not None and (root / CATALOG_FILENAME).read_text() != before_text
                 )
-                committed = committed_doc is not None and set(new_formats).issubset(
-                    {f.format for f in committed_doc.files}
-                )
-            except Exception:
+            except OSError:
                 committed = False
             if not committed:
                 for target in reversed(created):

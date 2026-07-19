@@ -8,7 +8,14 @@ import click
 
 from shelf.cli.runtime import get_config, get_library
 from shelf.core.atomic import library_lock
-from shelf.core.catalog import Document, FileVariant, RepoRef, commit_library, load_catalog
+from shelf.core.catalog import (
+    CATALOG_FILENAME,
+    Document,
+    FileVariant,
+    RepoRef,
+    commit_library,
+    load_catalog,
+)
 from shelf.core.errors import ConflictError
 from shelf.core.ingest import doc_rel_dir, infer_format, infer_repo_url, pick_primary
 from shelf.core.slugs import derive_slug
@@ -128,6 +135,7 @@ def doc_add(
             return
 
         dest.mkdir(parents=True)
+        before_text: str | None = None
         try:
             for p, fmt in zip(paths, formats, strict=True):
                 shutil.copy2(p, dest / f"{slug}.{fmt}")
@@ -138,11 +146,14 @@ def doc_add(
                 else:
                     shutil.copy2(ap, dest / ap.name)
             catalog.documents.append(doc)
+            before_text = (root / CATALOG_FILENAME).read_text()
             commit_library(root, catalog)
         except BaseException:
             try:
-                committed = any(d.id == slug for d in load_catalog(root).documents)
-            except Exception:
+                committed = (
+                    before_text is not None and (root / CATALOG_FILENAME).read_text() != before_text
+                )
+            except OSError:
                 committed = False
             if not committed:
                 shutil.rmtree(dest, ignore_errors=True)
