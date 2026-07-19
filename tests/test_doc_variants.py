@@ -115,3 +115,15 @@ def test_format_delete_force_drops_dead_entry(isolated_env, tmp_path):
     r = run(["doc", "format", "delete", SLUG, "pdf", "--force"])
     assert r.exit_code == 0
     assert {f["format"] for f in _entry(root)["files"]} == {"md"}
+
+
+def test_format_delete_validates_primary_even_for_non_primary_deletion(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    pdf = tmp_path / "n.pdf"
+    pdf.write_text("%PDF")
+    assert run(["doc", "format", "add", SLUG, str(pdf), "--no-remove-source"]).exit_code == 0
+    r = run(["doc", "format", "delete", SLUG, "pdf", "--primary", "bogus"])
+    assert r.exit_code == 2, r.output
+    entry = _entry(root)
+    assert entry["primary"] == "md"  # untouched
+    assert {f["format"] for f in entry["files"]} == {"md", "pdf"}  # nothing deleted
