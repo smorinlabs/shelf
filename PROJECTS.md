@@ -33,21 +33,21 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P02-T08] Standard option tiers (§11 conventions): global core (`-V`, repeatable `-v`, `--debug`, `--no-input`), `-o/--output table|json` with `--json` shorthand
 - [x] Regression Test Status — 61/61 passing at v0.2.0; `make check` and `just all` (format+lint+ty+test) green; live CLI smoke verified
 
-## [ ] Project P03: Document lifecycle (v0.3.0)
+## [x] Project P03: Document lifecycle (v0.3.0)
 **Goal**: `shelf doc add`, `doc format add`, `doc format delete`, `doc delete` per PRD §11.2–.3, §11.13, §11.10 — slug derivation, validation order, copy+rename, rollback, source handling, orphan repairs (`doc adopt`, `orphan list|delete`, §11.15) — with a placeholder index template so the atomic regen contract holds from the start.
 
 ### Tests & Tasks
-- [ ] [P03-TS01] Slug derivation: date prefix, kebab truncation ~60 chars, same-day collision rejected, `--slug` override (§7)
-- [ ] [P03-TS02] `shelf doc add` validation order and rollback: failure at each stage leaves library untouched (§11.2)
-- [ ] [P03-TS03] Source handling: `remove-source` default, `--remove-source`/`--no-remove-source`, removal only after full success
-- [ ] [P03-T01] `shelf doc add` — anchoring (repo/topic, `--create-topic`), format inference, `--assets`, copy+rename to `<slug>.<ext>`
-- [ ] [P03-T02] `shelf doc format add` — `--replace`, `--primary`, folder never moves (§11.3)
-- [ ] [P03-TS04] `doc format delete` rules: last-variant refusal, primary reassignment, `--force` dead-entry drop; `doc delete` TTY prompt / `--yes`
-- [ ] [P03-T03] `shelf doc delete` (alias `rm`) — entry + folder deletion, `--dry-run`, TTY prompt / `--yes` (§11.10)
-- [ ] [P03-T05] `shelf doc format delete` (§11.13)
-- [ ] [P03-T06] `shelf doc adopt` + `shelf orphan list|delete` (§11.15)
-- [ ] [P03-T04] Index regeneration already wired via commit_library (landed in P02); extend the placeholder template only as needed
-- [ ] Regression Test Status
+- [x] [P03-TS01] Slug derivation: date prefix, kebab truncation ~60 chars, same-day collision rejected, `--slug` override (§7)
+- [x] [P03-TS02] `shelf doc add` validation order and rollback: failure at each stage leaves library untouched (§11.2)
+- [x] [P03-TS03] Source handling: `remove-source` default, `--remove-source`/`--no-remove-source`, removal only after full success
+- [x] [P03-T01] `shelf doc add` — anchoring (repo/topic, `--create-topic`), format inference, `--assets`, copy+rename to `<slug>.<ext>`
+- [x] [P03-T02] `shelf doc format add` — `--replace`, `--primary`, folder never moves (§11.3)
+- [x] [P03-TS04] `doc format delete` rules: last-variant refusal, primary reassignment, `--force` dead-entry drop; `doc delete` TTY prompt / `--yes`
+- [x] [P03-T03] `shelf doc delete` (alias `rm`) — entry + folder deletion, `--dry-run`, TTY prompt / `--yes` (§11.10)
+- [x] [P03-T05] `shelf doc format delete` (§11.13)
+- [x] [P03-T06] `shelf doc adopt` + `shelf orphan list|delete` (§11.15)
+- [x] [P03-T04] Index regeneration already wired via commit_library (landed in P02); extend the placeholder template only as needed
+- [x] Regression Test Status — 121/121 passing at v0.3.0 incl. 12-test opus crash-injection suite; `make check` and `just all` green; live lifecycle smoke verified
 
 ## [ ] Project P04: Edit and move (v0.4.0)
 **Goal**: `shelf doc update` (pure catalog rewrites, `--force`-gated fields) and `shelf doc move` (the three relocations with `files[]` path rewrites) per PRD §11.4–.5.
