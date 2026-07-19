@@ -15,23 +15,23 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P01-T03] Justfile (`all`: format, lint, typecheck, test) and Makefile (`check`: dependency preflight)
 - [x] Regression Test Status — 9/9 passing (smoke + conformance) at v0.1.0; `make check` and `just all` green
 
-## [ ] Project P02: Config and catalog core (v0.2.0)
+## [x] Project P02: Config and catalog core (v0.2.0)
 **Goal**: Location resolution (PRD §4), `shelf_config.toml` read/write (kebab keys), catalog model with `schema_version`, atomic save with `.shelf.lock`, standard option tiers, and the read surface — `init` (no git) with `--adopt`, `migrate`, `topic`/`kind` add+list, `path`, `doc list`, `doc view`.
 
 ### Tests & Tasks
-- [ ] [P02-TS01] Resolution precedence matrix: `--library` > `SHELF_LIBRARY` > active config > unconfigured error (§4)
-- [ ] [P02-TS02] Atomic save: injected failure leaves catalog untouched; lock serializes concurrent writers (§5)
-- [ ] [P02-TS03] `shelf doc list` filter/query matrix (`--query` over id/title/description/tags/subject, `--limit`, `--sort-by`) and `shelf doc view` output, `-o/--output` + `--json` shapes (§11.11)
-- [ ] [P02-TS04] Adopt/migrate matrix: valid clone adopts; unsupported schema refused; old schema blocks mutation until `migrate`; read commands stay read-compatible
-- [ ] [P02-T01] Config module: XDG paths, `shelf_config.toml` read/write, kebab keys (incl. `handoff-agent`)
-- [ ] [P02-T02] Catalog model: `schema_version` 1, topics/kinds/documents, validation (kind exists, topic exists)
-- [ ] [P02-T03] `shelf init` — scaffold library, seed six kinds, write config, `--force` (§11.1, git flags deferred to P07)
-- [ ] [P02-T04] `shelf topic add|list`, `shelf kind add|list`, `shelf path [config|index]`
-- [ ] [P02-T05] `shelf doc list` (alias `ls`) and `shelf doc view <id>`
-- [ ] [P02-T06] `shelf init --adopt` — validate + register an existing library (§11.1)
-- [ ] [P02-T07] `shelf migrate` + schema refusal rules (§11.14, §10)
-- [ ] [P02-T08] Standard option tiers (§11 conventions): global core (`-V`, repeatable `-v`, `--debug`, `--no-input`), `-o/--output table|json` with `--json` shorthand
-- [ ] Regression Test Status
+- [x] [P02-TS01] Resolution precedence matrix: `--library` > `SHELF_LIBRARY` > active config > unconfigured error (§4)
+- [x] [P02-TS02] Atomic save: injected failure leaves catalog untouched; lock serializes concurrent writers (§5)
+- [x] [P02-TS03] `shelf doc list` filter/query matrix (`--query` over id/title/description/tags/subject, `--limit`, `--sort-by`) and `shelf doc view` output, `-o/--output` + `--json` shapes (§11.11)
+- [x] [P02-TS04] Adopt/migrate matrix: valid clone adopts; unsupported schema refused; old schema blocks mutation until `migrate`; read commands stay read-compatible
+- [x] [P02-T01] Config module: XDG paths, `shelf_config.toml` read/write, kebab keys (incl. `handoff-agent`)
+- [x] [P02-T02] Catalog model: `schema_version` 1, topics/kinds/documents, validation (kind exists, topic exists)
+- [x] [P02-T03] `shelf init` — scaffold library, seed six kinds, write config, `--force` (§11.1, git flags deferred to P07)
+- [x] [P02-T04] `shelf topic add|list`, `shelf kind add|list`, `shelf path [config|index]`
+- [x] [P02-T05] `shelf doc list` (alias `ls`) and `shelf doc view <id>`
+- [x] [P02-T06] `shelf init --adopt` — validate + register an existing library (§11.1)
+- [x] [P02-T07] `shelf migrate` + schema refusal rules (§11.14, §10)
+- [x] [P02-T08] Standard option tiers (§11 conventions): global core (`-V`, repeatable `-v`, `--debug`, `--no-input`), `-o/--output table|json` with `--json` shorthand
+- [x] Regression Test Status — 61/61 passing at v0.2.0; `make check` and `just all` (format+lint+ty+test) green; live CLI smoke verified
 
 ## [ ] Project P03: Document lifecycle (v0.3.0)
 **Goal**: `shelf doc add`, `doc format add`, `doc format delete`, `doc delete` per PRD §11.2–.3, §11.13, §11.10 — slug derivation, validation order, copy+rename, rollback, source handling, orphan repairs (`doc adopt`, `orphan list|delete`, §11.15) — with a placeholder index template so the atomic regen contract holds from the start.
@@ -46,7 +46,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [ ] [P03-T03] `shelf doc delete` (alias `rm`) — entry + folder deletion, `--dry-run`, TTY prompt / `--yes` (§11.10)
 - [ ] [P03-T05] `shelf doc format delete` (§11.13)
 - [ ] [P03-T06] `shelf doc adopt` + `shelf orphan list|delete` (§11.15)
-- [ ] [P03-T04] Placeholder `index.html.tmpl` as package data + regeneration wired into every mutation
+- [ ] [P03-T04] Index regeneration already wired via commit_library (landed in P02); extend the placeholder template only as needed
 - [ ] Regression Test Status
 
 ## [ ] Project P04: Edit and move (v0.4.0)
