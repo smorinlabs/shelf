@@ -5,7 +5,7 @@ from pathlib import Path
 
 import click
 
-from shelf.core.catalog import Document
+from shelf.core.catalog import Catalog, Document
 
 FORMAT_MAP = {".md": "md", ".html": "html", ".htm": "html", ".pdf": "pdf"}
 PRIMARY_ORDER = ["md", "html", "pdf"]
@@ -45,3 +45,25 @@ def infer_repo_url(source: Path) -> str | None:
         return None
     url = out.stdout.strip()
     return url if out.returncode == 0 and url else None
+
+
+def scan_orphans(root: Path, catalog: Catalog) -> list[str]:
+    cataloged = {doc_rel_dir(d) for d in catalog.documents}
+    orphans: list[str] = []
+    docs_dir = root / "docs"
+    for bucket in ("repos", "topics"):
+        base = docs_dir / bucket
+        if not base.is_dir():
+            continue
+        for group in sorted(base.iterdir()):
+            if group.is_file():
+                orphans.append(str(group.relative_to(root)))
+                continue
+            for entry in sorted(group.iterdir()):
+                rel = str(entry.relative_to(root))
+                if rel not in cataloged:
+                    orphans.append(rel)
+    for entry in sorted(docs_dir.iterdir()):
+        if entry.is_file():
+            orphans.append(str(entry.relative_to(root)))
+    return sorted(orphans)

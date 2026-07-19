@@ -7,7 +7,8 @@ import click
 from shelf.cli import docs as doc_cmds
 from shelf.cli import taxonomy
 from shelf.cli.doc_add import doc_add
-from shelf.cli.doc_delete import doc_delete
+from shelf.cli.doc_adopt import doc_adopt
+from shelf.cli.doc_delete import doc_delete, orphan_delete, orphan_list
 from shelf.cli.doc_variants import format_add, format_delete
 from shelf.cli.library import init_cmd, migrate_cmd, path_cmd
 
@@ -73,15 +74,8 @@ kind = _group(cli, "kind", "Manage kinds.")
 for _name, _help in [
     ("update", "Change a document's metadata."),
     ("move", "Relocate a document."),
-    ("adopt", "Register an existing in-library folder."),
 ]:
     _stub(doc, _name, _help)
-
-for _name, _help in [
-    ("list", "List uncataloged files."),
-    ("delete", "Delete an uncataloged file."),
-]:
-    _stub(orphan, _name, _help)
 
 topic.add_command(taxonomy.topic_add)
 topic.add_command(taxonomy.topic_list)
@@ -91,10 +85,13 @@ doc.add_command(doc_cmds.doc_list)
 doc.add_command(doc_cmds.doc_list, "ls")
 doc.add_command(doc_cmds.doc_view)
 doc.add_command(doc_add)
+doc.add_command(doc_adopt)
 doc.add_command(doc_delete)
 doc.add_command(doc_delete, "rm")
 doc_format.add_command(format_add)
 doc_format.add_command(format_delete)
+orphan.add_command(orphan_list)
+orphan.add_command(orphan_delete)
 
 for _name, _help in [
     ("audit", "Run the library consistency check."),
