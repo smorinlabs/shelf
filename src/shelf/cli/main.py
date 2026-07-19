@@ -4,6 +4,7 @@ from importlib.metadata import version
 
 import click
 
+from shelf.cli import docs as doc_cmds
 from shelf.cli import taxonomy
 from shelf.cli.library import init_cmd, path_cmd
 
@@ -68,8 +69,6 @@ kind = _group(cli, "kind", "Manage kinds.")
 
 for _name, _help in [
     ("add", "Add a new document."),
-    ("list", "Filter and query documents."),
-    ("view", "Print one document in full."),
     ("update", "Change a document's metadata."),
     ("move", "Relocate a document."),
     ("delete", "Delete a document."),
@@ -93,6 +92,9 @@ topic.add_command(taxonomy.topic_add)
 topic.add_command(taxonomy.topic_list)
 kind.add_command(taxonomy.kind_add)
 kind.add_command(taxonomy.kind_list)
+doc.add_command(doc_cmds.doc_list)
+doc.add_command(doc_cmds.doc_list, "ls")
+doc.add_command(doc_cmds.doc_view)
 
 for _name, _help in [
     ("audit", "Run the library consistency check."),
