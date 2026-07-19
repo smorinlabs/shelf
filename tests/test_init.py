@@ -69,3 +69,15 @@ def test_adopt_and_force_are_mutually_exclusive(tmp_path):
     clone.mkdir()
     r = run(["init", "--adopt", str(clone), "--force"])
     assert r.exit_code == 2  # usage error
+
+
+def test_init_refuses_scaffold_over_existing_library_even_unconfigured(isolated_env):
+    """A wiped config must not let init silently overwrite an existing catalog."""
+    assert run(["init"]).exit_code == 0
+    root = default_library_path()
+    marker = (root / "catalog.json").read_text()
+    default_config_path().unlink()  # simulate config loss; library remains on disk
+    r = run(["init"])
+    assert r.exit_code == 5, r.output
+    assert "--force" in r.output or "--adopt" in r.output
+    assert (root / "catalog.json").read_text() == marker  # untouched
