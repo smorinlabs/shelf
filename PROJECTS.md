@@ -59,16 +59,16 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P04-T02] `shelf doc move` including relocation warning
 - [x] Regression Test Status — 147/147 passing at v0.4.0; witness double-fault hardening closes the P03 2b residual; `make check` and `just all` green; live update+move smoke verified
 
-## [ ] Project P05: Audit and regen (v0.5.0)
+## [x] Project P05: Audit and regen (v0.5.0)
 **Goal**: `shelf audit` — all five checks (orphans, dead references, malformed entries incl. added↔slug and old schema, fingerprint staleness, dirty git) with `--json`, `--pre-commit`, and the §11.6 remediation matrix — plus `shelf regen` and the catalog+template fingerprint (PRD §11.6, §11.12).
 
 ### Tests & Tasks
-- [ ] [P05-TS01] One failing fixture per audit check; clean library passes; exit codes correct
-- [ ] [P05-TS02] Fingerprint: mutation → fresh; hand-edited catalog → stale; template change → stale; `shelf regen` → fresh again
-- [ ] [P05-TS03] Audit snapshots under the lock — no false stale finding during a concurrent mutation
-- [ ] [P05-T01] `shelf audit` with `--json` report, `--pre-commit` mode, and per-finding remediations (§11.6 matrix)
-- [ ] [P05-T02] `shelf regen` (§11.12)
-- [ ] Regression Test Status
+- [x] [P05-TS01] One failing fixture per audit check; clean library passes; exit codes correct
+- [x] [P05-TS02] Fingerprint: mutation → fresh; hand-edited catalog → stale; template change → stale; `shelf regen` → fresh again
+- [x] [P05-TS03] Audit snapshots under the lock — no false stale finding during a concurrent mutation
+- [x] [P05-T01] `shelf audit` with `--json` report, `--pre-commit` mode, and per-finding remediations (§11.6 matrix)
+- [x] [P05-T02] `shelf regen` (§11.12)
+- [x] Regression Test Status — 166/166 passing at v0.5.0; `make check` and `just all` green (unpiped); live break-and-remediate smoke verified across orphan and stale-index findings
 
 ## [ ] Project P06: The UI (v0.6.0)
 **Goal**: The real `index.html.tmpl` — search over name/description/tags, subject grouping with kind badges and the kind-view toggle, copy-path in core mode — then the local server and enhanced mode via `shelf open` (PRD §13, §11.7).
