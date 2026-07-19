@@ -6,6 +6,7 @@ import click
 
 from shelf.cli import docs as doc_cmds
 from shelf.cli import taxonomy
+from shelf.cli.audit_cmd import audit_cmd
 from shelf.cli.doc_add import doc_add
 from shelf.cli.doc_adopt import doc_adopt
 from shelf.cli.doc_delete import doc_delete, orphan_delete, orphan_list
@@ -91,12 +92,9 @@ doc_format.add_command(format_delete)
 orphan.add_command(orphan_list)
 orphan.add_command(orphan_delete)
 
-for _name, _help in [
-    ("audit", "Run the library consistency check."),
-    ("open", "Open the UI."),
-]:
-    _stub(cli, _name, _help)
+_stub(cli, "open", "Open the UI.")
 
+cli.add_command(audit_cmd)
 cli.add_command(init_cmd)
 cli.add_command(migrate_cmd)
 cli.add_command(path_cmd)

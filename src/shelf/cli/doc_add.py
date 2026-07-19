@@ -106,6 +106,8 @@ def doc_add(
 
         added = datetime.date.today().isoformat()
         slug = derive_slug(title, added, slug_)
+        if slug_ and len(slug) >= 10 and slug[4] == "-" and slug[7] == "-":
+            added = slug[:10]
         if any(d.id == slug for d in catalog.documents):
             raise ConflictError(
                 f"slug '{slug}' already exists — use --slug or 'shelf doc format add'"
