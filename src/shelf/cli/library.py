@@ -6,7 +6,7 @@ from pathlib import Path
 import click
 
 from shelf.cli.runtime import active_config_path, get_config, get_library
-from shelf.core.atomic import library_lock
+from shelf.core.atomic import atomic_write_text, library_lock
 from shelf.core.catalog import (
     CATALOG_FILENAME,
     CURRENT_SCHEMA_VERSION,
@@ -17,6 +17,7 @@ from shelf.core.catalog import (
 )
 from shelf.core.config import save_config
 from shelf.core.errors import ConflictError
+from shelf.core.index import render_index
 from shelf.core.migrations import MIGRATIONS
 from shelf.core.paths import default_library_path
 
@@ -93,6 +94,26 @@ def path_cmd(ctx: click.Context, which: str | None) -> None:
         return
     root = get_library(ctx)
     click.echo(root / "index.html" if which == "index" else root)
+
+
+@click.command("regen")
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def regen_cmd(ctx: click.Context, dry_run: bool) -> None:
+    """Regenerate index.html from the current catalog and installed template."""
+    root = get_library(ctx)
+    with library_lock(root):
+        catalog_text = (root / CATALOG_FILENAME).read_text(encoding="utf-8")
+        raw = json.loads(catalog_text)
+        if raw.get("schema_version", 0) > CURRENT_SCHEMA_VERSION:
+            raise click.ClickException(
+                "catalog schema_version is newer than this shelf understands — upgrade shelf"
+            )
+        if dry_run:
+            click.echo("would regenerate index.html")
+            return
+        atomic_write_text(root / "index.html", render_index(catalog_text))
+    click.echo("regenerated index.html")
 
 
 @click.command("migrate")

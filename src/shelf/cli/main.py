@@ -12,7 +12,7 @@ from shelf.cli.doc_delete import doc_delete, orphan_delete, orphan_list
 from shelf.cli.doc_move import doc_move
 from shelf.cli.doc_update import doc_update
 from shelf.cli.doc_variants import format_add, format_delete
-from shelf.cli.library import init_cmd, migrate_cmd, path_cmd
+from shelf.cli.library import init_cmd, migrate_cmd, path_cmd, regen_cmd
 
 _VERSION = version("shelf")
 
@@ -94,10 +94,10 @@ orphan.add_command(orphan_delete)
 for _name, _help in [
     ("audit", "Run the library consistency check."),
     ("open", "Open the UI."),
-    ("regen", "Regenerate index.html from the catalog."),
 ]:
     _stub(cli, _name, _help)
 
 cli.add_command(init_cmd)
 cli.add_command(migrate_cmd)
 cli.add_command(path_cmd)
+cli.add_command(regen_cmd)
