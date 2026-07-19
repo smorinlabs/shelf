@@ -319,3 +319,87 @@ def test_stale_lock_file_does_not_block_next_command(seeded, tmp_path):
     slug, _ = _add_doc(tmp_path)  # a full mutating command must succeed
     catalog = _library_invariant(root)
     assert any(d["id"] == slug for d in catalog["documents"])
+
+
+# --------------------------------------------------------------------------- #
+# Re-verification probes against the F1/F2 fix (commit 66b6332, committed-check).
+# --------------------------------------------------------------------------- #
+
+
+def test_add_catalog_promotion_crash_stays_old_and_rolls_back(seeded, monkeypatch):
+    """Probe of the fix's pre-commit direction: a crash INSIDE the catalog atomic
+    write (os.replace fails, so catalog.json stays the OLD version) is correctly read
+    by the committed-check as 'not committed' → the staged folder is rolled back and
+    the library is untouched. Confirms the on-disk-catalog check reads OLD == absent."""
+    root, src = seeded
+    before = (root / "catalog.json").read_text()
+
+    import shelf.core.atomic as atomic_mod
+
+    real_replace = atomic_mod.os.replace
+
+    def flaky_replace(tmp, path):
+        if str(path).endswith("catalog.json"):
+            raise OSError("crash before catalog promotion")
+        return real_replace(tmp, path)
+
+    monkeypatch.setattr(atomic_mod.os, "replace", flaky_replace)
+    r = run(["doc", "add", str(src), "--topic", "dev-tooling", *BASE, "--slug", "2026-09-09-probe"])
+    assert r.exit_code != 0
+
+    assert (root / "catalog.json").read_text() == before  # catalog stayed OLD
+    assert not (root / "docs" / "topics" / "dev-tooling" / "2026-09-09-probe").exists()
+    assert src.exists()
+    _library_invariant(root)
+    assert _orphans(root) == set()
+
+
+def test_format_add_replace_with_new_asset_precommit_leaks_residue(seeded, tmp_path, monkeypatch):
+    """FINDING #3 (RED): committed-check regression re-opens the F2 class for --replace.
+
+    `doc format add <id> <same-format> --replace --assets <new>` stages the new asset
+    into `created`, but the fix's committed-check tests
+    `new_formats ⊆ committed_doc.files` — which is TRUE even in the OLD (uncommitted)
+    catalog for --replace, since the format already existed. So a single pre-commit
+    catalog-write failure is MISREAD as 'committed', the `created` rollback is skipped,
+    and the new asset is left inside the cataloged folder — invisible to
+    `shelf orphan list` (§5c). Reachable via one realistic fault (unlike the load-in-
+    handler double-fault, which needs a valid-yet-unreadable catalog simultaneously).
+
+    Distinct from the accepted --replace edge (decision 2), which sanctions an
+    overwritten *variant file* under an unchanged catalog — not un-tracked assets.
+    """
+    root, _ = seeded
+    slug, folder = _add_doc(tmp_path)  # md-only document
+    before = (root / "catalog.json").read_text()
+
+    new_md = tmp_path / "new.md"
+    new_md.write_text("# UPDATED")
+    asset = tmp_path / "orphan-asset.png"
+    asset.write_text("PNGDATA")
+
+    _fail_nth_write(monkeypatch, None, 1)  # catalog write fails — single, pre-commit fault
+    r = run(
+        [
+            "doc",
+            "format",
+            "add",
+            slug,
+            str(new_md),
+            "--replace",
+            "--assets",
+            str(asset),
+            "--no-remove-source",
+        ]
+    )
+    assert r.exit_code != 0
+
+    assert (root / "catalog.json").read_text() == before  # catalog rolled back
+    _library_invariant(root)  # overwritten md still referenced & present (accepted edge)
+
+    leftover = folder / "orphan-asset.png"
+    rel = f"docs/topics/dev-tooling/{slug}/orphan-asset.png"
+    assert (not leftover.exists()) or (rel in _orphans(root)), (
+        "format add --replace left a new asset inside a cataloged folder — invisible "
+        "to orphan list and not rolled back (§5c; committed-check regression for --replace)"
+    )
