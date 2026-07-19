@@ -41,7 +41,7 @@ def infer_repo_url(source: Path) -> str | None:
             text=True,
             timeout=5,
         )
-    except OSError:
+    except (OSError, subprocess.SubprocessError):
         return None
     url = out.stdout.strip()
     return url if out.returncode == 0 and url else None
