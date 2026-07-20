@@ -13,7 +13,16 @@ def is_git_repo(root: Path) -> bool:
 
 def git_init(root: Path) -> None:
     """Initialize a quiet Git repository at *root*."""
-    subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+    try:
+        subprocess.run(
+            ["git", "-C", str(root), "init", "-q"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        detail = exc.stderr.strip() or "git exited with a non-zero status"
+        raise click.ClickException(f"git init failed: {detail}") from exc
 
 
 def git_commit_all(root: Path, message: str) -> None:
@@ -34,12 +43,16 @@ def git_commit_all(root: Path, message: str) -> None:
 
 def _gh(args: list[str]) -> str:
     """Run GitHub CLI arguments and return trimmed standard output."""
-    return subprocess.run(
-        ["gh", *args],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    try:
+        return subprocess.run(
+            ["gh", *args],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except subprocess.CalledProcessError as exc:
+        detail = exc.stderr.strip() or "gh exited with a non-zero status"
+        raise click.ClickException(f"gh {' '.join(args)} failed: {detail}") from exc
 
 
 def github_create_and_link(root: Path, owner: str, name: str = "shelf-library") -> str:
