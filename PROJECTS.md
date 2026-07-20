@@ -70,16 +70,16 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P05-T02] `shelf regen` (§11.12)
 - [x] Regression Test Status — 166/166 passing at v0.5.0; `make check` and `just all` green (unpiped); live break-and-remediate smoke verified across orphan and stale-index findings
 
-## [ ] Project P06: The UI (v0.6.0)
+## [x] Project P06: The UI (v0.6.0)
 **Goal**: The real `index.html.tmpl` — search over name/description/tags, subject grouping with kind badges and the kind-view toggle, copy-path in core mode — then the local server and enhanced mode via `shelf open` (PRD §13, §11.7).
 
 ### Tests & Tasks
-- [ ] [P06-TS01] Generated page embeds catalog metadata only; core-mode path resolution from `file://` location
-- [ ] [P06-TS02] Server binds 127.0.0.1, refuses paths outside library root, port fallback
-- [ ] [P06-T01] Template: search, grouping (category / repo+subject), kind badge + kind-view toggle, per-variant rows
-- [ ] [P06-T02] Server + enhanced mode: copy-contents, inline HTML rendering, absolute-root injection
-- [ ] [P06-T03] `shelf open` / `shelf open --static`
-- [ ] Regression Test Status
+- [x] [P06-TS01] Generated page embeds catalog metadata only; core-mode path resolution from `file://` location
+- [x] [P06-TS02] Server binds 127.0.0.1, refuses paths outside library root, port fallback
+- [x] [P06-T01] Template: search, grouping (category / repo+subject), kind badge + kind-view toggle, per-variant rows
+- [x] [P06-T02] Server + enhanced mode: copy-contents, inline HTML rendering, absolute-root injection
+- [x] [P06-T03] `shelf open` / `shelf open --static`
+- [x] Regression Test Status — 205/205 passing at v0.6.0; `make check` and `just all` green (unpiped); manual browser verification passed (enhanced mode live, core mode verified) with one gate finding found-and-fixed (fenced-code preview rendering)
 
 ## [ ] Project P07: Git and GitHub integration (v0.7.0)
 **Goal**: `--commit`/`--commit-message` plumbing across all mutating commands, and `shelf init --git` / `--github` / `--owner` (PRD §11 conventions, §11.1).
