@@ -58,8 +58,14 @@ def _gh(args: list[str]) -> str:
 def github_create_and_link(root: Path, owner: str, name: str = "shelf-library") -> str:
     """Create a private GitHub repository and add it as the local origin."""
     url = _gh(["repo", "create", f"{owner}/{name}", "--private"])
-    subprocess.run(
-        ["git", "-C", str(root), "remote", "add", "origin", url],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            ["git", "-C", str(root), "remote", "add", "origin", url],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        detail = exc.stderr.strip() or "git exited with a non-zero status"
+        raise click.ClickException(f"git remote add origin failed: {detail}") from exc
     return url
