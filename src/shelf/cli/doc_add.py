@@ -8,6 +8,7 @@ import click
 
 from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
 from shelf.cli.runtime import get_config, get_library
+from shelf.core import handoff
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import (
     CATALOG_FILENAME,
@@ -34,10 +35,23 @@ from shelf.core.slugs import derive_slug
 @click.option("--subject", default=None, help="Within-repo subject label.")
 @click.option("--topic", "topic_", default=None, help="Anchor to this topic.")
 @click.option("--create-topic", is_flag=True, help="Authorize creating an unknown topic.")
-@click.option("--kind", "kind_", required=True, help="Document kind (must exist).")
+@click.option("--kind", "kind_", default=None, help="Document kind (must exist).")
 @click.option("--tag", "tags_", multiple=True, help="Free-form tag (repeatable).")
-@click.option("--title", required=True)
-@click.option("--description", required=True)
+@click.option("--title", default=None)
+@click.option("--description", default=None)
+@click.option(
+    "--handoff-agent",
+    "handoff_agent",
+    default=None,
+    type=click.Choice(["claude", "codex"]),
+    help="Agent to hand off to when classification flags are missing (overrides config).",
+)
+@click.option(
+    "--no-handoff",
+    "no_handoff",
+    is_flag=True,
+    help="Suppress the handoff; missing flags become an error.",
+)
 @click.option("--slug", "slug_", default=None, help="Override the derived slug.")
 @click.option("--primary", "primary_", default=None, help="Primary format (default heuristic).")
 @click.option("--doc-date", default=None)
@@ -74,13 +88,33 @@ def doc_add(
     format_,
     remove_source_,
     dry_run,
+    handoff_agent,
+    no_handoff,
     commit,
     commit_message,
 ):
     """Add a new document."""
-    if (repo_ is None) == (topic_ is None):
-        raise click.UsageError("exactly one of --repo or --topic is required")
     paths = [Path(f).resolve() for f in files]
+    if repo_ is not None and topic_ is not None:
+        raise click.UsageError("--repo and --topic are mutually exclusive")
+
+    anchor_present = repo_ is not None or topic_ is not None
+    if not anchor_present or kind_ is None or title is None or description is None:
+        # Suppression first: --no-input always exits 2 even inside a session (PRD §5).
+        if no_handoff or ctx.obj.get("no_input", False):
+            raise click.UsageError(
+                "missing required classification flags "
+                "(--kind, --title, --description, and one of --repo/--topic)"
+            )
+        session = handoff.in_ai_session()
+        if session is not None:
+            raise click.ClickException(
+                f"already inside a {session} session — invoke the shelf-add skill "
+                "directly instead of nesting a handoff"
+            )
+        agent = handoff.resolve_agent(handoff_agent, get_config(ctx).handoff_agent)
+        handoff.run_handoff(agent, paths)
+        return  # unreachable: run_handoff execs
     formats = [infer_format(p, format_) for p in paths]
     if len(set(formats)) != len(formats):
         raise click.UsageError(
