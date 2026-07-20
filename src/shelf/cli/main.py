@@ -14,6 +14,7 @@ from shelf.cli.doc_move import doc_move
 from shelf.cli.doc_update import doc_update
 from shelf.cli.doc_variants import format_add, format_delete
 from shelf.cli.library import init_cmd, migrate_cmd, path_cmd, regen_cmd
+from shelf.cli.open_cmd import open_cmd
 
 _VERSION = version("shelf")
 
@@ -92,7 +93,7 @@ doc_format.add_command(format_delete)
 orphan.add_command(orphan_list)
 orphan.add_command(orphan_delete)
 
-_stub(cli, "open", "Open the UI.")
+cli.add_command(open_cmd)
 
 cli.add_command(audit_cmd)
 cli.add_command(init_cmd)
