@@ -101,7 +101,7 @@ def _markdown_blocks(escaped_text: str) -> list[str]:
                 fenced_lines.append(line)
             continue
 
-        if not fence_seen and line.strip() == "```":
+        if not fence_seen and line.strip().startswith("```"):
             flush_paragraph()
             flush_list()
             fence_seen = True
