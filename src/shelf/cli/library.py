@@ -7,6 +7,7 @@ import click
 
 from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
 from shelf.cli.runtime import active_config_path, get_config, get_library
+from shelf.core import git as git_core
 from shelf.core.atomic import atomic_write_text, library_lock
 from shelf.core.catalog import (
     CATALOG_FILENAME,
@@ -48,11 +49,24 @@ def validate_library(root: Path) -> None:
     help="Register an existing library instead of scaffolding.",
 )
 @click.option("--force", is_flag=True, help="Re-initialize over an existing configured library.")
+@click.option("--git", "git_", is_flag=True, help="Initialize the library as a Git repository.")
+@click.option(
+    "--github", is_flag=True, help="Create and link a private GitHub repository (implies --git)."
+)
+@click.option("--owner", metavar="<gh-owner>", help="GitHub owner for --github.")
 @click.pass_context
-def init_cmd(ctx: click.Context, library_: str | None, adopt_: str | None, force: bool) -> None:
+def init_cmd(
+    ctx: click.Context,
+    library_: str | None,
+    adopt_: str | None,
+    force: bool,
+    git_: bool,
+    github: bool,
+    owner: str | None,
+) -> None:
     """Create, adopt, and register a library."""
-    if adopt_ and force:
-        raise click.UsageError("--adopt and --force are mutually exclusive")
+    if adopt_ and (force or git_ or github):
+        raise click.UsageError("--adopt is mutually exclusive with --force, --git, and --github")
     cfg_path = active_config_path(ctx)
     cfg = get_config(ctx)
 
@@ -82,6 +96,15 @@ def init_cmd(ctx: click.Context, library_: str | None, adopt_: str | None, force
         commit_library(root, Catalog(kinds=list(SEED_KINDS)))
     if not (root / "README.md").is_file():
         (root / "README.md").write_text(README_TEXT, encoding="utf-8")
+    if git_ or github:
+        (root / "docs" / "repos" / ".gitkeep").write_text("", encoding="utf-8")
+        (root / "docs" / "topics" / ".gitkeep").write_text("", encoding="utf-8")
+        (root / ".gitignore").write_text(".shelf.lock\n", encoding="utf-8")
+        git_core.git_init(root)
+        git_core.git_commit_all(root, "shelf: init")
+    if github:
+        github_owner = owner or git_core._gh(["api", "user", "--jq", ".login"]).strip()
+        git_core.github_create_and_link(root, github_owner)
     cfg.library = str(root)
     save_config(cfg_path, cfg)
     click.echo(f"initialized library at {root}")
