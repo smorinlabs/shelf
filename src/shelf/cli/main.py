@@ -63,12 +63,6 @@ def _group(parent: click.Group, name: str, help_text: str) -> click.Group:
     return grp
 
 
-def _stub(parent: click.Group, name: str, help_text: str) -> None:
-    @parent.command(name, help=help_text)
-    def _cmd() -> None:
-        raise click.ClickException(f"'{name}' is not implemented yet")
-
-
 doc = _group(cli, "doc", "Manage documents.")
 doc_format = _group(doc, "format", "Manage a document's format variants.")
 orphan = _group(cli, "orphan", "Manage uncataloged files.")
