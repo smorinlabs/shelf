@@ -7,15 +7,15 @@ import subprocess
 import click
 import pytest
 from click.testing import CliRunner
+
 from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
+from shelf.core import git as git_core
 from shelf.core.git import (
     git_commit_all,
     git_init,
     github_create_and_link,
     is_git_repo,
 )
-
-from shelf.core import git as git_core
 
 
 @pytest.fixture(autouse=True)
