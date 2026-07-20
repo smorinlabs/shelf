@@ -155,3 +155,14 @@ def test_init_adopt_and_git_are_mutually_exclusive(tmp_path):
     target.mkdir()
     r = run(["init", "--adopt", str(target), "--git"])
     assert r.exit_code == 2  # usage error
+
+
+# --- B8: --owner requires --github -----------------------------------------
+
+
+def test_init_owner_without_github_is_usage_error(tmp_path):
+    """B8: `--owner` only means anything alongside `--github`; without it,
+    it's silently accepted today. Must be a usage error (exit 2)."""
+    root = tmp_path / "lib"
+    r = run(["init", "--library", str(root), "--owner", "acme"])
+    assert r.exit_code == 2

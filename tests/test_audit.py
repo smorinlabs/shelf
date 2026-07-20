@@ -254,3 +254,116 @@ def test_audit_git_inited_library_ignores_gitkeep(isolated_env, isolated_git_ide
     r = run(["audit"])
     assert r.exit_code == 0, r.output
     assert ".gitkeep" not in r.output
+
+
+# --- B2: dirty-git subprocess is unwrapped ---------------------------------
+
+
+def test_git_status_missing_binary_does_not_raw_traceback(
+    isolated_env, isolated_git_identity, tmp_path, monkeypatch
+):
+    """B2: the dirty-git check's subprocess call (audit.py, ~line 227-ish) is
+    fully unwrapped. A missing `git` binary must not raw-traceback out of
+    `shelf audit` — it must surface cleanly (ClickException/clean exit, or a
+    finding), never a bare FileNotFoundError."""
+    root = _seeded(tmp_path)
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init")
+
+    import shelf.core.audit as audit_mod
+
+    def fake_run(*args, **kwargs):
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(audit_mod.subprocess, "run", fake_run)
+
+    r = run(["audit"])
+    assert not isinstance(r.exception, FileNotFoundError)
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+# --- B4: audit must never raw-traceback on a malformed-but-parseable catalog
+
+
+def test_audit_never_crashes_on_string_schema_version(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    raw = _raw(root)
+    raw["schema_version"] = "1"
+    _write_raw(root, raw)
+    r = run(["audit"])
+    assert r.exit_code == 1, r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_audit_never_crashes_on_null_document(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    raw = _raw(root)
+    raw["documents"] = [None]
+    _write_raw(root, raw)
+    r = run(["audit"])
+    assert r.exit_code == 1, r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_audit_never_crashes_on_document_with_string_files(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    raw = _raw(root)
+    raw["documents"][0]["files"] = "oops"
+    _write_raw(root, raw)
+    r = run(["audit"])
+    assert r.exit_code == 1, r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+# --- B5: audit must flag a document with neither repo nor category --------
+
+
+def test_audit_flags_document_with_neither_repo_nor_category(isolated_env, tmp_path):
+    """B5: a structurally-malformed document with valid id/title/description/kind
+    but NEITHER repo NOR category (and no files) currently produces zero
+    findings naming it — audit never notices it has no anchor. Must be flagged.
+
+    Built directly (not via `doc add`/`_seeded`) so there is no on-disk folder
+    for this id — otherwise the docs/ orphan scan would flag the *folder* as
+    an orphan, masking the real bug: no check ever inspects this document for
+    missing repo/category.
+    """
+    assert run(["init"]).exit_code == 0
+    root = default_library_path()
+    doc_id = "2026-01-01-no-anchor-doc"
+    raw = _raw(root)
+    raw["documents"] = [
+        {
+            "id": doc_id,
+            "title": "No Anchor Doc",
+            "description": "d",
+            "kind": raw["kinds"][0],
+            "tags": [],
+            "files": [],
+        }
+    ]
+    _write_raw(root, raw)
+    r = run(["audit", "--json"])
+    assert r.exit_code == 1, r.output
+    findings = json.loads(r.output)
+    assert any(doc_id in f["detail"] for f in findings), findings
+
+
+# --- B6: a malformed shelf_config.toml must not raw-traceback -------------
+
+
+def test_audit_survives_malformed_config_toml(isolated_env, tmp_path):
+    """B6: garbage (non-TOML) content in the active shelf_config.toml must not
+    raw-traceback a TOMLDecodeError out of `shelf audit`, even when the
+    library is given explicitly via --library."""
+    root = _seeded(tmp_path)
+    from shelf.core.config import default_config_path
+
+    default_config_path().write_text("this is not [valid toml", encoding="utf-8")
+    r = run(["--library", str(root), "audit"])
+
+    import tomllib
+
+    assert not isinstance(r.exception, tomllib.TOMLDecodeError)
+    assert r.exception is None or isinstance(r.exception, SystemExit)

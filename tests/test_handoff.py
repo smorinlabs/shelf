@@ -77,3 +77,17 @@ def test_run_handoff_missing_binary_raises_clickexception(monkeypatch):
     monkeypatch.setattr(handoff.os, "execvp", boom)
     with pytest.raises(click.ClickException, match="not installed or not on PATH"):
         handoff.run_handoff("codex", [Path("/tmp/a.md")])
+
+
+def test_run_handoff_non_executable_binary_raises_clickexception(monkeypatch):
+    """B3: a present-but-non-executable agent makes os.execvp raise
+    PermissionError (an OSError subclass distinct from FileNotFoundError) —
+    _launch_handoff only wraps FileNotFoundError, so this currently escapes
+    uncaught."""
+
+    def boom(file, args):
+        raise PermissionError(file)
+
+    monkeypatch.setattr(handoff.os, "execvp", boom)
+    with pytest.raises(click.ClickException):
+        handoff.run_handoff("codex", [Path("/tmp/a.md")])

@@ -61,6 +61,19 @@ def test_git_init_raises_click_exception_on_failure(tmp_path, monkeypatch):
         git_init(tmp_path)
 
 
+def test_git_init_wraps_missing_binary(tmp_path, monkeypatch):
+    """B1: a missing `git` binary raises FileNotFoundError, not just
+    CalledProcessError — that must also surface as a ClickException."""
+
+    def fake_run(*args, **kwargs):
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(git_core.subprocess, "run", fake_run)
+
+    with pytest.raises(click.ClickException):
+        git_init(tmp_path)
+
+
 # --- git_commit_all --------------------------------------------------------
 
 
@@ -95,6 +108,20 @@ def test_git_commit_all_on_non_repo_raises_click_exception(tmp_path):
         git_commit_all(tmp_path, "shelf: doc add a")
 
 
+def test_git_commit_all_wraps_missing_binary(tmp_path, monkeypatch):
+    """B1: a missing `git` binary raises FileNotFoundError, not just
+    CalledProcessError — that must also surface as a ClickException."""
+    (tmp_path / "a.txt").write_text("hello\n")
+
+    def fake_run(*args, **kwargs):
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(git_core.subprocess, "run", fake_run)
+
+    with pytest.raises(click.ClickException):
+        git_commit_all(tmp_path, "shelf: doc add a")
+
+
 # --- _gh -----------------------------------------------------------------
 
 
@@ -105,6 +132,19 @@ def test_gh_raises_click_exception_on_failure(monkeypatch):
     monkeypatch.setattr(git_core.subprocess, "run", fake_run)
 
     with pytest.raises(click.ClickException, match="boom"):
+        git_core._gh(["repo", "create", "acme/shelf-library", "--private"])
+
+
+def test_gh_wraps_missing_binary(monkeypatch):
+    """B1: a missing `gh` binary raises FileNotFoundError, not just
+    CalledProcessError — that must also surface as a ClickException."""
+
+    def fake_run(*args, **kwargs):
+        raise FileNotFoundError("gh")
+
+    monkeypatch.setattr(git_core.subprocess, "run", fake_run)
+
+    with pytest.raises(click.ClickException):
         git_core._gh(["repo", "create", "acme/shelf-library", "--private"])
 
 
@@ -145,6 +185,28 @@ def test_github_create_and_link_surfaces_click_exception_when_remote_add_fails(
     monkeypatch.setattr(git_core.subprocess, "run", fake_run)
 
     with pytest.raises(click.ClickException, match="remote add boom"):
+        github_create_and_link(root, "acme", "shelf-library")
+
+
+def test_github_create_and_link_wraps_missing_git_binary(tmp_path, monkeypatch):
+    """B1: a missing `git` binary during the `git remote add` step raises
+    FileNotFoundError, not just CalledProcessError — that must also surface
+    as a ClickException. `_gh` is stubbed so only the remote-add step is hit."""
+    root = tmp_path / "lib"
+    root.mkdir()
+    init_repo_with_identity(root)
+
+    def fake_gh(args):
+        return "https://github.com/acme/shelf-library.git"
+
+    monkeypatch.setattr(git_core, "_gh", fake_gh)
+
+    def fake_run(*args, **kwargs):
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(git_core.subprocess, "run", fake_run)
+
+    with pytest.raises(click.ClickException):
         github_create_and_link(root, "acme", "shelf-library")
 
 

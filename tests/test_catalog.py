@@ -97,6 +97,18 @@ def test_newer_schema_refused(tmp_path):
         load_catalog(tmp_path)
 
 
+def test_non_int_schema_version_raises_click_exception_not_typeerror(tmp_path):
+    """B4: a JSON-parseable but structurally-malformed catalog (schema_version
+    a string) must raise click.ClickException, not a raw TypeError from the
+    `found > CURRENT_SCHEMA_VERSION` comparison."""
+    commit_library(tmp_path, _catalog())
+    raw = json.loads((tmp_path / CATALOG_FILENAME).read_text())
+    raw["schema_version"] = "1"
+    (tmp_path / CATALOG_FILENAME).write_text(json.dumps(raw))
+    with pytest.raises(click.ClickException):
+        load_catalog(tmp_path)
+
+
 def test_older_schema_read_ok_write_refused(tmp_path):
     commit_library(tmp_path, _catalog())
     raw = json.loads((tmp_path / CATALOG_FILENAME).read_text())
