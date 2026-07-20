@@ -70,6 +70,25 @@ class TestExtractSnippetMarkdown:
         assert "<tag>" not in html
         _assert_balanced_html(html)
 
+    def test_fenced_python_comment_lines_are_not_rendered_as_headings(self):
+        """Browser-gate finding: '#' comment lines inside a language-tagged
+        fence (```python) must render as verbatim code inside <pre>, not as
+        markdown headings."""
+        md = '```python\n# /// script\n# dependencies = ["rich"]\n# ///\n```'
+
+        html = extract_snippet(md, "md")
+
+        assert "<pre>" in html and "</pre>" in html
+        pre_content = html[html.index("<pre>") + len("<pre>") : html.index("</pre>")]
+
+        assert "# /// script" in pre_content
+        assert "# dependencies = [&quot;rich&quot;]" in pre_content
+        assert "# ///" in pre_content
+
+        assert "<h1>" not in html
+        assert "<h2>" not in html
+        assert "<h3>" not in html
+
     def test_script_tag_in_source_is_escaped_not_live(self):
         html = extract_snippet("Some <script>alert(1)</script> text here.", "md")
         assert "<script>" not in html
