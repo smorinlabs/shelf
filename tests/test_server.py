@@ -234,3 +234,35 @@ def test_absolute_path_traversal_never_escapes_root(running_server, tmp_path):
     status, body = _get(f"{base_url}{outside}")
     assert status in (403, 404)
     assert sentinel.encode() not in body
+
+
+# --- symlink escape --------------------------------------------------------------
+
+
+def test_symlink_escape_never_escapes_root(running_server, library_root, tmp_path):
+    server, port, base_url = running_server
+
+    outside_file = tmp_path / "outside-secret-symlink-target.txt"
+    file_sentinel = "TOP_SECRET_SYMLINK_FILE_CONTENT"
+    outside_file.write_text(file_sentinel, encoding="utf-8")
+
+    outside_dir = tmp_path / "outside-secret-symlink-dir"
+    outside_dir.mkdir()
+    dir_sentinel = "TOP_SECRET_SYMLINK_DIR_CONTENT"
+    (outside_dir / "inside.txt").write_text(dir_sentinel, encoding="utf-8")
+
+    file_symlink = library_root / "docs" / "escape-file-symlink.txt"
+    file_symlink.symlink_to(outside_file)
+
+    dir_symlink = library_root / "docs" / "escape-dir-symlink"
+    dir_symlink.symlink_to(outside_dir, target_is_directory=True)
+
+    file_rel = file_symlink.relative_to(library_root).as_posix()
+    status, body = _get(f"{base_url}/{file_rel}")
+    assert status in (403, 404)
+    assert file_sentinel.encode() not in body
+
+    dir_rel = dir_symlink.relative_to(library_root).as_posix()
+    status, body = _get(f"{base_url}/{dir_rel}/inside.txt")
+    assert status in (403, 404)
+    assert dir_sentinel.encode() not in body
