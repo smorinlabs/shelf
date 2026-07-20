@@ -12,6 +12,7 @@ import click
 from shelf.core.atomic import atomic_write_text
 from shelf.core.errors import SchemaTooOldError
 from shelf.core.index import render_index
+from shelf.core.preview import build_snippets
 
 CURRENT_SCHEMA_VERSION = 1
 CATALOG_FILENAME = "catalog.json"
@@ -147,6 +148,7 @@ def commit_library(root: Path, catalog: Catalog) -> None:
     catalog.validate()
     catalog.schema_version = CURRENT_SCHEMA_VERSION
     catalog_text = dumps_catalog(catalog)
-    index_text = render_index(catalog_text)
+    snips = build_snippets(root, [doc.to_dict() for doc in catalog.documents])
+    index_text = render_index(catalog_text, snips)
     atomic_write_text(root / CATALOG_FILENAME, catalog_text)
     atomic_write_text(root / "index.html", index_text)

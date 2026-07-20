@@ -20,6 +20,7 @@ from shelf.core.errors import ConflictError
 from shelf.core.index import render_index
 from shelf.core.migrations import MIGRATIONS
 from shelf.core.paths import default_library_path
+from shelf.core.preview import build_snippets
 
 README_TEXT = "# shelf library\n\nManaged by the `shelf` CLI — do not edit catalog.json by hand.\n"
 
@@ -112,7 +113,8 @@ def regen_cmd(ctx: click.Context, dry_run: bool) -> None:
         if dry_run:
             click.echo("would regenerate index.html")
             return
-        atomic_write_text(root / "index.html", render_index(catalog_text))
+        snips = build_snippets(root, raw.get("documents", []))
+        atomic_write_text(root / "index.html", render_index(catalog_text, snips))
     click.echo("regenerated index.html")
 
 
