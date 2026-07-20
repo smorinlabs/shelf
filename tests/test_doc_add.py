@@ -387,3 +387,60 @@ def test_dry_run_with_missing_flags_still_hands_off(isolated_env, tmp_path, monk
     r = run(["doc", "add", str(src), "--dry-run"])
     assert r.exit_code == 0
     assert fired == ["claude"]
+
+
+def test_empty_title_and_description_do_not_create_malformed_document(
+    isolated_env, tmp_path, monkeypatch
+):
+    """Data-safety regression: the handoff-trigger check only tests `title is None`
+    / `description is None`, not emptiness. `--title "" --description ""` sails
+    past it and derive_slug("", added) produces a bare 'YYYY-MM-DD-' slug — a
+    malformed document must never be silently committed.
+    """
+    fired = []
+    monkeypatch.setattr(handoff_mod, "run_handoff", lambda a, p: fired.append(a))
+    root = _init()
+    src = _src(tmp_path)
+    r = run(
+        [
+            "doc",
+            "add",
+            str(src),
+            "--topic",
+            "dev-tooling",
+            "--kind",
+            "reference",
+            "--title",
+            "",
+            "--description",
+            "",
+        ]
+    )
+    assert _catalog(root)["documents"] == []
+    assert fired == ["claude"] or r.exit_code != 0
+
+
+def test_whitespace_only_title_does_not_create_malformed_document(
+    isolated_env, tmp_path, monkeypatch
+):
+    fired = []
+    monkeypatch.setattr(handoff_mod, "run_handoff", lambda a, p: fired.append(a))
+    root = _init()
+    src = _src(tmp_path)
+    r = run(
+        [
+            "doc",
+            "add",
+            str(src),
+            "--topic",
+            "dev-tooling",
+            "--kind",
+            "reference",
+            "--title",
+            "   ",
+            "--description",
+            "d",
+        ]
+    )
+    assert _catalog(root)["documents"] == []
+    assert fired == ["claude"] or r.exit_code != 0

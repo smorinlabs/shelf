@@ -215,6 +215,31 @@ def test_orphan_delete_absolute_path_outside_library_is_usage_error(isolated_env
     assert not isinstance(r.exception, ValueError)
 
 
+def test_orphan_delete_dotdot_traversal_to_catalog_json_rejected(isolated_env):
+    """Data-safety regression: 'docs/../catalog.json' passes the naive
+    str(rel).startswith('docs/') check even though it resolves to catalog.json
+    once joined onto root — a relative ../-traversal must be rejected, not deleted.
+    """
+    root = _init()
+    before = (root / "catalog.json").read_text()
+    r = run(["orphan", "delete", "docs/../catalog.json", "--yes"])
+    assert r.exit_code != 0
+    assert (root / "catalog.json").exists()
+    assert (root / "catalog.json").read_text() == before
+
+
+def test_orphan_delete_dotdot_traversal_escaping_library_rejected(isolated_env):
+    """A relative ../../ path can escape the library root entirely — the victim
+    file living beside the library must survive."""
+    root = _init()
+    victim = root.parent / "victim.txt"
+    victim.write_text("precious")
+    r = run(["orphan", "delete", "docs/../../victim.txt", "--yes"])
+    assert r.exit_code != 0
+    assert victim.exists()
+    assert victim.read_text() == "precious"
+
+
 def test_scan_orphans_ignores_gitkeep_at_bucket_root(isolated_env):
     """P07 regression: `init --git` writes `.gitkeep` directly under docs/repos/ and
     docs/topics/ so git tracks the empty buckets — that's housekeeping, not an orphan.

@@ -178,3 +178,30 @@ def test_unreadable_witness_keeps_staged_data(isolated_env, tmp_path, monkeypatc
     assert r.exit_code != 0
     assert (root / "docs" / "topics" / "dev-tooling" / SLUG).is_dir()  # original kept
     assert (root / "docs" / "topics" / "claude-code" / SLUG).is_dir()  # staged copy KEPT
+
+
+def test_copytree_failure_leaves_no_partial_destination(isolated_env, tmp_path, monkeypatch):
+    """Data-safety regression: shutil.copytree() runs BEFORE the try/except that
+    guards commit_library(), so a failure inside copytree — even a partial one,
+    mid-copy — bypasses doc_move's rollback entirely. The library must not be
+    left with a half-copied destination folder.
+    """
+    from pathlib import Path
+
+    root = _seed_topical(tmp_path)
+    before = (root / "catalog.json").read_text()
+
+    import shelf.cli.doc_move as mod
+
+    def partial_copytree(src, dst, *a, **kw):
+        Path(dst).mkdir(parents=True, exist_ok=True)
+        (Path(dst) / "partial.txt").write_text("partial")
+        raise OSError("injected mid-copytree failure")
+
+    monkeypatch.setattr(mod.shutil, "copytree", partial_copytree)
+    r = run(["doc", "move", SLUG, "--topic", "claude-code"])
+    assert r.exit_code != 0
+
+    assert (root / "catalog.json").read_text() == before
+    assert (root / "docs" / "topics" / "dev-tooling" / SLUG).is_dir()  # original untouched
+    assert not (root / "docs" / "topics" / "claude-code" / SLUG).exists()  # no partial residue
