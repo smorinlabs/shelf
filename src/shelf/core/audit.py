@@ -157,6 +157,8 @@ def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> lis
                 continue
             for group in sorted(base.iterdir()):
                 if group.is_file():
+                    if group.name == ".gitkeep":
+                        continue
                     findings.append(
                         Finding(
                             1,
@@ -171,6 +173,8 @@ def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> lis
                     )
                     continue
                 for entry in sorted(group.iterdir()):
+                    if entry.is_file() and entry.name == ".gitkeep":
+                        continue
                     rel = str(entry.relative_to(root))
                     if rel not in cataloged_dirs:
                         findings.append(
@@ -187,6 +191,8 @@ def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> lis
                         )
         for entry in sorted(docs_dir.iterdir()):
             if entry.is_file():
+                if entry.name == ".gitkeep":
+                    continue
                 findings.append(
                     Finding(
                         1,

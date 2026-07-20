@@ -57,13 +57,19 @@ def scan_orphans(root: Path, catalog: Catalog) -> list[str]:
             continue
         for group in sorted(base.iterdir()):
             if group.is_file():
+                if group.name == ".gitkeep":
+                    continue
                 orphans.append(str(group.relative_to(root)))
                 continue
             for entry in sorted(group.iterdir()):
+                if entry.is_file() and entry.name == ".gitkeep":
+                    continue
                 rel = str(entry.relative_to(root))
                 if rel not in cataloged:
                     orphans.append(rel)
     for entry in sorted(docs_dir.iterdir()):
         if entry.is_file():
+            if entry.name == ".gitkeep":
+                continue
             orphans.append(str(entry.relative_to(root)))
     return sorted(orphans)
