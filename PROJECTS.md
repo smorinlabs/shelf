@@ -81,14 +81,14 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P06-T03] `shelf open` / `shelf open --static`
 - [x] Regression Test Status — 205/205 passing at v0.6.0; `make check` and `just all` green (unpiped); manual browser verification passed (enhanced mode live, core mode verified) with one gate finding found-and-fixed (fenced-code preview rendering)
 
-## [ ] Project P07: Git and GitHub integration (v0.7.0)
+## [x] Project P07: Git and GitHub integration (v0.7.0)
 **Goal**: `--commit`/`--commit-message` plumbing across all mutating commands, and `shelf init --git` / `--github` / `--owner` (PRD §11 conventions, §11.1).
 
 ### Tests & Tasks
-- [ ] [P07-TS01] `--commit` on non-git library errors; auto-generated messages match `shelf: <verb> <slug>` convention
-- [ ] [P07-T01] Commit plumbing in the mutation pipeline (after index regen, before source removal)
-- [ ] [P07-T02] `shelf init --git` initial commit; `--github` via `gh repo create` (manual verification)
-- [ ] Regression Test Status
+- [x] [P07-TS01] `--commit` on non-git library errors; auto-generated messages match `shelf: <verb> <slug>` convention
+- [x] [P07-T01] Commit plumbing in the mutation pipeline (commit runs OUTSIDE the library lock, after `commit_library`, before source removal — hook-safe)
+- [x] [P07-T02] `shelf init --git` initial commit; `--github` via `gh repo create` (manual verification)
+- [x] Regression Test Status — 252/252 passing at v0.7.0; `make check` and `just all` green (unpiped); LIVE `--github` pilot RAN (created private `smorin/shelf-library`, verified repo+origin+`shelf: init` commit, handed to user for manual deletion); pilot found+fixed a raw-traceback bug — `_gh` / `git_init` / `git remote add` now surface a clean `ClickException`; two cosmetic Minors (redundant `.strip()`, `--owner` without `--github`) deferred to P08
 
 ## [ ] Project P08: Claude handoff (v0.8.0)
 **Goal**: `shelf doc add` missing-flags handoff — launch the configured agent (`--handoff-agent` flag > `handoff-agent` config > claude; codex allowed) with the primed shelf-add prompt, `--no-handoff` opt-out (`--no-input` implies it), and in-session detection via `CLAUDECODE` (Codex equivalent verified) so sessions never nest (PRD §11.2, §14.4).
