@@ -51,6 +51,16 @@ def test_git_init_creates_dot_git(tmp_path):
     assert (tmp_path / ".git").exists()
 
 
+def test_git_init_raises_click_exception_on_failure(tmp_path, monkeypatch):
+    def fake_run(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, ["git", "init"], stderr="boom")
+
+    monkeypatch.setattr(git_core.subprocess, "run", fake_run)
+
+    with pytest.raises(click.ClickException, match="boom"):
+        git_init(tmp_path)
+
+
 # --- git_commit_all --------------------------------------------------------
 
 
@@ -85,7 +95,34 @@ def test_git_commit_all_on_non_repo_raises_click_exception(tmp_path):
         git_commit_all(tmp_path, "shelf: doc add a")
 
 
+# --- _gh -----------------------------------------------------------------
+
+
+def test_gh_raises_click_exception_on_failure(monkeypatch):
+    def fake_run(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, ["gh", "repo", "create"], stderr="boom")
+
+    monkeypatch.setattr(git_core.subprocess, "run", fake_run)
+
+    with pytest.raises(click.ClickException, match="boom"):
+        git_core._gh(["repo", "create", "acme/shelf-library", "--private"])
+
+
 # --- github_create_and_link -----------------------------------------------
+
+
+def test_github_create_and_link_surfaces_click_exception_when_gh_fails(tmp_path, monkeypatch):
+    root = tmp_path / "lib"
+    root.mkdir()
+    init_repo_with_identity(root)
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, ["gh", "repo", "create"], stderr="boom")
+
+    monkeypatch.setattr(git_core.subprocess, "run", fake_run)
+
+    with pytest.raises(click.ClickException, match="boom"):
+        github_create_and_link(root, "acme", "shelf-library")
 
 
 def test_github_create_and_link_adds_origin_and_returns_url(tmp_path, monkeypatch):
