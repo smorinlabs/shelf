@@ -44,11 +44,7 @@ def _gh(args: list[str]) -> str:
 
 def github_create_and_link(root: Path, owner: str, name: str = "shelf-library") -> str:
     """Create a private GitHub repository and add it as the local origin."""
-    output = _gh(["repo", "create", f"{owner}/{name}", "--private"])
-    if output.startswith(("https://", "http://")) and not any(char.isspace() for char in output):
-        url = output
-    else:
-        url = f"https://github.com/{owner}/{name}"
+    url = _gh(["repo", "create", f"{owner}/{name}", "--private"])
     subprocess.run(
         ["git", "-C", str(root), "remote", "add", "origin", url],
         check=True,
