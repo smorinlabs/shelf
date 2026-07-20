@@ -17,8 +17,8 @@ def git_init(root: Path) -> None:
 
 
 def git_commit_all(root: Path, message: str) -> None:
-    """Stage all changes and commit them, translating Git failures for Click."""
-    commands = (["add", "-A"], ["commit", "-m", message])
+    """Stage all changes and create an operation commit, even with no net diff."""
+    commands = (["add", "-A"], ["commit", "--allow-empty", "-m", message])
     for args in commands:
         try:
             subprocess.run(

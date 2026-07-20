@@ -4,15 +4,16 @@ import json
 
 import click
 
+from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
 from shelf.cli.output import output_options, resolve_format
 from shelf.cli.runtime import get_library
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import commit_library, load_catalog
 from shelf.core.errors import ConflictError
+from shelf.core.git import git_commit_all
 
 
-def _add(ctx: click.Context, list_name: str, name: str) -> None:
-    root = get_library(ctx)
+def _add(root, list_name: str, name: str) -> None:
     with library_lock(root):
         catalog = load_catalog(root, for_write=True)
         items = getattr(catalog, list_name)
@@ -21,7 +22,6 @@ def _add(ctx: click.Context, list_name: str, name: str) -> None:
             raise ConflictError(f"{label} '{name}' already exists")
         items.append(name)
         commit_library(root, catalog)
-    click.echo(f"added {list_name[:-1]} '{name}'")
 
 
 def _list(ctx: click.Context, list_name: str, output: str, json_: bool) -> None:
@@ -36,10 +36,16 @@ def _list(ctx: click.Context, list_name: str, output: str, json_: bool) -> None:
 
 @click.command("add")
 @click.argument("name")
+@commit_options
 @click.pass_context
-def topic_add(ctx, name):
+def topic_add(ctx, name, commit, commit_message):
     """Add a topic bucket."""
-    _add(ctx, "topics", name)
+    root = get_library(ctx)
+    require_git_if_commit(root, commit)
+    _add(root, "topics", name)
+    if commit:
+        git_commit_all(root, commit_message or auto_message("topic", "add", name))
+    click.echo(f"added topic '{name}'")
 
 
 @click.command("list")
@@ -52,10 +58,16 @@ def topic_list(ctx, output, json_):
 
 @click.command("add")
 @click.argument("name")
+@commit_options
 @click.pass_context
-def kind_add(ctx, name):
+def kind_add(ctx, name, commit, commit_message):
     """Add a kind."""
-    _add(ctx, "kinds", name)
+    root = get_library(ctx)
+    require_git_if_commit(root, commit)
+    _add(root, "kinds", name)
+    if commit:
+        git_commit_all(root, commit_message or auto_message("kind", "add", name))
+    click.echo(f"added kind '{name}'")
 
 
 @click.command("list")

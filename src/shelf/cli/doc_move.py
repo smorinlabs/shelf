@@ -4,10 +4,12 @@ import shutil
 
 import click
 
+from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
 from shelf.cli.doc_variants import find_doc
 from shelf.cli.runtime import get_library
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import CATALOG_FILENAME, RepoRef, commit_library, load_catalog
+from shelf.core.git import git_commit_all
 from shelf.core.ingest import doc_rel_dir
 
 
@@ -19,13 +21,26 @@ from shelf.core.ingest import doc_rel_dir
 @click.option("--repo-url", default=None)
 @click.option("--subject", default=None)
 @click.option("--dry-run", is_flag=True)
+@commit_options
 @click.pass_context
-def doc_move(ctx, doc_id, topic_, create_topic, repo_, repo_url, subject, dry_run):
+def doc_move(
+    ctx,
+    doc_id,
+    topic_,
+    create_topic,
+    repo_,
+    repo_url,
+    subject,
+    dry_run,
+    commit,
+    commit_message,
+):
     """Relocate a document (topic, repo, or anchoring change)."""
     if (topic_ is None) == (repo_ is None):
         raise click.UsageError("exactly one of --topic or --repo is required")
 
     root = get_library(ctx)
+    require_git_if_commit(root, commit)
     with library_lock(root):
         catalog = load_catalog(root, for_write=True)
         doc = find_doc(catalog, doc_id)
@@ -72,6 +87,8 @@ def doc_move(ctx, doc_id, topic_, create_topic, repo_, repo_url, subject, dry_ru
                 shutil.rmtree(dest_dir, ignore_errors=True)
             raise
         shutil.rmtree(src_dir, ignore_errors=True)
+    if commit:
+        git_commit_all(root, commit_message or auto_message("doc", "move", doc_id))
     click.echo(f"moved '{doc_id}' {old_rel} -> {new_rel}")
     click.echo(
         "warning: absolute paths previously copied for this document no longer resolve",

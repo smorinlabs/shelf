@@ -5,6 +5,7 @@ from pathlib import Path
 
 import click
 
+from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
 from shelf.cli.runtime import active_config_path, get_config, get_library
 from shelf.core.atomic import atomic_write_text, library_lock
 from shelf.core.catalog import (
@@ -17,6 +18,7 @@ from shelf.core.catalog import (
 )
 from shelf.core.config import save_config
 from shelf.core.errors import ConflictError
+from shelf.core.git import git_commit_all
 from shelf.core.index import render_index
 from shelf.core.migrations import MIGRATIONS
 from shelf.core.paths import default_library_path
@@ -99,10 +101,17 @@ def path_cmd(ctx: click.Context, which: str | None) -> None:
 
 @click.command("regen")
 @click.option("--dry-run", is_flag=True)
+@commit_options
 @click.pass_context
-def regen_cmd(ctx: click.Context, dry_run: bool) -> None:
+def regen_cmd(
+    ctx: click.Context,
+    dry_run: bool,
+    commit: bool,
+    commit_message: str | None,
+) -> None:
     """Regenerate index.html from the current catalog and installed template."""
     root = get_library(ctx)
+    require_git_if_commit(root, commit)
     with library_lock(root):
         catalog_text = (root / CATALOG_FILENAME).read_text(encoding="utf-8")
         raw = json.loads(catalog_text)
@@ -115,16 +124,26 @@ def regen_cmd(ctx: click.Context, dry_run: bool) -> None:
             return
         snips = build_snippets(root, raw.get("documents", []))
         atomic_write_text(root / "index.html", render_index(catalog_text, snips))
+    if commit:
+        git_commit_all(root, commit_message or auto_message("regen"))
     click.echo("regenerated index.html")
 
 
 @click.command("migrate")
 @click.option("--dry-run", is_flag=True, help="Report the migration without applying it.")
 @click.option("--json", "json_", is_flag=True, help="Machine-readable report.")
+@commit_options
 @click.pass_context
-def migrate_cmd(ctx: click.Context, dry_run: bool, json_: bool) -> None:
+def migrate_cmd(
+    ctx: click.Context,
+    dry_run: bool,
+    json_: bool,
+    commit: bool,
+    commit_message: str | None,
+) -> None:
     """Migrate the catalog to the current schema version."""
     root = get_library(ctx)
+    require_git_if_commit(root, commit)
     with library_lock(root):
         raw = json.loads((root / CATALOG_FILENAME).read_text(encoding="utf-8"))
         found = raw.get("schema_version", 0)
@@ -149,6 +168,8 @@ def migrate_cmd(ctx: click.Context, dry_run: bool, json_: bool) -> None:
         for step in range(found, CURRENT_SCHEMA_VERSION):
             raw = MIGRATIONS[step](raw)
         commit_library(root, Catalog.from_dict(raw))
+    if commit:
+        git_commit_all(root, commit_message or auto_message("migrate"))
     click.echo(
         json.dumps(report)
         if json_

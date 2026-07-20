@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 
+from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
 from shelf.cli.runtime import get_config, get_library
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import (
@@ -17,6 +18,7 @@ from shelf.core.catalog import (
     load_catalog,
 )
 from shelf.core.errors import ConflictError
+from shelf.core.git import git_commit_all
 from shelf.core.ingest import doc_rel_dir, infer_format, infer_repo_url, pick_primary
 from shelf.core.slugs import derive_slug
 
@@ -50,6 +52,7 @@ from shelf.core.slugs import derive_slug
 @click.option("--format", "format_", default=None, help="Override format inference (long-only).")
 @click.option("--remove-source/--no-remove-source", "remove_source_", default=None)
 @click.option("--dry-run", is_flag=True)
+@commit_options
 @click.pass_context
 def doc_add(
     ctx,
@@ -71,6 +74,8 @@ def doc_add(
     format_,
     remove_source_,
     dry_run,
+    commit,
+    commit_message,
 ):
     """Add a new document."""
     if (repo_ is None) == (topic_ is None):
@@ -85,6 +90,7 @@ def doc_add(
         raise click.UsageError(f"--primary '{primary_}' is not among the added formats")
 
     root = get_library(ctx)
+    require_git_if_commit(root, commit)
     with library_lock(root):
         catalog = load_catalog(root, for_write=True)
         if kind_ not in catalog.kinds:
@@ -162,6 +168,8 @@ def doc_add(
                 shutil.rmtree(dest, ignore_errors=True)
             raise
 
+    if commit:
+        git_commit_all(root, commit_message or auto_message("doc", "add", slug))
     effective_remove = get_config(ctx).remove_source if remove_source_ is None else remove_source_
     if effective_remove:
         for p in paths:

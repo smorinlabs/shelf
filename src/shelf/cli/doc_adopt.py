@@ -4,10 +4,12 @@ from pathlib import Path
 
 import click
 
+from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
 from shelf.cli.runtime import get_library
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import Document, FileVariant, RepoRef, commit_library, load_catalog
 from shelf.core.errors import ConflictError
+from shelf.core.git import git_commit_all
 from shelf.core.ingest import FORMAT_MAP, pick_primary
 
 
@@ -22,6 +24,7 @@ from shelf.core.ingest import FORMAT_MAP, pick_primary
 @click.option("--subject", default=None)
 @click.option("--primary", "primary_", default=None)
 @click.option("--doc-date", default=None)
+@commit_options
 @click.pass_context
 def doc_adopt(
     ctx,
@@ -35,9 +38,12 @@ def doc_adopt(
     subject,
     primary_,
     doc_date,
+    commit,
+    commit_message,
 ):
     """Register an existing per-document folder without copying."""
     root = get_library(ctx)
+    require_git_if_commit(root, commit)
     rel = Path(folder)
     if rel.is_absolute():
         if not rel.is_relative_to(root):
@@ -100,4 +106,6 @@ def doc_adopt(
         )
         catalog.documents.append(doc)
         commit_library(root, catalog)
+    if commit:
+        git_commit_all(root, commit_message or auto_message("doc", "adopt", slug))
     click.echo(f"adopted '{slug}' ({', '.join(formats)})")

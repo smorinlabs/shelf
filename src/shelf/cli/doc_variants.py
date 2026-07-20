@@ -5,6 +5,7 @@ from pathlib import Path
 
 import click
 
+from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
 from shelf.cli.runtime import get_config, get_library
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import (
@@ -16,6 +17,7 @@ from shelf.core.catalog import (
     load_catalog,
 )
 from shelf.core.errors import ConflictError, NotFoundError
+from shelf.core.git import git_commit_all
 from shelf.core.ingest import doc_rel_dir, infer_format
 
 
@@ -37,8 +39,21 @@ def find_doc(catalog: Catalog, doc_id: str) -> Document:
 @click.option("--primary", "primary_", default=None)
 @click.option("--source", "source_", default=None)
 @click.option("--remove-source/--no-remove-source", "remove_source_", default=None)
+@commit_options
 @click.pass_context
-def format_add(ctx, doc_id, files, assets_, format_, replace, primary_, source_, remove_source_):
+def format_add(
+    ctx,
+    doc_id,
+    files,
+    assets_,
+    format_,
+    replace,
+    primary_,
+    source_,
+    remove_source_,
+    commit,
+    commit_message,
+):
     """Add a format variant to an existing document."""
     paths = [Path(f).resolve() for f in files]
     new_formats = [infer_format(p, format_) for p in paths]
@@ -46,6 +61,7 @@ def format_add(ctx, doc_id, files, assets_, format_, replace, primary_, source_,
         raise click.UsageError("two files of the same format")
 
     root = get_library(ctx)
+    require_git_if_commit(root, commit)
     with library_lock(root):
         catalog = load_catalog(root, for_write=True)
         doc = find_doc(catalog, doc_id)
@@ -98,6 +114,11 @@ def format_add(ctx, doc_id, files, assets_, format_, replace, primary_, source_,
                         target.unlink(missing_ok=True)
             raise
 
+    if commit:
+        git_commit_all(
+            root,
+            commit_message or auto_message("doc", "format", "add", doc_id, ",".join(new_formats)),
+        )
     effective_remove = get_config(ctx).remove_source if remove_source_ is None else remove_source_
     if effective_remove:
         for p in paths:
@@ -112,10 +133,12 @@ def format_add(ctx, doc_id, files, assets_, format_, replace, primary_, source_,
     "--primary", "primary_", default=None, help="New primary when deleting the current one."
 )
 @click.option("--force", "-f", is_flag=True, help="Drop the entry even if its file is missing.")
+@commit_options
 @click.pass_context
-def format_delete(ctx, doc_id, fmt, primary_, force):
+def format_delete(ctx, doc_id, fmt, primary_, force, commit, commit_message):
     """Remove one format variant."""
     root = get_library(ctx)
+    require_git_if_commit(root, commit)
     with library_lock(root):
         catalog = load_catalog(root, for_write=True)
         doc = find_doc(catalog, doc_id)
@@ -139,4 +162,9 @@ def format_delete(ctx, doc_id, fmt, primary_, force):
             doc.primary = primary_
         commit_library(root, catalog)
         target.unlink(missing_ok=True)
+    if commit:
+        git_commit_all(
+            root,
+            commit_message or auto_message("doc", "format", "delete", doc_id, fmt),
+        )
     click.echo(f"removed '{fmt}' from '{doc_id}'")

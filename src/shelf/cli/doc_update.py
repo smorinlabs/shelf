@@ -2,10 +2,12 @@
 
 import click
 
+from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
 from shelf.cli.doc_variants import find_doc
 from shelf.cli.runtime import get_library
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import commit_library, load_catalog
+from shelf.core.git import git_commit_all
 
 
 def _reject_anchor(ctx, param, value):
@@ -33,6 +35,7 @@ def _reject_anchor(ctx, param, value):
 @click.option("--topic", "topic_", callback=_reject_anchor, expose_value=False, default=None)
 @click.option("--repo", "repo_", callback=_reject_anchor, expose_value=False, default=None)
 @click.option("--dry-run", is_flag=True)
+@commit_options
 @click.pass_context
 def doc_update(
     ctx,
@@ -53,6 +56,8 @@ def doc_update(
     added,
     force,
     dry_run,
+    commit,
+    commit_message,
 ):
     """Change a document's metadata."""
     fields_given = any(
@@ -77,6 +82,7 @@ def doc_update(
         raise click.UsageError("at least one field option is required")
 
     root = get_library(ctx)
+    require_git_if_commit(root, commit)
     with library_lock(root):
         catalog = load_catalog(root, for_write=True)
         doc = find_doc(catalog, doc_id)
@@ -140,5 +146,7 @@ def doc_update(
                 click.echo(line)
             return
         commit_library(root, catalog)
+    if commit:
+        git_commit_all(root, commit_message or auto_message("doc", "update", doc_id))
     for line in changes:
         click.echo(line)
