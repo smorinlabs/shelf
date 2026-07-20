@@ -215,6 +215,44 @@ def test_orphan_delete_absolute_path_outside_library_is_usage_error(isolated_env
     assert not isinstance(r.exception, ValueError)
 
 
+def test_scan_orphans_ignores_gitkeep_at_bucket_root(isolated_env):
+    """P07 regression: `init --git` writes `.gitkeep` directly under docs/repos/ and
+    docs/topics/ so git tracks the empty buckets — that's housekeeping, not an orphan.
+    """
+    from shelf.core.catalog import load_catalog
+    from shelf.core.ingest import scan_orphans
+
+    root = _init()
+    (root / "docs" / "repos" / ".gitkeep").write_text("", encoding="utf-8")
+    (root / "docs" / "topics" / ".gitkeep").write_text("", encoding="utf-8")
+    assert scan_orphans(root, load_catalog(root)) == []
+
+
+def test_scan_orphans_ignores_gitkeep_under_doc_folder(isolated_env):
+    """Same housekeeping exemption one level down, sibling to real per-document folders."""
+    from shelf.core.catalog import load_catalog
+    from shelf.core.ingest import scan_orphans
+
+    root = _init()
+    group_dir = root / "docs" / "topics" / "dev-tooling"
+    group_dir.mkdir(parents=True, exist_ok=True)
+    (group_dir / ".gitkeep").write_text("", encoding="utf-8")
+    assert scan_orphans(root, load_catalog(root)) == []
+
+
+def test_orphan_list_ignores_gitkeep_on_git_library(
+    isolated_env, isolated_git_identity, monkeypatch
+):
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "t")
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", "t@t")
+    monkeypatch.setenv("GIT_COMMITTER_NAME", "t")
+    monkeypatch.setenv("GIT_COMMITTER_EMAIL", "t@t")
+    assert run(["init", "--git"]).exit_code == 0
+    r = run(["orphan", "list"])
+    assert r.exit_code == 0
+    assert ".gitkeep" not in r.output
+
+
 def test_adopt_validates_primary_against_found_formats(isolated_env):
     root = _init()
     _orphan_folder(root)

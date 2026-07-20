@@ -236,3 +236,21 @@ def test_audit_orphan_parity_stray_file_under_docs(isolated_env, tmp_path):
     assert "orphan" in _codes(r)
     assert "docs/stray.md" in r.output
     assert "docs/stray.md" in run(["orphan", "list"]).output
+
+
+def test_audit_git_inited_library_ignores_gitkeep(isolated_env, isolated_git_identity, monkeypatch):
+    """P07 regression: `init --git` writes `.gitkeep` placeholders directly under
+    docs/repos/ and docs/topics/ so git tracks the empty buckets. They are git
+    housekeeping, not orphaned document content, and must not trip the orphan scan.
+    """
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "t")
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", "t@t")
+    monkeypatch.setenv("GIT_COMMITTER_NAME", "t")
+    monkeypatch.setenv("GIT_COMMITTER_EMAIL", "t@t")
+    assert run(["init", "--git"]).exit_code == 0
+    root = default_library_path()
+    assert (root / "docs" / "repos" / ".gitkeep").is_file()
+    assert (root / "docs" / "topics" / ".gitkeep").is_file()
+    r = run(["audit"])
+    assert r.exit_code == 0, r.output
+    assert ".gitkeep" not in r.output
