@@ -80,18 +80,22 @@ def orphan_delete(ctx, path, yes, commit, commit_message):
     with library_lock(root):
         catalog = load_catalog(root)
         rel = Path(path)
-        if rel.is_absolute():
-            if not rel.is_relative_to(root):
-                raise click.UsageError(f"'{rel}' is outside the library at {root}")
-            rel = rel.relative_to(root)
-        target = root / rel
-        if not str(rel).startswith("docs/"):
+        docs_root = (root / "docs").resolve()
+        target = (root / rel).resolve()
+        if not target.is_relative_to(docs_root):
             raise click.UsageError("orphan paths live under docs/")
+        rel = target.relative_to(root.resolve())
         if not target.exists():
             raise NotFoundError(f"'{rel}' does not exist")
-        cataloged = {doc_rel_dir(d) for d in catalog.documents}
+        cataloged_dirs = {doc_rel_dir(d) for d in catalog.documents}
+        cataloged_files = {f.path for d in catalog.documents for f in d.files}
         rel_s = str(rel)
-        if rel_s in cataloged or any(rel_s.startswith(c + "/") for c in cataloged):
+        inside_cataloged = any(rel_s.startswith(c + "/") for c in cataloged_dirs)
+        if (
+            rel_s in cataloged_dirs
+            or rel_s in cataloged_files
+            or (inside_cataloged and rel_s not in scan_orphans(root, catalog))
+        ):
             raise ConflictError(f"'{rel}' belongs to a cataloged document — not an orphan")
         _confirm_or_fail(f"delete orphan '{rel}' permanently?", yes)
         if target.is_dir():

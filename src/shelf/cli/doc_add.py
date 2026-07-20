@@ -98,8 +98,11 @@ def doc_add(
     if repo_ is not None and topic_ is not None:
         raise click.UsageError("--repo and --topic are mutually exclusive")
 
+    def _blank(value):
+        return value is None or not str(value).strip()
+
     anchor_present = repo_ is not None or topic_ is not None
-    if not anchor_present or kind_ is None or title is None or description is None:
+    if not anchor_present or _blank(kind_) or _blank(title) or _blank(description):
         # Suppression first: --no-input always exits 2 even inside a session (PRD §5).
         if no_handoff or ctx.obj.get("no_input", False):
             raise click.UsageError(

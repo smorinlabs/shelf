@@ -125,8 +125,11 @@ def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> lis
         expected_dir = _doc_dir(doc)
         if expected_dir:
             cataloged_dirs.add(expected_dir)
+            expected_files: set[str] = set()
             for variant in doc.get("files", []):
                 path = variant.get("path", "")
+                if path:
+                    expected_files.add(path)
                 if not path.startswith(expected_dir + "/"):
                     findings.append(
                         Finding(
@@ -148,6 +151,25 @@ def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> lis
                             ),
                         )
                     )
+            doc_dir = root / expected_dir
+            if doc_dir.is_dir():
+                for entry in sorted(doc_dir.iterdir()):
+                    rel = str(entry.relative_to(root))
+                    # Variants are canonically named <id>.<format>; other files
+                    # in the document folder are supporting assets.
+                    if entry.is_file() and entry.stem == doc_id and rel not in expected_files:
+                        findings.append(
+                            Finding(
+                                1,
+                                "orphan",
+                                rel,
+                                (
+                                    "inspect with 'shelf orphan list'; "
+                                    "adopt with 'shelf doc adopt' or "
+                                    "delete with 'shelf orphan delete'"
+                                ),
+                            )
+                        )
 
     docs_dir = root / "docs"
     if docs_dir.is_dir():

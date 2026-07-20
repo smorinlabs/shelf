@@ -75,18 +75,23 @@ def format_add(
         rel_dir = doc_rel_dir(doc)
         dest = root / rel_dir
         created: list[Path] = []
+        backups: dict[Path, bytes] = {}
         before_text: str | None = None
         try:
             for p, fmt in zip(paths, new_formats, strict=True):
                 target = dest / f"{doc.id}.{fmt}"
                 if not target.exists():
                     created.append(target)
+                elif target.is_file():
+                    backups.setdefault(target, target.read_bytes())
                 shutil.copy2(p, target)
             for a in assets_:
                 ap = Path(a)
                 target = dest / ap.name
                 if not target.exists():
                     created.append(target)
+                elif target.is_file() and target not in created:
+                    backups.setdefault(target, target.read_bytes())
                 if ap.is_dir():
                     shutil.copytree(ap, target, dirs_exist_ok=True)
                 else:
@@ -112,6 +117,8 @@ def format_add(
                         shutil.rmtree(target, ignore_errors=True)
                     else:
                         target.unlink(missing_ok=True)
+                for target, data in backups.items():
+                    target.write_bytes(data)
             raise
 
     if commit:

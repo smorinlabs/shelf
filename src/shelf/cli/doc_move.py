@@ -73,9 +73,9 @@ def doc_move(
         src_dir = root / old_rel
         dest_dir = root / new_rel
         dest_dir.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(src_dir, dest_dir)
         before_text = (root / CATALOG_FILENAME).read_text(encoding="utf-8")
         try:
+            shutil.copytree(src_dir, dest_dir)
             commit_library(root, catalog)
         except BaseException:
             try:

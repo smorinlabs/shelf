@@ -152,10 +152,12 @@ def test_delete_crash_after_commit_leaves_detectable_orphan(seeded, tmp_path, mo
 # --------------------------------------------------------------------------- #
 
 
-def test_format_add_replace_interrupted_before_commit_is_accepted(seeded, tmp_path, monkeypatch):
-    """The plan's accepted edge: with --replace, the file is overwritten in place
-    before the commit point. A pre-commit failure leaves an UNCHANGED catalog
-    referencing UPDATED content — no dead refs, no orphans, audit-clean."""
+def test_format_add_replace_interrupted_before_commit_restores_original(
+    seeded, tmp_path, monkeypatch
+):
+    """A2 (final-review fix): --replace is now atomic. It snapshots the existing
+    variant before overwriting; a pre-commit failure RESTORES the original content,
+    leaving the library untouched (§5) — no silent data loss, no residue."""
     root, _ = seeded
     slug, folder = _add_doc(tmp_path, text="# original")
     before = (root / "catalog.json").read_text()
@@ -167,7 +169,7 @@ def test_format_add_replace_interrupted_before_commit_is_accepted(seeded, tmp_pa
     assert r.exit_code != 0
 
     assert (root / "catalog.json").read_text() == before  # catalog unchanged
-    assert (folder / f"{slug}.md").read_text() == "# UPDATED"  # accepted residue
+    assert (folder / f"{slug}.md").read_text() == "# original"  # A2: original restored on rollback
     _library_invariant(root)  # path still valid — no dead reference
     assert _orphans(root) == set()  # audit-clean
 
@@ -366,8 +368,8 @@ def test_format_add_replace_with_new_asset_precommit_leaks_residue(seeded, tmp_p
     `shelf orphan list` (§5c). Reachable via one realistic fault (unlike the load-in-
     handler double-fault, which needs a valid-yet-unreadable catalog simultaneously).
 
-    Distinct from the accepted --replace edge (decision 2), which sanctions an
-    overwritten *variant file* under an unchanged catalog — not un-tracked assets.
+    Distinct from A2's --replace rollback, which now restores the overwritten
+    *variant file* on a pre-commit failure; this test covers the un-tracked *asset*.
     """
     root, _ = seeded
     slug, folder = _add_doc(tmp_path)  # md-only document
@@ -395,7 +397,7 @@ def test_format_add_replace_with_new_asset_precommit_leaks_residue(seeded, tmp_p
     assert r.exit_code != 0
 
     assert (root / "catalog.json").read_text() == before  # catalog rolled back
-    _library_invariant(root)  # overwritten md still referenced & present (accepted edge)
+    _library_invariant(root)  # md variant restored to original & still referenced (A2)
 
     leftover = folder / "orphan-asset.png"
     rel = f"docs/topics/dev-tooling/{slug}/orphan-asset.png"
@@ -414,11 +416,11 @@ def test_format_add_replace_byte_identical_commit_is_safe(seeded, tmp_path, monk
 
     When the catalog bytes are unchanged, nothing catalog-referenced can be in
     `created` (any new variant would change the bytes), so `created` holds only the
-    un-referenced asset. A post-'commit' index-write failure therefore: keeps the
-    overwritten variant (accepted edge, decision 2), rolls back only the asset, leaves
-    no dead refs, no orphans, and no stale index (the catalog never changed). The
-    witness is sound: bytes-change is a faithful commit witness, and byte-identical is
-    safe to treat as not-committed.
+    un-referenced asset. A post-'commit' index-write failure is treated as
+    not-committed, so the rollback RESTORES the overwritten variant (A2) and removes
+    the asset — leaving no dead refs, no orphans, and no stale index (the catalog
+    never changed). The witness is sound: bytes-change is a faithful commit witness,
+    and byte-identical is safe to treat as not-committed.
     """
     root, _ = seeded
     slug, folder = _add_doc(tmp_path)  # single md variant, variant.source is None
@@ -446,7 +448,7 @@ def test_format_add_replace_byte_identical_commit_is_safe(seeded, tmp_path, monk
     assert r.exit_code != 0
 
     assert (root / "catalog.json").read_text() == before  # byte-identical → unchanged
-    assert (folder / f"{slug}.md").read_text() == "# UPDATED CONTENT"  # overwrite persists
+    assert (folder / f"{slug}.md").read_text() == "# original"  # A2: original restored on rollback
     assert not (folder / "pic.png").exists()  # un-referenced asset rolled back — no residue
     _library_invariant(root)
     assert _orphans(root) == set()

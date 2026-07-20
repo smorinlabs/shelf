@@ -48,7 +48,7 @@ def infer_repo_url(source: Path) -> str | None:
 
 
 def scan_orphans(root: Path, catalog: Catalog) -> list[str]:
-    cataloged = {doc_rel_dir(d) for d in catalog.documents}
+    cataloged = {doc_rel_dir(d): d for d in catalog.documents}
     orphans: list[str] = []
     docs_dir = root / "docs"
     for bucket in ("repos", "topics"):
@@ -67,6 +67,15 @@ def scan_orphans(root: Path, catalog: Catalog) -> list[str]:
                 rel = str(entry.relative_to(root))
                 if rel not in cataloged:
                     orphans.append(rel)
+                    continue
+                doc = cataloged[rel]
+                expected_files = {f.path for f in doc.files}
+                for child in sorted(entry.iterdir()):
+                    child_rel = str(child.relative_to(root))
+                    # Variants are canonically named <id>.<format>; other files
+                    # in the document folder are supporting assets.
+                    if child.is_file() and child.stem == doc.id and child_rel not in expected_files:
+                        orphans.append(child_rel)
     for entry in sorted(docs_dir.iterdir()):
         if entry.is_file():
             if entry.name == ".gitkeep":
