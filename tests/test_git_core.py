@@ -125,6 +125,29 @@ def test_github_create_and_link_surfaces_click_exception_when_gh_fails(tmp_path,
         github_create_and_link(root, "acme", "shelf-library")
 
 
+def test_github_create_and_link_surfaces_click_exception_when_remote_add_fails(
+    tmp_path, monkeypatch
+):
+    root = tmp_path / "lib"
+    root.mkdir()
+    init_repo_with_identity(root)
+
+    def fake_gh(args):
+        return "https://github.com/acme/shelf-library.git"
+
+    monkeypatch.setattr(git_core, "_gh", fake_gh)
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.CalledProcessError(
+            1, ["git", "remote", "add", "origin"], stderr="remote add boom"
+        )
+
+    monkeypatch.setattr(git_core.subprocess, "run", fake_run)
+
+    with pytest.raises(click.ClickException, match="remote add boom"):
+        github_create_and_link(root, "acme", "shelf-library")
+
+
 def test_github_create_and_link_adds_origin_and_returns_url(tmp_path, monkeypatch):
     root = tmp_path / "lib"
     root.mkdir()
