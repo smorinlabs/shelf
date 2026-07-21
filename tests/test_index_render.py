@@ -215,3 +215,98 @@ def test_render_index_without_snippets_is_backward_compatible(isolated_env, tmp_
     assert page["docs"], "expected at least one doc in the catalog"
     assert all(doc["snippet"] == "" for doc in page["docs"])
     assert parse_fingerprint(page_html) is not None
+
+
+def _minimal_catalog_text(
+    *,
+    doc_id,
+    category,
+    files,
+    primary="md",
+    title="Doc Title",
+    description="A description",
+    kind="reference",
+    tags=None,
+):
+    """A hand-built catalog.json body — enough for render_index() to consume
+    without going through the CLI, so a FileVariant's recorded `path` can be
+    made non-canonical on purpose (P08-C2)."""
+    catalog = {
+        "documents": [
+            {
+                "id": doc_id,
+                "title": title,
+                "description": description,
+                "kind": kind,
+                "tags": tags or [],
+                "category": category,
+                "files": files,
+                "primary": primary,
+            }
+        ],
+        "topics": [category],
+        "kinds": [kind],
+    }
+    return json.dumps(catalog)
+
+
+def test_format_path_uses_the_recorded_variant_path_not_a_reconstructed_one():
+    """P08-C2: index.py rebuilds each format's page path as
+    `<base>/<group>/<id>/<id>.<fmt>`, ignoring the FileVariant's recorded
+    `path` entirely. A document whose file actually lives under a
+    non-canonical filename (e.g. renamed, or kept as the original upload
+    name) must still be linked at its real, recorded path — not a
+    fabricated one that 404s."""
+    from shelf.core.index import render_index
+
+    doc_id = "2026-01-01-doc"
+    recorded_path = f"docs/topics/guides/{doc_id}/original-name.md"
+    catalog_text = _minimal_catalog_text(
+        doc_id=doc_id,
+        category="guides",
+        files=[{"format": "md", "path": recorded_path}],
+    )
+
+    page = _extract_page(render_index(catalog_text))
+
+    doc = next(d for d in page["docs"] if d["id"] == doc_id)
+    md = next(f for f in doc["formats"] if f["f"] == "md")
+    assert md["path"] == recorded_path
+
+
+def test_row_template_html_escapes_title_via_an_escape_helper(seeded_index):
+    """P08-C1 (structural): rowHTML currently interpolates `${d.title}` (and
+    d.id / d.tags) raw into an innerHTML template literal, so an untrusted
+    title can inject markup/script into the page. Pins that an
+    esc()/escapeHtml() JS helper exists and that rowHTML applies it to the
+    title. (Full XSS behavior is verified in-browser, not here.)"""
+    root = seeded_index
+    html_text = (root / "index.html").read_text()
+
+    assert re.search(r"function\s+(?:esc|escapeHtml)\s*\(", html_text), (
+        "expected an esc()/escapeHtml() JS helper function definition in index.html"
+    )
+
+    match = re.search(
+        r"function rowHTML\(d\)\{(.*?)function renderList\(\)\{", html_text, re.DOTALL
+    )
+    assert match is not None, "could not locate the rowHTML template function in index.html"
+    row_body = match.group(1)
+    assert "esc(d.title)" in row_body or "escapeHtml(d.title)" in row_body, (
+        "rowHTML must apply the escape helper to d.title, not interpolate it raw"
+    )
+
+
+def test_search_scorematch_includes_description_in_the_haystack(seeded_index):
+    """P08-C4 (structural): the ⌘K palette's scoreMatch() only matches
+    against title+tags+id+subject — document descriptions are invisible to
+    search even though they carry real content. Pins that scoreMatch's
+    haystack includes d.description."""
+    root = seeded_index
+    html_text = (root / "index.html").read_text()
+
+    match = re.search(r"function scoreMatch\(d, q\)\{(.*?)\}", html_text, re.DOTALL)
+    assert match is not None, "could not locate the scoreMatch function in index.html"
+    assert "d.description" in match.group(1), (
+        "scoreMatch's haystack must include d.description so search can match on it"
+    )
