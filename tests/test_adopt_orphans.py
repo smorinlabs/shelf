@@ -351,3 +351,23 @@ def test_orphan_delete_bucket_roots_rejected(isolated_env):
     assert (root / "docs" / "topics").is_dir()
     assert run(["orphan", "delete", "docs/repos", "--yes"]).exit_code != 0
     assert (root / "docs" / "repos").is_dir()
+
+
+def test_orphan_delete_case_variant_of_structural_dir_rejected(isolated_env, tmp_path):
+    """Case-insensitive-FS data-loss: 'orphan delete docs/TOPICS' must not wipe
+    docs/topics (string guards are bypassed by case variants on APFS/NTFS)."""
+    root = _init()
+    entry = _add_cataloged_doc(root, tmp_path)
+    r = run(["orphan", "delete", "docs/TOPICS", "--yes"])
+    assert r.exit_code != 0
+    assert (root / "docs" / "topics").is_dir()
+    assert (root / entry["files"][0]["path"]).is_file()
+
+
+def test_orphan_delete_case_variant_of_cataloged_group_rejected(isolated_env, tmp_path):
+    """Case-variant of a group dir that contains a cataloged doc must be refused."""
+    root = _init()
+    entry = _add_cataloged_doc(root, tmp_path)
+    r = run(["orphan", "delete", "docs/topics/DEV-TOOLING", "--yes"])
+    assert r.exit_code != 0
+    assert (root / entry["files"][0]["path"]).is_file()

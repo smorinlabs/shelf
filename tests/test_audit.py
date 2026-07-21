@@ -407,3 +407,32 @@ def test_audit_never_crashes_on_scalar_kinds(isolated_env, tmp_path):
     r = run(["audit"])
     assert r.exit_code == 1, r.output
     assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_audit_never_crashes_on_toplevel_non_dict(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    (root / "catalog.json").write_text("[]", encoding="utf-8")
+    r = run(["audit"])
+    assert r.exit_code == 1, r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_audit_never_crashes_on_unhashable_topics(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    raw = _raw(root)
+    raw["topics"] = [[]]
+    _write_raw(root, raw)
+    r = run(["audit"])
+    assert r.exit_code == 1, r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_audit_never_crashes_on_non_string_file_path(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    raw = _raw(root)
+    if raw.get("documents"):
+        raw["documents"][0]["files"] = [{"path": 5, "format": "md"}]
+    _write_raw(root, raw)
+    r = run(["audit"])
+    assert r.exit_code == 1, r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)
