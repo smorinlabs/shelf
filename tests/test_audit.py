@@ -367,3 +367,43 @@ def test_audit_survives_malformed_config_toml(isolated_env, tmp_path):
 
     assert not isinstance(r.exception, tomllib.TOMLDecodeError)
     assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_audit_never_crashes_on_scalar_documents(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    raw = _raw(root)
+    raw["documents"] = 5
+    _write_raw(root, raw)
+    r = run(["audit"])
+    assert r.exit_code == 1, r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_audit_never_crashes_on_null_documents_container(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    raw = _raw(root)
+    raw["documents"] = None
+    _write_raw(root, raw)
+    r = run(["audit"])
+    assert r.exit_code == 1, r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_audit_never_crashes_on_null_topics(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    raw = _raw(root)
+    raw["topics"] = None
+    _write_raw(root, raw)
+    r = run(["audit"])
+    assert r.exit_code == 1, r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_audit_never_crashes_on_scalar_kinds(isolated_env, tmp_path):
+    root = _seeded(tmp_path)
+    raw = _raw(root)
+    raw["kinds"] = 7
+    _write_raw(root, raw)
+    r = run(["audit"])
+    assert r.exit_code == 1, r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)

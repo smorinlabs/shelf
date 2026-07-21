@@ -298,3 +298,56 @@ def test_adopt_validates_primary_against_found_formats(isolated_env):
     )
     assert r.exit_code == 2, r.output
     assert json.loads((root / "catalog.json").read_text())["documents"] == []
+
+
+def _add_cataloged_doc(root, tmp_path):
+    src = tmp_path / "real.md"
+    src.write_text("# real")
+    assert (
+        run(
+            [
+                "doc",
+                "add",
+                str(src),
+                "--topic",
+                "dev-tooling",
+                "--kind",
+                "reference",
+                "--title",
+                "Real",
+                "--description",
+                "d",
+            ]
+        ).exit_code
+        == 0
+    )
+    return json.loads((root / "catalog.json").read_text())["documents"][0]
+
+
+def test_orphan_delete_docs_root_rejected(isolated_env, tmp_path):
+    """Regression: the A1 fix opened this — 'orphan delete docs' must NOT wipe docs/."""
+    root = _init()
+    entry = _add_cataloged_doc(root, tmp_path)
+    r = run(["orphan", "delete", "docs", "--yes"])
+    assert r.exit_code != 0
+    assert (root / "docs").is_dir()
+    assert (root / entry["files"][0]["path"]).is_file()
+
+
+def test_orphan_delete_ancestor_of_cataloged_doc_rejected(isolated_env, tmp_path):
+    """Deleting a group dir that CONTAINS a cataloged doc must be refused (ancestor)."""
+    root = _init()
+    entry = _add_cataloged_doc(root, tmp_path)
+    r = run(["orphan", "delete", "docs/topics/dev-tooling", "--yes"])
+    assert r.exit_code != 0
+    assert (root / "docs" / "topics" / "dev-tooling").is_dir()
+    assert (root / entry["files"][0]["path"]).is_file()
+
+
+def test_orphan_delete_bucket_roots_rejected(isolated_env):
+    """Structural bucket roots (docs, docs/topics, docs/repos) are not orphans."""
+    root = _init()
+    assert run(["orphan", "delete", "docs/topics", "--yes"]).exit_code != 0
+    assert (root / "docs" / "topics").is_dir()
+    assert run(["orphan", "delete", "docs/repos", "--yes"]).exit_code != 0
+    assert (root / "docs" / "repos").is_dir()
