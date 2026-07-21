@@ -90,13 +90,13 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P07-T02] `shelf init --git` initial commit; `--github` via `gh repo create` (manual verification)
 - [x] Regression Test Status — 252/252 passing at v0.7.0; `make check` and `just all` green (unpiped); LIVE `--github` pilot RAN (created private `smorin/shelf-library`, verified repo+origin+`shelf: init` commit, handed to user for manual deletion); pilot found+fixed a raw-traceback bug — `_gh` / `git_init` / `git remote add` now surface a clean `ClickException`; two cosmetic Minors (redundant `.strip()`, `--owner` without `--github`) deferred to P08
 
-## [ ] Project P08: Claude handoff (v0.8.0)
-**Goal**: `shelf doc add` missing-flags handoff — launch the configured agent (`--handoff-agent` flag > `handoff-agent` config > claude; codex allowed) with the primed shelf-add prompt, `--no-handoff` opt-out (`--no-input` implies it), and in-session detection via `CLAUDECODE` (Codex equivalent verified) so sessions never nest (PRD §11.2, §14.4).
+## [x] Project P08: Claude handoff (v0.8.0)
+**Goal**: `shelf doc add` missing-flags handoff — launch the configured agent (`--handoff-agent` flag > `handoff-agent` config > claude; codex allowed) with the primed shelf-add prompt, `--no-handoff` opt-out (`--no-input` implies it), and in-session detection via `CLAUDECODE` (Codex equivalent verified) so sessions never nest (PRD §11.2, §14.4). CLI-side only — the `shelf-add` skill is deferred to the `shelf-skill` repo (§12).
 
 ### Tests & Tasks
-- [ ] [P08-TS01] Missing flags + `--no-handoff` → error; inside-session env → error asking for the skill; flags complete → no handoff; agent precedence flag > config > default
-- [ ] [P08-T01] Handoff launcher (agent precedence resolution) with primed prompt; session detection
-- [ ] Regression Test Status
+- [x] [P08-TS01] Missing flags + `--no-handoff` → error; inside-session env → error asking for the skill; flags complete → no handoff; agent precedence flag > config > default; `--no-input` implies `--no-handoff` (suppression before session detection, PRD §5); blank/whitespace title/description also trigger handoff
+- [x] [P08-T01] Handoff launcher (`core/handoff.py`: agent precedence resolution, primed prompt with sanitized paths, `os.execvp` seam) with session detection (`CLAUDECODE` / `CODEX_THREAD_ID`, build-verified against Codex CLI 0.144.6)
+- [x] Regression Test Status — 316/316 passing at v0.8.0; `make check` and `just all` green (unpiped); LIVE hermetic handoff pilot 10/10 (both agent shims, both session markers, all four decision-table paths). FINAL whole-branch adversarial review (fable + codex, fresh context) over v0.1.0→v0.8.0 found 21 findings + 2 re-review blockers + 2 residuals — ALL fixed and re-verified: orphan-delete path-traversal/case-insensitive/ancestor wipes closed (identity-based, (st_dev,st_ino)); audit never-crashes on any parseable-but-malformed catalog; all git/gh/handoff subprocesses surface clean `ClickException`; `format add --replace` atomic (backup+restore); UI metadata HTML-escaped (XSS closed, empirically verified) + search-by-description + real copy-text + recorded variant paths; D2 (`git add -A` concurrency) accepted+documented as a single-user limitation. Two carried P07 Minors (redundant `.strip()`, `--owner` without `--github`) also fixed.
 
 ## [ ] Project P09: Template-press scaffolding layer (v1.0.0)
 **Goal**: Layer the remaining py-launch-blueprint scaffolding (CI, release automation, hooks, docs) onto the repo via template-press (PRD §14.6). Blocked until template-press is ready for this use; scope finalized then. Follow-on plans for `shelf-skill` and `shelf-library` start after this.
