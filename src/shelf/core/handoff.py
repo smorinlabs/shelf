@@ -46,9 +46,10 @@ def _launch_handoff(agent: str, prompt: str) -> NoReturn:
     """
     try:
         os.execvp(agent, [agent, prompt])
-    except FileNotFoundError as exc:
+    except OSError as exc:
         raise click.ClickException(
-            f"handoff agent '{agent}' is not installed or not on PATH"
+            f"handoff agent '{agent}' could not be launched: {exc} "
+            "(not installed or not on PATH, or not executable)"
         ) from exc
 
 

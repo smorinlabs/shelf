@@ -5,6 +5,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+import click
 import tomli_w
 
 from shelf.core.atomic import atomic_write_text
@@ -37,7 +38,10 @@ def default_config_path() -> Path:
 def load_config(path: Path) -> ShelfConfig:
     if not path.is_file():
         return ShelfConfig()
-    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as exc:
+        raise click.ClickException(f"shelf_config.toml is malformed: {exc}") from exc
     cfg = ShelfConfig()
     for key, attr in _KEY_MAP.items():
         if key in data:

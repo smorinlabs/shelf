@@ -65,6 +65,8 @@ def init_cmd(
     owner: str | None,
 ) -> None:
     """Create, adopt, and register a library."""
+    if owner and not github:
+        raise click.UsageError("--owner requires --github")
     if adopt_ and (force or git_ or github):
         raise click.UsageError("--adopt is mutually exclusive with --force, --git, and --github")
     cfg_path = active_config_path(ctx)
@@ -103,7 +105,7 @@ def init_cmd(
         git_core.git_init(root)
         git_core.git_commit_all(root, "shelf: init")
     if github:
-        github_owner = owner or git_core._gh(["api", "user", "--jq", ".login"]).strip()
+        github_owner = owner or git_core._gh(["api", "user", "--jq", ".login"])
         git_core.github_create_and_link(root, github_owner)
     cfg.library = str(root)
     save_config(cfg_path, cfg)

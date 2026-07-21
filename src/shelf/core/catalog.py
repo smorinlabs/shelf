@@ -132,6 +132,10 @@ def dumps_catalog(catalog: Catalog) -> str:
 def load_catalog(root: Path, *, for_write: bool = False) -> Catalog:
     raw = json.loads((root / CATALOG_FILENAME).read_text(encoding="utf-8"))
     found = raw.get("schema_version", 0)
+    if not isinstance(found, int):
+        raise click.ClickException(
+            "catalog.json schema_version is not an integer — catalog is malformed"
+        )
     if found > CURRENT_SCHEMA_VERSION:
         raise click.ClickException(
             f"catalog schema_version {found} is newer than this shelf understands — upgrade shelf"

@@ -20,6 +20,8 @@ def git_init(root: Path) -> None:
             capture_output=True,
             text=True,
         )
+    except FileNotFoundError as exc:
+        raise click.ClickException("git is not installed or not on PATH") from exc
     except subprocess.CalledProcessError as exc:
         detail = exc.stderr.strip() or "git exited with a non-zero status"
         raise click.ClickException(f"git init failed: {detail}") from exc
@@ -36,6 +38,8 @@ def git_commit_all(root: Path, message: str) -> None:
                 capture_output=True,
                 text=True,
             )
+        except FileNotFoundError as exc:
+            raise click.ClickException("git is not installed or not on PATH") from exc
         except subprocess.CalledProcessError as exc:
             detail = exc.stderr.strip() or "git exited with a non-zero status"
             raise click.ClickException(f"git {args[0]} failed: {detail}") from exc
@@ -50,6 +54,8 @@ def _gh(args: list[str]) -> str:
             capture_output=True,
             text=True,
         ).stdout.strip()
+    except FileNotFoundError as exc:
+        raise click.ClickException("gh is not installed or not on PATH") from exc
     except subprocess.CalledProcessError as exc:
         detail = exc.stderr.strip() or "gh exited with a non-zero status"
         raise click.ClickException(f"gh {' '.join(args)} failed: {detail}") from exc
@@ -65,6 +71,8 @@ def github_create_and_link(root: Path, owner: str, name: str = "shelf-library") 
             capture_output=True,
             text=True,
         )
+    except FileNotFoundError as exc:
+        raise click.ClickException("git is not installed or not on PATH") from exc
     except subprocess.CalledProcessError as exc:
         detail = exc.stderr.strip() or "git exited with a non-zero status"
         raise click.ClickException(f"git remote add origin failed: {detail}") from exc

@@ -5,6 +5,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+import click
+
 import shelf.core.index as index_mod
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import CURRENT_SCHEMA_VERSION
@@ -73,7 +75,16 @@ def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> lis
         return findings
 
     schema = raw.get("schema_version", 0)
-    if schema > CURRENT_SCHEMA_VERSION:
+    if not isinstance(schema, int):
+        findings.append(
+            Finding(
+                3,
+                "malformed-entry",
+                "schema_version is not an integer",
+                "repair catalog.json schema_version",
+            )
+        )
+    elif schema > CURRENT_SCHEMA_VERSION:
         findings.append(Finding(3, "schema-newer", f"schema_version {schema}", "upgrade shelf"))
     elif schema < CURRENT_SCHEMA_VERSION:
         findings.append(Finding(3, "schema-old", f"schema_version {schema}", "run 'shelf migrate'"))
@@ -81,7 +92,17 @@ def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> lis
     topics = set(raw.get("topics", []))
     kinds = set(raw.get("kinds", []))
     cataloged_dirs: set[str] = set()
-    for doc in raw.get("documents", []):
+    for index, doc in enumerate(raw.get("documents", [])):
+        if not isinstance(doc, dict):
+            findings.append(
+                Finding(
+                    3,
+                    "malformed-entry",
+                    f"documents[{index}] is not an object",
+                    "repair or remove the malformed catalog entry",
+                )
+            )
+            continue
         doc_id = doc.get("id", "<missing id>")
         for field in REQUIRED_FIELDS:
             if not doc.get(field):
@@ -103,6 +124,15 @@ def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> lis
                 )
             )
         has_repo = isinstance(doc.get("repo"), dict)
+        if not has_repo and not doc.get("category") and not doc.get("files"):
+            findings.append(
+                Finding(
+                    3,
+                    "malformed-entry",
+                    f"{doc_id}: document has neither repo nor category and no files",
+                    f"repair with 'shelf doc update {doc_id}'",
+                )
+            )
         if not has_repo and doc.get("category") and doc["category"] not in topics:
             findings.append(
                 Finding(
@@ -122,11 +152,22 @@ def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> lis
                     f"repair with 'shelf doc update {doc_id} --added {doc_id[:10]} --force'",
                 )
             )
+        files = doc.get("files", [])
+        if not isinstance(files, list) or not all(isinstance(variant, dict) for variant in files):
+            findings.append(
+                Finding(
+                    3,
+                    "malformed-entry",
+                    f"{doc_id}: files is not a list of objects",
+                    "repair the document's files entries in catalog.json",
+                )
+            )
+            continue
         expected_dir = _doc_dir(doc)
         if expected_dir:
             cataloged_dirs.add(expected_dir)
             expected_files: set[str] = set()
-            for variant in doc.get("files", []):
+            for variant in files:
                 path = variant.get("path", "")
                 if path:
                     expected_files.add(path)
@@ -246,21 +287,24 @@ def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> lis
             )
 
     if not pre_commit and (root / ".git").exists():
-        out = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(root),
-                "status",
-                "--porcelain",
-                "--",
-                "catalog.json",
-                "index.html",
-                "docs",
-            ],
-            capture_output=True,
-            text=True,
-        )
+        try:
+            out = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(root),
+                    "status",
+                    "--porcelain",
+                    "--",
+                    "catalog.json",
+                    "index.html",
+                    "docs",
+                ],
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError as exc:
+            raise click.ClickException("git is not installed or not on PATH") from exc
         if out.returncode == 0 and out.stdout.strip():
             findings.append(
                 Finding(
