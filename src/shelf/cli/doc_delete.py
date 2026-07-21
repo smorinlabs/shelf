@@ -89,24 +89,31 @@ def orphan_delete(ctx, path, yes, commit, commit_message):
         catalog = load_catalog(root)
         rel = Path(path)
         docs_root = (root / "docs").resolve()
-        target = (root / rel).resolve()
+        try:
+            target = (root / rel).resolve()
+        except OSError as exc:
+            raise click.ClickException(f"cannot access '{rel}': {exc}") from exc
         if not target.is_relative_to(docs_root):
             raise click.UsageError("orphan paths live under docs/")
         rel = target.relative_to(root.resolve())
-        if not target.exists():
-            raise NotFoundError(f"'{rel}' does not exist")
+        try:
+            if not target.exists():
+                raise NotFoundError(f"'{rel}' does not exist")
+        except OSError as exc:
+            raise click.ClickException(f"cannot access '{rel}': {exc}") from exc
         cataloged_dirs = {doc_rel_dir(d) for d in catalog.documents}
         cataloged_files = {f.path for d in catalog.documents for f in d.files}
         structural_paths = (docs_root, docs_root / "topics", docs_root / "repos")
+        cataloged_dir_paths = [root / cataloged_dir for cataloged_dir in cataloged_dirs]
         cataloged_paths = [
-            *(root / cataloged_dir for cataloged_dir in cataloged_dirs),
+            *cataloged_dir_paths,
             *(root / cataloged_file for cataloged_file in cataloged_files),
         ]
         structural_ids = {fsid for p in structural_paths if (fsid := _fsid(p)) is not None}
+        cataloged_dir_ids = {fsid for p in cataloged_dir_paths if (fsid := _fsid(p)) is not None}
         cataloged_ids = {fsid for p in cataloged_paths if (fsid := _fsid(p)) is not None}
         protected_ids = structural_ids | cataloged_ids
         target_id = _fsid(target)
-        rel_s = str(rel)
         if target_id in protected_ids:
             if target_id in structural_ids:
                 raise click.UsageError(f"'{rel}' is a structural directory, not an orphan")
@@ -124,11 +131,28 @@ def orphan_delete(ctx, path, yes, commit, commit_message):
                     if ancestor_id is not None and ancestor_id == docs_root_id:
                         break
 
-        inside_cataloged = any(rel_s.startswith(c + "/") for c in cataloged_dirs)
-        if inside_cataloged and rel_s not in scan_orphans(root, catalog):
-            raise ConflictError(f"'{rel}' belongs to a cataloged document — not an orphan")
+        inside_cataloged = False
+        for ancestor in target.parents:
+            ancestor_id = _fsid(ancestor)
+            if ancestor_id in cataloged_dir_ids:
+                inside_cataloged = True
+                break
+            if ancestor_id is not None and ancestor_id == docs_root_id:
+                break
+        if inside_cataloged:
+            orphan_ids = {
+                fsid
+                for orphan in scan_orphans(root, catalog)
+                if (fsid := _fsid(root / orphan)) is not None
+            }
+            if target_id not in orphan_ids:
+                raise ConflictError(f"'{rel}' belongs to a cataloged document — not an orphan")
         _confirm_or_fail(f"delete orphan '{rel}' permanently?", yes)
-        if target.is_dir():
+        try:
+            target_is_dir = target.is_dir()
+        except OSError as exc:
+            raise click.ClickException(f"cannot access '{rel}': {exc}") from exc
+        if target_is_dir:
             shutil.rmtree(target)
         else:
             target.unlink()
