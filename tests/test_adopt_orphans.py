@@ -1,7 +1,9 @@
 """P03-T06 — doc adopt and orphan list/delete (§11.15)."""
 
 import json
+import os
 
+import pytest
 from click.testing import CliRunner
 
 from shelf.cli.main import cli
@@ -371,3 +373,69 @@ def test_orphan_delete_case_variant_of_cataloged_group_rejected(isolated_env, tm
     r = run(["orphan", "delete", "docs/topics/DEV-TOOLING", "--yes"])
     assert r.exit_code != 0
     assert (root / entry["files"][0]["path"]).is_file()
+
+
+def _case_insensitive_fs(root):
+    probe = root / "CaseProbe"
+    probe.mkdir()
+    ci = (root / "caseprobe").exists()
+    probe.rmdir()
+    return ci
+
+
+def _cataloged_folder(root, entry):
+    return root / "/".join(entry["files"][0]["path"].split("/")[:-1])
+
+
+def test_orphan_delete_case_variant_supporting_asset_refused(isolated_env, tmp_path):
+    """Residual 1: a case-variant path to an uncataloged supporting asset inside a
+    cataloged folder must be refused just like the straight-case path."""
+    root = _init()
+    if not _case_insensitive_fs(root):
+        pytest.skip("case-sensitive filesystem")
+    entry = _add_cataloged_doc(root, tmp_path)
+    folder = _cataloged_folder(root, entry)
+    (folder / "notes.txt").write_text("supporting")
+    rel = (
+        "/".join(entry["files"][0]["path"].split("/")[:-1]).replace("dev-tooling", "DEV-TOOLING")
+        + "/notes.txt"
+    )
+    r = run(["orphan", "delete", rel, "--yes"])
+    assert r.exit_code != 0
+    assert (folder / "notes.txt").exists()
+
+
+def test_orphan_delete_case_variant_residue_deletable(isolated_env, tmp_path):
+    """Residual 2: a case-variant path to an A3 residue (a detected orphan inside a
+    cataloged folder) must STILL be deletable (identity, not string, decides)."""
+    root = _init()
+    if not _case_insensitive_fs(root):
+        pytest.skip("case-sensitive filesystem")
+    entry = _add_cataloged_doc(root, tmp_path)
+    slug = entry["id"]
+    folder = _cataloged_folder(root, entry)
+    residue = folder / f"{slug}.html"
+    residue.write_text("<html>")
+    rel = (
+        "/".join(entry["files"][0]["path"].split("/")[:-1]).replace("dev-tooling", "DEV-TOOLING")
+        + f"/{slug}.html"
+    )
+    r = run(["orphan", "delete", rel, "--yes"])
+    assert r.exit_code == 0, r.output
+    assert not residue.exists()
+
+
+def test_orphan_delete_under_unreadable_parent_is_clean(isolated_env):
+    """Residual 3: a target under a chmod-000 parent must surface a clean error,
+    not a raw PermissionError traceback."""
+    root = _init()
+    locked = root / "docs" / "topics" / "dev-tooling" / "locked"
+    locked.mkdir(parents=True)
+    (locked / "x.md").write_text("x")
+    os.chmod(locked, 0o000)
+    try:
+        r = run(["orphan", "delete", "docs/topics/dev-tooling/locked/x.md", "--yes"])
+        assert r.exception is None or isinstance(r.exception, SystemExit), repr(r.exception)
+        assert r.exit_code != 0
+    finally:
+        os.chmod(locked, 0o755)
