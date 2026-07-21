@@ -18,6 +18,14 @@ from shelf.core.git import git_commit_all
 from shelf.core.ingest import doc_rel_dir, scan_orphans
 
 
+def _fsid(p: Path) -> tuple[int, int] | None:
+    try:
+        st = p.stat()
+        return (st.st_dev, st.st_ino)
+    except OSError:
+        return None
+
+
 def _confirm_or_fail(prompt: str, yes: bool) -> None:
     if yes:
         return
@@ -89,14 +97,35 @@ def orphan_delete(ctx, path, yes, commit, commit_message):
             raise NotFoundError(f"'{rel}' does not exist")
         cataloged_dirs = {doc_rel_dir(d) for d in catalog.documents}
         cataloged_files = {f.path for d in catalog.documents for f in d.files}
+        structural_paths = (docs_root, docs_root / "topics", docs_root / "repos")
+        cataloged_paths = [
+            *(root / cataloged_dir for cataloged_dir in cataloged_dirs),
+            *(root / cataloged_file for cataloged_file in cataloged_files),
+        ]
+        structural_ids = {fsid for p in structural_paths if (fsid := _fsid(p)) is not None}
+        cataloged_ids = {fsid for p in cataloged_paths if (fsid := _fsid(p)) is not None}
+        protected_ids = structural_ids | cataloged_ids
+        target_id = _fsid(target)
         rel_s = str(rel)
-        if rel_s in {"docs", "docs/topics", "docs/repos"}:
-            raise click.UsageError(f"'{rel}' is a structural directory, not an orphan")
+        if target_id in protected_ids:
+            if target_id in structural_ids:
+                raise click.UsageError(f"'{rel}' is a structural directory, not an orphan")
+            raise ConflictError(f"'{rel}' belongs to a cataloged document — not an orphan")
+
+        docs_root_id = _fsid(docs_root)
+        if target_id is not None:
+            for cataloged_path in cataloged_paths:
+                for ancestor in cataloged_path.parents:
+                    ancestor_id = _fsid(ancestor)
+                    if ancestor_id == target_id:
+                        raise ConflictError(
+                            f"'{rel}' belongs to a cataloged document — not an orphan"
+                        )
+                    if ancestor_id is not None and ancestor_id == docs_root_id:
+                        break
+
         inside_cataloged = any(rel_s.startswith(c + "/") for c in cataloged_dirs)
-        contains_cataloged = any(
-            c == rel_s or c.startswith(rel_s + "/") for c in (cataloged_dirs | cataloged_files)
-        )
-        if contains_cataloged or (inside_cataloged and rel_s not in scan_orphans(root, catalog)):
+        if inside_cataloged and rel_s not in scan_orphans(root, catalog):
             raise ConflictError(f"'{rel}' belongs to a cataloged document — not an orphan")
         _confirm_or_fail(f"delete orphan '{rel}' permanently?", yes)
         if target.is_dir():

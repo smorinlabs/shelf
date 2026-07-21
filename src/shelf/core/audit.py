@@ -79,6 +79,17 @@ def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False
         )
         return findings
 
+    if not isinstance(raw, dict):
+        findings.append(
+            Finding(
+                3,
+                "malformed-entry",
+                "catalog root is not an object",
+                "repair catalog.json root object",
+            )
+        )
+        return findings
+
     schema = raw.get("schema_version", 0)
     if not isinstance(schema, int):
         findings.append(
@@ -105,7 +116,16 @@ def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False
             )
         )
         raw_topics = []
-    topics = set(raw_topics)
+    elif any(not isinstance(topic, str) for topic in raw_topics):
+        findings.append(
+            Finding(
+                3,
+                "malformed-entry",
+                "topics contains non-string entries",
+                "repair catalog.json topics",
+            )
+        )
+    topics = {topic for topic in raw_topics if isinstance(topic, str)}
 
     raw_kinds = raw.get("kinds", [])
     if not isinstance(raw_kinds, list):
@@ -118,7 +138,16 @@ def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False
             )
         )
         raw_kinds = []
-    kinds = set(raw_kinds)
+    elif any(not isinstance(kind, str) for kind in raw_kinds):
+        findings.append(
+            Finding(
+                3,
+                "malformed-entry",
+                "kinds contains non-string entries",
+                "repair catalog.json kinds",
+            )
+        )
+    kinds = {kind for kind in raw_kinds if isinstance(kind, str)}
 
     raw_documents = raw.get("documents", [])
     if not isinstance(raw_documents, list):
@@ -154,7 +183,17 @@ def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False
                         f"repair with 'shelf doc update {doc_id}'",
                     )
                 )
-        if doc.get("kind") and doc["kind"] not in kinds:
+        kind = doc.get("kind")
+        if kind is not None and not isinstance(kind, str):
+            findings.append(
+                Finding(
+                    3,
+                    "malformed-entry",
+                    f"{doc_id}: kind is not a string",
+                    "repair the document's kind in catalog.json",
+                )
+            )
+        elif kind and kind not in kinds:
             findings.append(
                 Finding(
                     3,
@@ -173,7 +212,17 @@ def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False
                     f"repair with 'shelf doc update {doc_id}'",
                 )
             )
-        if not has_repo and doc.get("category") and doc["category"] not in topics:
+        category = doc.get("category")
+        if not has_repo and category is not None and not isinstance(category, str):
+            findings.append(
+                Finding(
+                    3,
+                    "malformed-entry",
+                    f"{doc_id}: category is not a string",
+                    "repair the document's category in catalog.json",
+                )
+            )
+        elif not has_repo and category and category not in topics:
             findings.append(
                 Finding(
                     3,
@@ -209,6 +258,16 @@ def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False
             expected_files: set[str] = set()
             for variant in files:
                 path = variant.get("path", "")
+                if not isinstance(path, str):
+                    findings.append(
+                        Finding(
+                            3,
+                            "malformed-entry",
+                            f"{doc_id}: file path is not a string",
+                            "repair the document's files entries in catalog.json",
+                        )
+                    )
+                    continue
                 if path:
                     expected_files.add(path)
                 if not path.startswith(expected_dir + "/"):
