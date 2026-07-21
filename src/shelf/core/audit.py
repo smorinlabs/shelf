@@ -33,24 +33,29 @@ def _doc_dir(doc: dict) -> str | None:
 
 
 def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> list[Finding]:
+    # Keep snapshot/scan consistent; pre-commit Git has no mutation lock, so this is deadlock-safe.
+    with library_lock(root):
+        return _run_audit_locked(root, config_path, pre_commit=pre_commit)
+
+
+def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False) -> list[Finding]:
     findings: list[Finding] = []
 
-    with library_lock(root):
-        try:
-            catalog_text = (root / "catalog.json").read_text(encoding="utf-8")
-        except OSError:
-            return [
-                Finding(
-                    4,
-                    "catalog-unparseable",
-                    "catalog.json is missing or unreadable",
-                    "restore it from git history or a backup",
-                )
-            ]
-        try:
-            index_text = (root / "index.html").read_text(encoding="utf-8")
-        except OSError:
-            index_text = None
+    try:
+        catalog_text = (root / "catalog.json").read_text(encoding="utf-8")
+    except OSError:
+        return [
+            Finding(
+                4,
+                "catalog-unparseable",
+                "catalog.json is missing or unreadable",
+                "restore it from git history or a backup",
+            )
+        ]
+    try:
+        index_text = (root / "index.html").read_text(encoding="utf-8")
+    except OSError:
+        index_text = None
 
     if not config_path.is_file():
         findings.append(

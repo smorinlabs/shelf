@@ -29,6 +29,12 @@ def git_init(root: Path) -> None:
 
 def git_commit_all(root: Path, message: str) -> None:
     """Stage all changes and create an operation commit, even with no net diff."""
+    # P07 hook safety requires committing outside the library lock. In the accepted
+    # single-user model, a second shelf process can mutate after lock release and
+    # before `git add -A`, so its change may be swept into this commit and leave its
+    # own commit empty. This muddles Git history only; it never loses data or
+    # corrupts the library. A path-scoped add plus a Git-serialization lock threaded
+    # through all callers is deferred.
     commands = (["add", "-A"], ["commit", "--allow-empty", "-m", message])
     for args in commands:
         try:
