@@ -90,12 +90,13 @@ def orphan_delete(ctx, path, yes, commit, commit_message):
         cataloged_dirs = {doc_rel_dir(d) for d in catalog.documents}
         cataloged_files = {f.path for d in catalog.documents for f in d.files}
         rel_s = str(rel)
+        if rel_s in {"docs", "docs/topics", "docs/repos"}:
+            raise click.UsageError(f"'{rel}' is a structural directory, not an orphan")
         inside_cataloged = any(rel_s.startswith(c + "/") for c in cataloged_dirs)
-        if (
-            rel_s in cataloged_dirs
-            or rel_s in cataloged_files
-            or (inside_cataloged and rel_s not in scan_orphans(root, catalog))
-        ):
+        contains_cataloged = any(
+            c == rel_s or c.startswith(rel_s + "/") for c in (cataloged_dirs | cataloged_files)
+        )
+        if contains_cataloged or (inside_cataloged and rel_s not in scan_orphans(root, catalog)):
             raise ConflictError(f"'{rel}' belongs to a cataloged document — not an orphan")
         _confirm_or_fail(f"delete orphan '{rel}' permanently?", yes)
         if target.is_dir():

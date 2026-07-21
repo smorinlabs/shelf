@@ -94,10 +94,45 @@ def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False
     elif schema < CURRENT_SCHEMA_VERSION:
         findings.append(Finding(3, "schema-old", f"schema_version {schema}", "run 'shelf migrate'"))
 
-    topics = set(raw.get("topics", []))
-    kinds = set(raw.get("kinds", []))
+    raw_topics = raw.get("topics", [])
+    if not isinstance(raw_topics, list):
+        findings.append(
+            Finding(
+                3,
+                "malformed-entry",
+                "topics is not a list",
+                "repair catalog.json topics",
+            )
+        )
+        raw_topics = []
+    topics = set(raw_topics)
+
+    raw_kinds = raw.get("kinds", [])
+    if not isinstance(raw_kinds, list):
+        findings.append(
+            Finding(
+                3,
+                "malformed-entry",
+                "kinds is not a list",
+                "repair catalog.json kinds",
+            )
+        )
+        raw_kinds = []
+    kinds = set(raw_kinds)
+
+    raw_documents = raw.get("documents", [])
+    if not isinstance(raw_documents, list):
+        findings.append(
+            Finding(
+                3,
+                "malformed-entry",
+                "documents is not a list",
+                "repair catalog.json documents",
+            )
+        )
+        raw_documents = []
     cataloged_dirs: set[str] = set()
-    for index, doc in enumerate(raw.get("documents", [])):
+    for index, doc in enumerate(raw_documents):
         if not isinstance(doc, dict):
             findings.append(
                 Finding(
