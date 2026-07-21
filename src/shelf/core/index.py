@@ -46,13 +46,12 @@ def render_index(catalog_text: str, snippets: dict[str, str] | None = None) -> s
         formats = []
         for variant in doc.get("files", []):
             fmt = variant["format"]
-            base = "docs/repos" if anchor["type"] == "repo" else "docs/topics"
             formats.append(
                 {
                     "f": fmt,
                     "primary": fmt == doc.get("primary"),
                     "text": fmt in {"md", "html"},
-                    "path": f"{base}/{anchor['group']}/{doc['id']}/{doc['id']}.{fmt}",
+                    "path": variant["path"],
                 }
             )
 

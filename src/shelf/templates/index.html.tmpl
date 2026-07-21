@@ -265,7 +265,8 @@ const REPO_ORDER = [...new Set(DOCS.filter(d=>d.anchor.type==="repo").map(d=>d.a
 const TOPIC_ORDER = PAGE.topics;
 const KIND_ORDER = PAGE.kinds;
 
-function relPath(d, fmt){ const a=d.anchor; const base=a.type==="repo"?`docs/repos/${a.group}`:`docs/topics/${a.group}`; return `${base}/${d.id}/${d.id}.${fmt}`; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]); }
+function relPath(d, fmt){ const variant=d.formats.find(x=>x.f===fmt); return variant ? variant.path : ""; }
 const FILE_ROOT = decodeURIComponent(location.pathname.replace(/\/index\.html$/, ""));
 function absPath(d, fmt){ return `${ENHANCED ? ROOT : FILE_ROOT}/${relPath(d, fmt)}`; }
 function primary(d){ return d.formats.find(x=>x.primary)||d.formats[0]; }
@@ -287,6 +288,9 @@ function copy(text, label){
   toast.classList.add("show"); clearTimeout(toastT);
   toastT = setTimeout(()=>toast.classList.remove("show"), 1400);
 }
+function copyText(path){
+  fetch(path).then(r=>r.text()).then(t=>copy(t,"Copied text")).catch(()=>copy("","Copy failed"));
+}
 
 /* ---------------- sidebar ---------------- */
 function renderSidebar(){
@@ -297,12 +301,12 @@ function renderSidebar(){
   let h = `<div class="all ${filter===null?'on':''}" data-all="1">All documents <span class="n">${DOCS.length}</span></div>`;
   if(view==="subject"){
     h += `<div class="cat">Repos</div>`;
-    REPO_ORDER.forEach(g=> h+=`<div class="item ${filter&&filter.group===g?'on':''}" data-group="${g}">${g} <span class="n">${counts[g]||0}</span></div>`);
+    REPO_ORDER.forEach(g=> h+=`<div class="item ${filter&&filter.group===g?'on':''}" data-group="${esc(g)}">${esc(g)} <span class="n">${counts[g]||0}</span></div>`);
     h += `<div class="cat">Topics</div>`;
-    TOPIC_ORDER.forEach(g=> h+=`<div class="item ${filter&&filter.group===g?'on':''}" data-group="${g}">${g} <span class="n">${counts[g]||0}</span></div>`);
+    TOPIC_ORDER.forEach(g=> h+=`<div class="item ${filter&&filter.group===g?'on':''}" data-group="${esc(g)}">${esc(g)} <span class="n">${counts[g]||0}</span></div>`);
   } else {
     h += `<div class="cat">Kinds</div>`;
-    KIND_ORDER.forEach(k=> h+=`<div class="item ${filter&&filter.kind===k?'on':''}" data-kind="${k}">${k} <span class="n">${kcounts[k]||0}</span></div>`);
+    KIND_ORDER.forEach(k=> h+=`<div class="item ${filter&&filter.kind===k?'on':''}" data-kind="${esc(k)}">${esc(k)} <span class="n">${kcounts[k]||0}</span></div>`);
   }
   tree.innerHTML = h;
   tree.querySelectorAll("[data-group],[data-kind],[data-all]").forEach(el=>{
@@ -334,10 +338,10 @@ function groupsFor(ds){
   return groups;
 }
 function rowHTML(d){
-  const fmts = d.formats.map(x=>`<span class="f ${x.primary?'primary':''}">${x.f}</span>`).join("");
+  const fmts = d.formats.map(x=>`<span class="f ${x.primary?'primary':''}">${esc(x.f)}</span>`).join("");
   return `<div class="l">
-      <div class="tl"><span class="title">${d.title}</span><span class="kind k-${d.kind}">${d.kind}</span></div>
-      <div class="meta"><span class="id">${d.id}</span><span class="tags">${d.tags.join(" · ")}</span></div>
+      <div class="tl"><span class="title">${esc(d.title)}</span><span class="kind k-${esc(d.kind)}">${esc(d.kind)}</span></div>
+      <div class="meta"><span class="id">${esc(d.id)}</span><span class="tags">${d.tags.map(esc).join(" · ")}</span></div>
     </div>
     <div class="r"><div class="fmts">${fmts}</div></div>`;
 }
@@ -351,7 +355,7 @@ function renderList(){
   visRows = [];
   groups.forEach(g=>{
     const gh = document.createElement("div"); gh.className="grp";
-    gh.innerHTML = `<span class="g">${g.label}</span>${g.sub?`<span class="s">${g.sub}</span>`:""}<span class="rule"></span>`;
+    gh.innerHTML = `<span class="g">${esc(g.label)}</span>${g.sub?`<span class="s">${esc(g.sub)}</span>`:""}<span class="rule"></span>`;
     body.appendChild(gh);
     g.items.forEach(d=>{
       const row = document.createElement("div"); row.className="row"; row.innerHTML=rowHTML(d);
@@ -378,25 +382,25 @@ function renderPreview(d){
   const anchorLabel = a.type==="repo" ? `${a.group} · ${a.subject}` : a.group;
   const acts = d.formats.map(x=>{
     const p = absPath(d, x.f);
-    return `<div class="pa-row"><span class="pf">${x.primary?'<b>':''}${x.f}${x.primary?' ●</b>':''}</span>
-      <button class="pa-btn" data-copy="${p}">Copy path</button>
-      <button class="pa-btn text" ${ENHANCED&&x.text?`data-copytext="${d.id}.${x.f}"`:'disabled'} ${ENHANCED?'':'hidden'}>Copy text</button></div>`;
+    return `<div class="pa-row"><span class="pf">${x.primary?'<b>':''}${esc(x.f)}${x.primary?' ●</b>':''}</span>
+      <button class="pa-btn" data-copy="${esc(p)}">Copy path</button>
+      <button class="pa-btn text" ${ENHANCED&&x.text?`data-copytext="${esc(x.path)}"`:'disabled'} ${ENHANCED?'':'hidden'}>Copy text</button></div>`;
   }).join("");
   prev.innerHTML = `<div class="prev-inner">
     <div class="prev-top">
-      <div class="prev-krow"><span class="kind k-${d.kind}">${d.kind}</span><span class="prev-anchor">${anchorLabel}</span>
+      <div class="prev-krow"><span class="kind k-${esc(d.kind)}">${esc(d.kind)}</span><span class="prev-anchor">${esc(anchorLabel)}</span>
         <button class="prev-close" id="prevclose" title="Hide preview">›</button></div>
-      <div class="prev-title">${d.title}</div>
-      <div class="prev-id">${relPath(d, primary(d).f)}</div>
-      <div class="prev-tags">${d.tags.map(t=>`<span>${t}</span>`).join("")}</div>
+      <div class="prev-title">${esc(d.title)}</div>
+      <div class="prev-id">${esc(relPath(d, primary(d).f))}</div>
+      <div class="prev-tags">${d.tags.map(t=>`<span>${esc(t)}</span>`).join("")}</div>
     </div>
     <div class="prev-actions">${acts}</div>
-    <div class="snip-lbl">Preview <span class="rule"></span> ${primary(d).f}</div>
+    <div class="snip-lbl">Preview <span class="rule"></span> ${esc(primary(d).f)}</div>
     <div class="snip">${d.snippet}</div>
     <div class="snip-hint">first lines · <b>copy text</b> or open to read the rest</div>
   </div>`;
   prev.querySelectorAll("[data-copy]").forEach(b=> b.addEventListener("click", e=>{ e.stopPropagation(); copy(b.dataset.copy, "Copied path"); }));
-  prev.querySelectorAll("[data-copytext]").forEach(b=> b.addEventListener("click", e=>{ e.stopPropagation(); copy("(contents of "+b.dataset.copytext+")", "Copied text"); }));
+  prev.querySelectorAll("[data-copytext]").forEach(b=> b.addEventListener("click", e=>{ e.stopPropagation(); copyText(b.dataset.copytext); }));
   const pc = document.getElementById("prevclose"); if(pc) pc.addEventListener("click", ()=> app.dataset.prev = "closed");
 }
 
@@ -407,22 +411,22 @@ const palresults = document.getElementById("palresults");
 let palRows = [], palSel = 0;
 function openPalette(){ scrim.classList.add("open"); palinput.value=""; renderPalette(""); palinput.focus(); }
 function closePalette(){ scrim.classList.remove("open"); }
-function scoreMatch(d, q){ const hay=(d.title+" "+d.tags.join(" ")+" "+d.id+" "+(d.anchor.subject||"")).toLowerCase(); return hay.includes(q); }
+function scoreMatch(d, q){ const hay=(d.title+" "+(d.description||"")+" "+d.tags.join(" ")+" "+d.id+" "+(d.anchor.subject||"")).toLowerCase(); return hay.includes(q); }
 function renderPalette(q){
   q = q.trim().toLowerCase();
   const ds = q ? DOCS.filter(d=>scoreMatch(d,q)) : DOCS.slice(0,6);
   palRows = []; palSel = 0;
-  if(!ds.length){ palresults.innerHTML = `<div class="pal-none">No documents match “${q}”.</div>`; return; }
+  if(!ds.length){ palresults.innerHTML = `<div class="pal-none">No documents match “${esc(q)}”.</div>`; return; }
   // group by subject for display
   let html = ""; const groups = groupsForList(ds);
   groups.forEach(g=>{
-    html += `<div class="pal-grp">${g.label}${g.sub?` <b>· ${g.sub}</b>`:""}</div>`;
+    html += `<div class="pal-grp">${esc(g.label)}${g.sub?` <b>· ${esc(g.sub)}</b>`:""}</div>`;
     g.items.forEach(d=>{
       const i = palRows.length; palRows.push(d);
       html += `<div class="pal-item" data-i="${i}">
-        <div class="pl"><div class="ptl"><span class="ptt">${d.title}</span><span class="kind k-${d.kind}">${d.kind}</span></div>
+        <div class="pl"><div class="ptl"><span class="ptt">${esc(d.title)}</span><span class="kind k-${esc(d.kind)}">${esc(d.kind)}</span></div>
           <div class="pd">${d.snippet.replace(/<[^>]+>/g," ").replace(/\\s+/g," ").trim().slice(0,64)}…</div></div>
-        <div class="pr2"><span>${d.formats.map(x=>x.f).join(" · ")}</span><span class="ent">⏎</span></div></div>`;
+        <div class="pr2"><span>${d.formats.map(x=>esc(x.f)).join(" · ")}</span><span class="ent">⏎</span></div></div>`;
     });
   });
   palresults.innerHTML = html;
@@ -439,7 +443,7 @@ function groupsForList(ds){
   return groups;
 }
 function paintPalette(){ palresults.querySelectorAll(".pal-item").forEach((el,i)=>{ const on=(+el.dataset.i===palSel); el.classList.toggle("sel",on); if(on) el.scrollIntoView({block:"nearest"}); }); }
-function enterPalette(text){ const d=palRows[palSel]; if(!d) return; const p=primary(d); if(text){ if(ENHANCED&&p.text) copy("(contents of "+d.id+"."+p.f+")","Copied text"); } else copy(absPath(d,p.f),"Copied path"); closePalette(); }
+function enterPalette(text){ const d=palRows[palSel]; if(!d) return; const p=primary(d); if(text){ if(ENHANCED&&p.text) copyText(p.path); } else copy(absPath(d,p.f),"Copied path"); closePalette(); }
 
 /* ---------------- events ---------------- */
 const app = document.getElementById("app");
@@ -471,7 +475,7 @@ document.addEventListener("keydown", e=>{
   if(typing) return;
   if(k==="ArrowDown"){ e.preventDefault(); sel=Math.min(visRows.length-1,sel+1); paint(); }
   else if(k==="ArrowUp"){ e.preventDefault(); sel=Math.max(0,sel-1); paint(); }
-  else if(k==="Enter" && visRows[sel]){ e.preventDefault(); const d=visRows[sel].doc; const p=primary(d); if(e.altKey&&ENHANCED&&p.text) copy("(contents of "+d.id+"."+p.f+")","Copied text"); else copy(absPath(d,p.f),"Copied path"); }
+  else if(k==="Enter" && visRows[sel]){ e.preventDefault(); const d=visRows[sel].doc; const p=primary(d); if(e.altKey&&ENHANCED&&p.text) copyText(p.path); else copy(absPath(d,p.f),"Copied path"); }
   else if(k==="["){ app.dataset.side = app.dataset.side==="closed"?"open":"closed"; }
   else if(k==="]"){ app.dataset.prev = app.dataset.prev==="closed"?"open":"closed"; }
 });

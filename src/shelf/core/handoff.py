@@ -2,6 +2,7 @@
 classification flags are missing, unless already inside an AI session."""
 
 import os
+import re
 from pathlib import Path
 from typing import NoReturn
 
@@ -34,7 +35,8 @@ def resolve_agent(flag: str | None, cfg_agent: str) -> str:
 
 def build_handoff_prompt(paths: list[Path]) -> str:
     """Build the primed introductory prompt referencing the shelf-add skill."""
-    listed = ", ".join(f"`{p}`" for p in paths)
+    safe_paths = (re.sub(r"[\x00-\x1f\x7f`]", " ", str(p)) for p in paths)
+    listed = ", ".join(f"`{p}`" for p in safe_paths)
     return f"Use the shelf-add skill to add {listed} to shelf. Walk me through classification."
 
 
