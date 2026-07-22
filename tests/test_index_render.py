@@ -310,3 +310,14 @@ def test_search_scorematch_includes_description_in_the_haystack(seeded_index):
     assert "d.description" in match.group(1), (
         "scoreMatch's haystack must include d.description so search can match on it"
     )
+
+
+def test_index_declares_a_favicon_to_avoid_a_404(seeded_index):
+    """P08 smoke follow-up: with no declared icon, browsers auto-request
+    /favicon.ico → a 404 on every load. The template declares an inline icon
+    so no /favicon.ico request is made (works in core file:// and enhanced)."""
+    root = seeded_index
+    html_text = (root / "index.html").read_text()
+    assert re.search(r'<link[^>]+rel="icon"', html_text), (
+        'expected <link rel="icon"> in index.html so browsers do not request /favicon.ico'
+    )

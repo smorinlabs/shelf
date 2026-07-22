@@ -151,5 +151,5 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 ---
 
 ## Backlog — minor
-- [ ] **UI favicon 404** (found in the P08 browser smoke): the enhanced-mode server 404s on `/favicon.ico` (Chrome auto-requests it; shelf serves none) — benign devtools noise, app renders fully. Fix: add `<link rel="icon" href="data:,">` to `index.html.tmpl` (stops the request) or return `204` for `/favicon.ico` in `server/serve.py`. One-liner.
+- [x] **UI favicon 404** (found in the P08 browser smoke): FIXED — `index.html.tmpl` now declares `<link rel="icon" href="data:,">`, so browsers no longer request `/favicon.ico` (no 404) in either core `file://` or enhanced mode. Regression-tested (`test_index_declares_a_favicon_to_avoid_a_404`).
 - [x] Live browser smoke of the P08 UI hardening (C1 XSS / C3 copy-text / C4 search) — DONE; all three verified live with screenshots.
