@@ -98,10 +98,37 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P08-T01] Handoff launcher (`core/handoff.py`: agent precedence resolution, primed prompt with sanitized paths, `os.execvp` seam) with session detection (`CLAUDECODE` / `CODEX_THREAD_ID`, build-verified against Codex CLI 0.144.6)
 - [x] Regression Test Status — 316/316 passing at v0.8.0; `make check` and `just all` green (unpiped); LIVE hermetic handoff pilot 10/10 (both agent shims, both session markers, all four decision-table paths). FINAL whole-branch adversarial review (fable + codex, fresh context) over v0.1.0→v0.8.0 found 21 findings + 2 re-review blockers + 2 residuals — ALL fixed and re-verified: orphan-delete path-traversal/case-insensitive/ancestor wipes closed (identity-based, (st_dev,st_ino)); audit never-crashes on any parseable-but-malformed catalog; all git/gh/handoff subprocesses surface clean `ClickException`; `format add --replace` atomic (backup+restore); UI metadata HTML-escaped (XSS closed, empirically verified) + search-by-description + real copy-text + recorded variant paths; D2 (`git add -A` concurrency) accepted+documented as a single-user limitation. Two carried P07 Minors (redundant `.strip()`, `--owner` without `--github`) also fixed.
 
-## [ ] Project P09: Template-press scaffolding layer (v1.0.0)
-**Goal**: Layer the remaining py-launch-blueprint scaffolding (CI, release automation, hooks, docs) onto the repo via template-press (PRD §14.6). Blocked until template-press is ready for this use; scope finalized then. Follow-on plans for `shelf-skill` and `shelf-library` start after this.
+## [?] Project P09: shelf-skill — management skills for Claude Code + Codex
+**Goal**: Build the `shelf-skill` plugin (separate repo `~/c/shelf-skill`, currently empty) that exposes shelf's operations to Claude Code **and** Codex, shelling out to the `shelf` CLI. Completes P08's handoff (the launched agent needs a skill to land in). Own versioning (separate repo), not part of the shelf-CLI version sequence.
+
+**Shape — DECIDE BEFORE PLANNING** (idea state until then):
+- [ ] Skill shape: **single `shelf` skill** (1 always-on trigger + progressive-disclosure body routing to per-op `references/*.md`) vs. **7 focused skills** (shelf-add/edit/init/find/remove/audit/open per PRD §12) — trades always-on context footprint (7 descriptions) against per-invocation body size. Leaning single/progressive-disclosure.
+- [ ] If single: update P08's handoff prompt in `core/handoff.py` ("Use the shelf-add skill…" → "Use the shelf skill…").
+- [ ] Dual plugin manifests (`.claude-plugin/plugin.json` + Codex adapter), verified against both ecosystems at build time (PRD §14.1).
+
+**Out of scope**: the `shelf-library` content repo (stand up separately via `init --git`/`--adopt`).
+
+---
+
+## [ ] Project P10: Taxonomy maintenance (v0.9.0)
+**Goal**: Add the deferred taxonomy-maintenance commands (PRD §14.5): `topic rename` (folder moves under `docs/topics/` + catalog `category` updates + regen), `topic remove`, `kind remove`. Follows the existing mutation pipeline (advisory lock, atomic commit-point, audit-detectable), with in-use guards.
 
 ### Tests & Tasks
-- [ ] [P09-T01] Run the template-press pass; reconcile with the existing package (additive files only)
-- [ ] [P09-TS01] `make check` and `just all` still pass; `uv tool install` still works
+- [ ] [P10-T01] `topic rename <old> <new>` — move folders, rewrite affected catalog categories, regen; reject on target-exists / in-use conflicts
+- [ ] [P10-T02] `topic remove` / `kind remove` — refuse while in use by any document, else drop from the taxonomy
 - [ ] Regression Test Status
+
+---
+
+## [ ] Project P11: Template-press scaffolding layer (v1.0.0)
+**Goal**: (moved from P09) Layer the remaining py-launch-blueprint scaffolding — CI, release automation, hooks, docs — onto the repo via template-press (PRD §14.6), additively (no disturbing `src/shelf` or `uv tool install`). Cuts **v1.0.0** — the "conventional org project" graduation. Blocked until template-press is confirmed ready for the layer-onto-existing-repo case; scope finalized then.
+
+### Tests & Tasks
+- [ ] [P11-T01] Run the template-press pass (dry-run first); reconcile with the existing package (additive files only)
+- [ ] [P11-TS01] `make check` and `just all` still pass; `uv tool install` still works
+- [ ] Regression Test Status
+
+---
+
+## [?] Project P12: Multiple libraries (far out)
+**Goal**: (far-future idea, PRD §14.3) Named multi-library support. The current design assumes a single library; the §4 resolution scheme can accommodate named libraries later **without breaking changes**. Not scoped — revisit only when a real multi-library need appears.
