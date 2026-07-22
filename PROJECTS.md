@@ -132,3 +132,24 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ## [?] Project P12: Multiple libraries (far out)
 **Goal**: (far-future idea, PRD §14.3) Named multi-library support. The current design assumes a single library; the §4 resolution scheme can accommodate named libraries later **without breaking changes**. Not scoped — revisit only when a real multi-library need appears.
+
+---
+
+## [ ] Project P13: Concurrency-safe git commits (D2 — optional/deferred)
+**Goal**: (final-review D2, currently accept+documented) Isolate each command's commit from a concurrent second shelf process so the post-lock `git add -A` can no longer sweep another process's change into this commit. Single-user is the intended model, so this is **optional** — pursue only if real multi-process/automation use appears. No data-loss risk today; the impact is muddled git-history attribution only.
+
+**Approach**:
+- **Git-serialization lock**: a separate advisory flock (e.g. `.shelf.gitlock`, distinct from the library lock so a `shelf audit` pre-commit hook — which takes the *library* lock — can't deadlock) held around `git add … && git commit`.
+- **Path-scoped add**: `git_commit_all(root, message)` → `git_commit_all(root, message, paths=None)`; each mutating command passes the exact paths it touched (catalog.json, index.html, its doc folder); `init` keeps `-A`.
+- Thread `paths` through every commit caller (doc add/update/move/delete, format add/delete, taxonomy add, regen/migrate, orphan delete).
+
+### Tests & Tasks
+- [ ] [P13-T01] `.shelf.gitlock` advisory lock around add+commit (proven not to deadlock with the pre-commit `shelf audit` hook)
+- [ ] [P13-T02] Path-scoped `git_commit_all(paths)`; thread through all callers
+- [ ] [P13-TS01] Concurrency isolation test: two shelf processes → each commit contains only its own changes (no mixed/empty commits)
+
+---
+
+## Backlog — minor
+- [ ] **UI favicon 404** (found in the P08 browser smoke): the enhanced-mode server 404s on `/favicon.ico` (Chrome auto-requests it; shelf serves none) — benign devtools noise, app renders fully. Fix: add `<link rel="icon" href="data:,">` to `index.html.tmpl` (stops the request) or return `204` for `/favicon.ico` in `server/serve.py`. One-liner.
+- [x] Live browser smoke of the P08 UI hardening (C1 XSS / C3 copy-text / C4 search) — DONE; all three verified live with screenshots.
