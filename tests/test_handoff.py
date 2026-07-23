@@ -46,8 +46,7 @@ def test_resolve_agent_rejects_unknown():
 def test_build_handoff_prompt_single_path():
     prompt = handoff.build_handoff_prompt([Path("/tmp/a.md")])
     assert (
-        prompt
-        == "Use the shelf-add skill to add `/tmp/a.md` to shelf. Walk me through classification."
+        prompt == "Use the shelf skill to add `/tmp/a.md` to shelf. Walk me through classification."
     )
 
 
@@ -89,7 +88,7 @@ def test_run_handoff_execs_with_agent_and_prompt(monkeypatch):
     handoff.run_handoff("claude", [Path("/tmp/a.md")])
     assert calls["file"] == "claude"
     assert calls["args"][0] == "claude"
-    assert "shelf-add skill" in calls["args"][1]
+    assert "shelf skill" in calls["args"][1]
 
 
 def test_run_handoff_missing_binary_raises_clickexception(monkeypatch):

@@ -112,7 +112,7 @@ def doc_add(
         session = handoff.in_ai_session()
         if session is not None:
             raise click.ClickException(
-                f"already inside a {session} session — invoke the shelf-add skill "
+                f"already inside a {session} session — invoke the shelf skill "
                 "directly instead of nesting a handoff"
             )
         agent = handoff.resolve_agent(handoff_agent, get_config(ctx).handoff_agent)
