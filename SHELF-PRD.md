@@ -8,10 +8,9 @@
 
 **Shelf** is a private personal documentation library. It holds reference docs, published HTML documents, and Markdown explainers and tutorials — copied and organized into the library so the content is self-contained and more or less static. A generated single-page HTML interface provides search and access; a `shelf` CLI manages the library; and a plugin exposes management and retrieval skills to AI coding tools.
 
-Shelf is delivered as **three repositories**:
+Shelf is delivered as **two repositories** (P09, 2026-07-22 — the plugin moved into the `shelf` repo; the separate `shelf-skill` repo is abandoned):
 
-- `shelf` — the management CLI and the UI template.
-- `shelf-skill` — a plugin exposing the management skills to Claude Code and Codex.
+- `shelf` — a **monorepo**: the management CLI, the UI template, **and** the Claude Code / Codex plugin (a single `shelf` skill).
 - `shelf-library` — the document content itself.
 
 The library content is the user's data. By default it is stored in the standard per-user data location and accessed through the CLI and the UI; a CLI command reveals its path.
@@ -33,8 +32,8 @@ The library content is the user's data. By default it is stored in the standard 
 ### Non-Goals
 
 - Not a hosted service or public site.
-- No marketplace distribution initially — the `shelf-skill` plugin is installed directly; a marketplace manifest can be added later.
-- No automated ingestion — every catalog mutation is user-initiated. The UI and skills assist, but the human stays in the loop and confirms classification. (A user-confirmed URL fetch performed by the `shelf-add` skill is user-initiated, not automated.)
+- No marketplace distribution initially — the plugin ships in the `shelf` repo and is installed directly. *(P09: whether "no marketplace initially" still holds under the monorepo is re-specified under P14.)*
+- No automated ingestion — every catalog mutation is user-initiated. The UI and skills assist, but the human stays in the loop and confirms classification. (A user-confirmed URL fetch performed by the `shelf` skill is user-initiated, not automated.)
 - No heavy build pipeline. The only runtime is an optional lightweight local server for the UI's enhanced mode (§13).
 - No Windows support. macOS is the primary platform; Linux is expected to work.
 
@@ -42,43 +41,39 @@ The library content is the user's data. By default it is stored in the standard 
 
 ## 3. Repository Architecture
 
-Shelf is split across three repositories. The CLI is a tool that releases on its own cadence; the plugin is a thin AI-tool integration; the library is user content.
+Shelf is split across two repositories. The `shelf` repo is a **monorepo** — the CLI (releases on its own cadence) **and** the plugin (a thin AI-tool integration) — while `shelf-library` holds user content. **P09 (2026-07-22): the plugin moved into the `shelf` repo; the previously-specified separate `shelf-skill` repo is abandoned.**
 
-### `shelf` — CLI and UI template
+### `shelf` — CLI, UI template, and the plugin (monorepo)
 
 ```
-shelf/
+shelf/                            # monorepo: uv-installable CLI + Claude Code / Codex plugin
 ├── pyproject.toml                # [project.scripts] shelf = "shelf.cli.main:cli"
-├── src/shelf/
+├── src/shelf/                    # the CLI package — the ONLY thing in the built wheel
 │   ├── cli/                      # click command tree
 │   ├── core/                     # config, catalog, paths, slugs, atomic writes
 │   ├── server/                   # local UI server (enhanced mode)
 │   └── templates/
 │       └── index.html.tmpl       # package data — rendered into the library
+├── .claude-plugin/plugin.json    # Claude Code plugin manifest (skills auto-discovered)
+├── .codex-plugin/plugin.json     # Codex plugin manifest ("skills": "./skills/")
+├── skills/shelf/                 # the single `shelf` skill (SKILL.md + references/)
 ├── tests/
 └── README.md
 ```
 
-### `shelf-skill` — plugin for Claude Code and Codex
+The plugin files (`skills/`, `.claude-plugin/`, `.codex-plugin/`) ride in the repo (git) but are **excluded from the built wheel** — `uv_build`'s src layout packages only `src/shelf`.
 
-A thin plugin: skills only, no content. Its skills shell out to the `shelf` CLI.
+### The plugin — a **single `shelf` skill**
+
+**P09:** the plugin is a **single `shelf` skill** with progressive disclosure — a lean `SKILL.md` (one always-on trigger) routing to per-operation references loaded on demand — **not** seven `shelf-*` skills. It shells out to the `shelf` CLI and never mutates library state directly.
 
 ```
-shelf-skill/
-├── .claude-plugin/
-│   └── plugin.json                # Claude Code plugin manifest
-├── skills/
-│   ├── shelf-add/SKILL.md
-│   ├── shelf-edit/SKILL.md
-│   ├── shelf-init/SKILL.md
-│   ├── shelf-find/SKILL.md
-│   ├── shelf-remove/SKILL.md
-│   ├── shelf-audit/SKILL.md
-│   └── shelf-open/SKILL.md
-└── README.md
+skills/shelf/
+├── SKILL.md                       # one trigger; routing table; invariants
+└── references/                    # add · edit · find · remove · audit · open · init
 ```
 
-The same skill definitions must work as both a **Claude Code plugin** and a **Codex plugin**. Exact manifest formats and any per-ecosystem adapter files are verified against current Claude Code and Codex plugin documentation at build time, and the plugin is tested against both (see §14).
+The same skill works as both a **Claude Code plugin** (`.claude-plugin/plugin.json`, skills auto-discovered) and a **Codex plugin** (`.codex-plugin/plugin.json`, `"skills": "./skills/"` + `interface` block). Both manifests live at the repo root; formats are verified against current plugin docs and both ecosystems tested at build time — via `skillsmith verify --deep` (see §14).
 
 ### `shelf-library` — the document content
 
@@ -98,7 +93,7 @@ shelf-library/                     # default on-disk location: ${XDG_DATA_HOME:-
 
 ### Tooling primitives
 
-Every user-facing capability is reachable through the CLI; **skills own the capabilities that need judgment or conversation**. The command↔skill ownership table in §12 is normative — commands marked direct-CLI deliberately have no skill. Slash commands are deprecated in favor of skills; all skills use the **`shelf-` prefix**.
+Every user-facing capability is reachable through the CLI; **the skill owns the capabilities that need judgment or conversation**. The command↔skill ownership table in §12 is normative — commands marked direct-CLI deliberately have no skill. Slash commands are deprecated in favor of skills. **P09:** the seven `shelf-*` skills were consolidated into a **single `shelf` skill** (progressive disclosure); §12's ownership rows now map each capability to a `references/*.md` within it.
 
 ---
 
@@ -371,7 +366,7 @@ shelf doc add <file>... (--repo <name> | --topic <name>) --kind <kind>
 
 All positional files are **format variants of one document** → one entry. Format is inferred from extension (`.md`, `.html`/`.htm`, `.pdf`). Two files of the same format is an error. For two documents, run `shelf doc add` twice.
 
-**Interactive handoff** — when the required classification flags are missing, `shelf doc add` does not error: it launches the configured **handoff agent** — `--handoff-agent <claude|codex>` flag, else the `handoff-agent` key in `shelf_config.toml`, else `claude` — with a primed introductory prompt that references the `shelf-add` skill and passes the input file paths (for example: *"Use the shelf-add skill to add `/Users/<user>/Downloads/cli-extension-prd.md` to shelf. Walk me through classification."*). The user lands in an interactive session where the skill drives classification, confirmation, and the eventual fully-flagged CLI call. `--no-handoff` suppresses the handoff, making missing flags an error; `--no-input` implies it (§5, standards conformance). When the CLI is already running inside a Claude Code or Codex session (detected via environment, §14), it never nests a session — it errors with a message asking the assistant to invoke the `shelf-add` skill directly. This makes the `shelf` CLI the single entry point whether the user starts in the shell or in an AI session: fully-flagged invocations run non-interactively; judgment-needing invocations hand off to the skill, which lives in exactly one place.
+**Interactive handoff** — when the required classification flags are missing, `shelf doc add` does not error: it launches the configured **handoff agent** — `--handoff-agent <claude|codex>` flag, else the `handoff-agent` key in `shelf_config.toml`, else `claude` — with a primed introductory prompt that references the `shelf` skill and passes the input file paths (for example: *"Use the shelf skill to add `/Users/<user>/Downloads/cli-extension-prd.md` to shelf. Walk me through classification."*). The user lands in an interactive session where the skill drives classification, confirmation, and the eventual fully-flagged CLI call. `--no-handoff` suppresses the handoff, making missing flags an error; `--no-input` implies it (§5, standards conformance). When the CLI is already running inside a Claude Code or Codex session (detected via environment, §14), it never nests a session — it errors with a message asking the assistant to invoke the `shelf` skill directly. This makes the `shelf` CLI the single entry point whether the user starts in the shell or in an AI session: fully-flagged invocations run non-interactively; judgment-needing invocations hand off to the skill, which lives in exactly one place.
 
 **Input** — `<file>...` (≥1); `--assets <path>` (repeatable; files or directories copied into the document folder so HTML relative links resolve); `--format <ext>` (long-only, since `-f` is `--force`; overrides inference). Registering a folder already inside the library is `shelf doc adopt` (§11.15).
 
@@ -539,7 +534,9 @@ shelf orphan delete <path> [--yes]
 
 ## 12. Skills
 
-The skills live in the `shelf-skill` plugin and shell out to the `shelf` CLI. The plugin targets **both Claude Code and Codex**; the same skill definitions are packaged for each, with manifests verified and tested against both at build time.
+**P09 (2026-07-22) — superseded: one skill, not seven.** The seven `shelf-*` skills below were consolidated into a **single `shelf` skill** (progressive disclosure) that lives in the `shelf` repo (monorepo, §3). Each owner in the table maps to a `references/*.md` within that skill; the drive patterns are unchanged. The full rewrite of this table is tracked as **P14**.
+
+The skill lives in the `shelf` repo's plugin and shells out to the `shelf` CLI. The plugin targets **both Claude Code and Codex**; the same skill is packaged for each, with manifests verified and tested against both at build time.
 
 The ownership table is normative — every CLI capability either has a skill owner or is deliberately direct-CLI:
 
@@ -591,7 +588,7 @@ Thin skills wrapping deterministic CLI calls. `shelf-audit` runs `shelf audit`, 
 
 ### Cross-tool usage
 
-Installed as a plugin, the skills are available in every Claude Code or Codex session regardless of the current repository. They are defined and version-controlled in `shelf-skill` but usable everywhere. Outside AI sessions, the same operations are reachable through the standalone `shelf` CLI, which hands off to the configured agent when judgment is needed (§11.2).
+Installed as a plugin, the skill is available in every Claude Code or Codex session regardless of the current repository. It is defined and version-controlled in the `shelf` repo (monorepo) but usable everywhere. Outside AI sessions, the same operations are reachable through the standalone `shelf` CLI, which hands off to the configured agent when judgment is needed (§11.2).
 
 ---
 
@@ -626,7 +623,7 @@ The split exists because browsers block a `file://` page from fetching neighbori
 
 ## 14. Open / Deferred Items
 
-1. **Plugin manifests.** The exact `.claude-plugin/plugin.json` fields and the Codex plugin manifest/adapter format are verified against current Claude Code and Codex plugin documentation at build time. The plugin is built to support and is tested against both ecosystems. (PATH placement is resolved: the CLI installs via `uv tool install`, §5.)
+1. **Plugin manifests — resolved (P09).** The dual manifests live in the `shelf` repo (monorepo, §3): `.claude-plugin/plugin.json` (skills auto-discovered from `skills/`) and `.codex-plugin/plugin.json` (`"skills": "./skills/"` + an `interface` block). Both verified via `skillsmith verify --deep` — claude-code and codex both pass, no findings. (PATH placement: the CLI installs via `uv tool install`, §5.)
 2. **Local server port.** Default `8765` from config, with fallback to the next free port when occupied. Confirm whether a fixed port with an error is preferred over automatic fallback.
 3. **Multiple libraries.** The design assumes a single library. Named multi-library support is deferred; the resolution scheme in §4 can accommodate it later without breaking changes.
 4. **AI-session detection for the handoff.** The exact mechanism by which `shelf doc add` detects it is already running inside a Claude Code or Codex session (environment variable vs. parent-process inspection) is verified at build time, so the CLI never nests an interactive session (§11.2). Claude Code sets `CLAUDECODE=1` in its sessions — the candidate mechanism; the Codex equivalent is identified at build time.

@@ -350,7 +350,7 @@ def test_inside_claude_session_exit_1(isolated_env, tmp_path, monkeypatch):
     src = _src(tmp_path)
     r = run(["doc", "add", str(src)])
     assert r.exit_code == 1
-    assert "shelf-add skill" in r.output and "Claude Code" in r.output
+    assert "shelf skill" in r.output and "Claude Code" in r.output
     assert fired == []
 
 
