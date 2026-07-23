@@ -44,9 +44,10 @@ fires for phrasings like "add this doc to my shelf".
 
 ### Codex
 
-Codex loads the same `SKILL.md`. Full Codex plugin packaging adds a
-`.codex-plugin/plugin.json` alongside the Claude Code manifest — added and
-verified in P09 Task 4.
+Codex loads the same `skills/shelf/SKILL.md`. Codex packaging is
+`.codex-plugin/plugin.json` at the repo root, alongside the Claude Code
+manifest — it points Codex at the skills directory (`"skills": "./skills/"`)
+and carries the Codex `interface` block (display name, descriptions, category).
 
 ## Handoff completion
 
@@ -56,12 +57,13 @@ through classification."* — this skill is what that prompt lands in.
 
 ## Verification
 
-Load verification (`skillsmith verify`, static):
+Load verification (`skillsmith verify . --deep`, both tools):
 
-| Tool | Verdict | Notes |
-|---|---|---|
-| claude-code | pass | manifest ✓ · skills ✓ |
-| codex | pass | SKILL.md loads; `.codex-plugin/plugin.json` added in Task 4 |
+| Tool | Version | Static | Deep |
+|---|---|---|---|
+| claude-code | 2.1.218 | manifest ✓ · skills ✓ | skills ✓ · no findings |
+| codex | 0.144.6 | manifest ✓ | skills ✓ · no findings |
 
-Additivity: `just all` → 317 passed, ruff + ty clean; the plugin files live
-outside `src/` and are excluded from the built wheel (`uv_build` src layout).
+Additivity: `just all` → 317 passed, ruff + ty clean; the plugin files
+(`skills/`, `.claude-plugin/`, `.codex-plugin/`) live outside `src/` and are
+excluded from the built wheel (`uv_build` src layout).
