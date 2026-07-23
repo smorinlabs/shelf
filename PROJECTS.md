@@ -154,6 +154,20 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
+## [?] Project P14: Reconcile PRD & docs with the monorepo skill pivot
+**Goal**: Align all specs/docs with the monorepo pivot (supersedes PRD §12, §14.1).
+
+**Notes**:
+- 2026-07-22 P09 decision pivoted the skill from a separate `shelf-skill` repo to a **monorepo** (plugin inside the shelf repo); the abandoned `~/c/shelf-skill` repo is superseded.
+- P09 Task 5 makes only the *minimal* in-plan PRD edits — this project is the *fuller* reconciliation pass across every spec/doc.
+- Audit scope: PRD §12 (skill ownership), §14.1 (dual manifests), §36 (marketplace note), the architecture sections, and any lingering "separate `shelf-skill` repo" references.
+- **Decision**: §36's "no marketplace initially" does **not** hold under the monorepo — re-specify direct-install accordingly.
+- **Decision**: delete the abandoned `~/c/shelf-skill` repo as part of this reconciliation.
+
+<!-- Idea captured 2026-07-23. Refine later: run project-refine to scope into tasks. -->
+
+---
+
 ## Backlog — minor
 - [x] **UI favicon 404** (found in the P08 browser smoke): FIXED — `index.html.tmpl` now declares `<link rel="icon" href="data:,">`, so browsers no longer request `/favicon.ico` (no 404) in either core `file://` or enhanced mode. Regression-tested (`test_index_declares_a_favicon_to_avoid_a_404`).
 - [x] Live browser smoke of the P08 UI hardening (C1 XSS / C3 copy-text / C4 search) — DONE; all three verified live with screenshots.
