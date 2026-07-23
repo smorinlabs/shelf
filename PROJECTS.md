@@ -98,19 +98,19 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P08-T01] Handoff launcher (`core/handoff.py`: agent precedence resolution, primed prompt with sanitized paths, `os.execvp` seam) with session detection (`CLAUDECODE` / `CODEX_THREAD_ID`, build-verified against Codex CLI 0.144.6)
 - [x] Regression Test Status — 316/316 passing at v0.8.0; `make check` and `just all` green (unpiped); LIVE hermetic handoff pilot 10/10 (both agent shims, both session markers, all four decision-table paths). FINAL whole-branch adversarial review (fable + codex, fresh context) over v0.1.0→v0.8.0 found 21 findings + 2 re-review blockers + 2 residuals — ALL fixed and re-verified: orphan-delete path-traversal/case-insensitive/ancestor wipes closed (identity-based, (st_dev,st_ino)); audit never-crashes on any parseable-but-malformed catalog; all git/gh/handoff subprocesses surface clean `ClickException`; `format add --replace` atomic (backup+restore); UI metadata HTML-escaped (XSS closed, empirically verified) + search-by-description + real copy-text + recorded variant paths; D2 (`git add -A` concurrency) accepted+documented as a single-user limitation. Two carried P07 Minors (redundant `.strip()`, `--owner` without `--github`) also fixed.
 
-## [ ] Project P09: shelf-skill — a single `shelf` skill for Claude Code + Codex
-**Goal**: Build the `shelf-skill` plugin (separate repo `~/c/shelf-skill`, currently empty) exposing shelf's operations to Claude Code **and** Codex, shelling out to the `shelf` CLI. Completes P08's handoff (the launched agent needs a skill to land in). Own versioning (separate repo), not part of the shelf-CLI version sequence.
+## [x] Project P09: shelf skill — single `shelf` skill, monorepo (plugin v0.1.0)
+**Goal**: A single `shelf` skill exposing shelf's operations to Claude Code **and** Codex, shelling out to the `shelf` CLI, completing P08's handoff (the launched agent needs a skill to land in). **Monorepo (P09, 2026-07-22):** the plugin lives in the `shelf` repo itself — `.claude-plugin/` + `.codex-plugin/` + `skills/shelf/` at the root — not a separate `~/c/shelf-skill` repo (abandoned). The plugin is versioned independently (v0.1.0), outside the shelf-CLI version sequence; its files are excluded from the built wheel (`uv_build` src layout).
 
 **Decision (2026-07-22): single `shelf` skill with progressive disclosure.** One always-on trigger + a lean `SKILL.md` that routes to per-operation `references/*.md` loaded on demand. Chosen over seven individual skills (PRD §12) and a grouped middle: the seven operations are verbs of one tool (shared CLI contract, classification, confirmation), so progressive disclosure delivers focused per-op loading **without** seven always-on trigger descriptions — minimal context footprint, least maintenance, fewest manifest/collision surfaces, idiomatic. The one cost — a broad trigger that must fire reliably — is an authoring/testing task, not a blocker.
 
 ### Tests & Tasks
-- [ ] [P09-T01] Single `shelf` skill: lean `SKILL.md` (one broad-but-reliable trigger; routes to per-op guides) + `references/{add,edit,find,remove,audit,open,init}.md`, each shelling out to the `shelf` CLI
-- [ ] [P09-T02] Dual plugin manifests (`.claude-plugin/plugin.json` + Codex adapter), verified/tested against both ecosystems (PRD §14.1)
-- [ ] [P09-T03] Update P08's handoff prompt in `core/handoff.py` ("Use the shelf-add skill…" → "Use the shelf skill…") + adjust its test
-- [ ] [P09-TS01] Trigger fires for representative phrasings (add / find / audit / …); skill-quality + collision review passes
-- [ ] Regression Test Status
+- [x] [P09-T01] Single `shelf` skill authored via **skill-create**: lean `SKILL.md` (one trigger; routing table; invariants) + `references/{add,edit,find,remove,audit,open,init}.md`, each shelling out to the `shelf` CLI
+- [x] [P09-T02] Dual plugin manifests (`.claude-plugin/plugin.json` + `.codex-plugin/plugin.json`), verified via `skillsmith verify --deep` — claude-code 2.1.218 + codex 0.144.6 both pass, no findings (PRD §14.1)
+- [x] [P09-T03] Handoff prompt in `core/handoff.py` ("shelf-add skill" → "shelf skill") + the in-session guard message in `cli/doc_add.py`; tests updated first (TDD)
+- [x] [P09-TS01] **skill-quality PASS** — collision-free trigger vs 202 installed skills (create-new verdict), clean secrets/placeholders, least-privilege `allowed-tools` (Bash/Read/WebFetch); per-tool load verified
+- [x] Regression Test Status — `just all` → **317 passed, ruff + ty clean** (additive: plugin files outside `src/`, excluded from the wheel); end-to-end handoff smoke green (real `shelf doc add` → handoff → agent primed to invoke the `shelf` skill)
 
-**Out of scope**: the `shelf-library` content repo (stand up separately via `init --git`/`--adopt`).
+**Out of scope**: the `shelf-library` content repo (stand up separately via `init --git`/`--adopt`). Fuller PRD/doc reconciliation of the monorepo pivot → **P14**.
 
 ---
 
