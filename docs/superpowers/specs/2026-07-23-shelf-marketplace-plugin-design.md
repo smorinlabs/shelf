@@ -80,9 +80,9 @@ The two catalog schemas differ enough that they can't be one file; both are auth
 { "name": "shelf",
   "interface": { "displayName": "Shelf" },
   "plugins": [ { "name": "shelf",
-    "source": { "source": "local", "path": "<resolved in the plan>" },
-    "policy": { "installation": "AVAILABLE", "authentication": "ON_FIRST_USE" },
-    "category": "Developer Tools", "version": "0.1.0", "description": "…" } ] }
+    "source": { "source": "local", "path": "./plugins/shelf" },
+    "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+    "category": "Development", "version": "0.1.0", "description": "…" } ] }
 ```
 Install: `codex plugin marketplace add <repo|local>` → `codex plugin add shelf@shelf`.
 
