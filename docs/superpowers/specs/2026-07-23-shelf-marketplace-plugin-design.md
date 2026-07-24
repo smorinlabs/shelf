@@ -100,9 +100,13 @@ Marketplace `shelf`, plugin `shelf` (so `shelf@shelf` in both ecosystems). Plugi
 
 ---
 
-## The one empirically-unresolved corner
+## The one empirically-unresolved corner — RESOLVED (2026-07-24)
 
-**Codex `source.path` resolution** — whether it's relative to the repo root or to `.agents/plugins/` — is ambiguous in the published spec, and the local-marketplace path is new. The plan resolves this **live**: `codex plugin marketplace add` the local repo, read what path Codex accepts for the plugin, set `source.path` accordingly, then `codex plugin marketplace remove` to leave config clean. The `.agents/skills` discovery symlink makes Codex work regardless of how this probe resolves.
+**Codex `source.path` resolution** was ambiguous in the docs. Resolved empirically against Codex 0.145.0 and a working marketplace on the machine (`py-launch-blueprint`):
+- **`source.path` is relative to the repo root** — `"./plugins/shelf"` is correct (matches `py-launch-blueprint`'s `"./plugins/astral"`). Codex resolved it to `<repo>/plugins/shelf`.
+- **`policy.authentication` must be `ON_INSTALL` or `ON_USE`** — the docs' `ON_FIRST_USE` is invalid and was rejected. Using `ON_INSTALL`.
+- **`category`** set to `"Development"` (a known-valid value).
+- **Bug #22078 did not manifest** on Codex 0.145.0 — `codex exec` exposed the installed plugin's skill and followed it. The `.agents/skills` discovery symlink remains as a belt-and-suspenders fallback.
 
 ---
 

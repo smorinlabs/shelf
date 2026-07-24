@@ -1,0 +1,22 @@
+{
+  "name": "shelf",
+  "interface": {
+    "displayName": "Shelf"
+  },
+  "plugins": [
+    {
+      "name": "shelf",
+      "source": {
+        "source": "local",
+        "path": "./plugins/shelf"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Development",
+      "version": "0.1.0",
+      "description": "The shelf skill — manage a personal shelf documentation library through the `shelf` CLI: add, find, edit, remove, audit, open, and set up documents."
+    }
+  ]
+}
