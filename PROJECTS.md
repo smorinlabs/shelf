@@ -154,7 +154,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [?] Project P14: Reconcile PRD & docs with the monorepo skill pivot
+## [x] Project P14: Reconcile PRD & docs with the monorepo skill pivot
 **Goal**: Align all specs/docs with the monorepo pivot (supersedes PRD §12, §14.1).
 
 **Notes**:
@@ -164,7 +164,11 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - **Decision**: §36's "no marketplace initially" does **not** hold under the monorepo — re-specify direct-install accordingly.
 - **Decision**: delete the abandoned `~/c/shelf-skill` repo as part of this reconciliation.
 
-<!-- Idea captured 2026-07-23. Refine later: run project-refine to scope into tasks. -->
+**Done (2026-07-24)**:
+- PRD §12 rewritten to the single `shelf` skill + per-operation references — the seven-skill ownership table and `### shelf-*` subsections replaced; a naming note maps any lingering `shelf-<verb>` mention to its reference; inline `shelf-<verb> skill` phrasings reconciled.
+- §2 marketplace non-goal updated: the repo **self-hosts its own marketplace** for both ecosystems, superseding "no marketplace initially" — the marketplace + plugin itself shipped in PR #2 (`feat(p14): dual marketplace + plugin`).
+- Abandoned `~/c/shelf-skill` directory deleted.
+- §14.1 (dual manifests) and the §1/§3 architecture were already reconciled in P09.
 
 ---
 
