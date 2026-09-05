@@ -1,6 +1,6 @@
 {
   "name": "shelf",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The shelf skill — manage a personal shelf documentation library through the `shelf` CLI: add, find, edit, remove, audit, open, and set up documents. One skill with progressive disclosure; shells out to the CLI and never edits library files directly. Ships in the shelf repo for Claude Code and Codex.",
   "author": {
     "name": "Steve Morin"

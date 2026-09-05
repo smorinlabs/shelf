@@ -8,7 +8,7 @@
       "name": "shelf",
       "source": "./plugins/shelf",
       "description": "The shelf skill — manage a personal shelf documentation library through the `shelf` CLI: add, find, edit, remove, audit, open, and set up documents.",
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ]
 }
