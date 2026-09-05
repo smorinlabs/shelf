@@ -1,18 +1,6 @@
 ---
 name: shelf
-description: >-
-  Manage a personal "shelf" documentation library through the `shelf` CLI: add,
-  find, edit, remove, audit, open, and set up documents. Fires on "add this to
-  my shelf", "add this doc/PRD/note to shelf", "what do I have in shelf about
-  X", "grab my <doc> from shelf", "use my <notes> from shelf as context",
-  "reclassify/retitle/move a shelf doc", "remove that doc from shelf", "audit my
-  shelf"/"fix the catalog", "open my shelf", and "set up/init a shelf library" —
-  plus when `shelf doc add` hands off to an agent to walk classification. NOT
-  for merging documents (document-merge), researching a topic
-  (deep-research/guided-research), or locating git repos (repo-finder); this
-  manages an existing curated shelf library. Every operation shells out to
-  `shelf`; the skill classifies intent and confirms, and never edits the
-  catalog or library files directly.
+description: Manage a personal document library through the shelf CLI, adding, finding, editing, removing, auditing, and opening documents. Use when the user says "add this to my shelf", "what do I have in shelf about X", "grab my notes from shelf", or "audit my shelf". Not for merging documents (document-merge) or locating repos (repo-finder).
 allowed-tools: Bash, Read, WebFetch
 ---
 
