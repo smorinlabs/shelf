@@ -1,14 +1,14 @@
-# shelf skill
+# Shelf skills
 
-A single Claude Code / Codex skill that drives the [`shelf`](../../README.md)
+Claude Code / Codex skills that drive the [`shelf`](../../README.md)
 CLI to manage a personal documentation library — **add, find, edit, remove,
 audit, open, and set up** documents. It ships **in the shelf repo** (monorepo):
 the same repository is the `uv`-installable CLI, a **plugin**, and its own
 **marketplace**.
 
-## Design — one skill, progressive disclosure
+## Design — document management and structured references
 
-One always-on trigger (`SKILL.md`) routes to a per-operation reference loaded on
+The `shelf` skill trigger (`SKILL.md`) routes to a per-operation reference loaded on
 demand, so a session only pays for the operation at hand:
 
 | Reference | Operation | Drives (`shelf …`) |
@@ -40,16 +40,16 @@ The skill invokes `shelf`, so it must resolve. Either:
 shelf/                                  ← repo root = the marketplace
 ├── .claude-plugin/marketplace.json     ← Claude catalog (primary)
 ├── .agents/plugins/marketplace.json    ← Codex catalog
-├── .agents/skills/shelf                → plugins/shelf/skills/shelf  (Codex discovery fallback)
 └── plugins/shelf/                      ← the plugin
     ├── .claude-plugin/plugin.json      ← superset manifest (primary, real file)
     ├── .codex-plugin/plugin.json       → ../.claude-plugin/plugin.json  (symlink)
-    └── skills/shelf/                    ← SKILL.md + references/ (shared by both)
+    └── skills/
+        ├── shelf/                      ← document operations
+        └── shelf-reference/            ← research workflow + bundled schema/fixtures
 ```
 
 The plugin manifest is a single **symlinked superset** — Claude Code ignores
-the Codex-only key it doesn't use, so one file serves both (verified strict-clean
-via `skillsmith verify --deep --strict`). Codex display metadata (displayName,
+the Codex-only key it doesn't use, so one file serves both. Codex display metadata (displayName,
 category) lives in the Codex marketplace catalog, not the manifest.
 
 ## Install
@@ -95,3 +95,7 @@ Installed and run **end-to-end on both ecosystems** (2026-07-24):
 Additivity: `just all` → 317 passed, ruff + ty clean; the plugin files
 (`plugins/`, `.claude-plugin/`, `.agents/`) live outside `src/` and are excluded
 from the built wheel (`uv_build` src layout).
+
+Structured references: the `shelf-reference` skill researches one canonical entity,
+previews safe HTML and saves a versioned record through the CLI. See
+`../../docs/reference-records.md`.

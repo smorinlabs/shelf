@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "name": "FIXTURE \u2014 stt-model",
+  "entity_url": "https://example.com/stt-model",
+  "description": "Synthetic validation fixture; not a real product.",
+  "what_it_is": null,
+  "when_useful": null,
+  "capabilities": [],
+  "prerequisites": [],
+  "limitations": [],
+  "categories": [
+    "AI Models/Speech-to-text"
+  ],
+  "tags": [
+    "fixture"
+  ],
+  "projects": [
+    "Fixture project"
+  ],
+  "links": {
+    "homepage": [
+      "https://example.com/stt-model"
+    ],
+    "repository": [],
+    "docs": [
+      "https://example.com/stt-model/docs"
+    ],
+    "pricing": []
+  },
+  "cost": null,
+  "license": null,
+  "dates": {
+    "saved": "2020-01-02",
+    "added": null,
+    "researched": null,
+    "released": null
+  },
+  "notes": "Preserve my notes.\n<Do not execute> & \"quoted\".",
+  "sources": [],
+  "related": [],
+  "profiles": {
+    "stt": {
+      "languages": null,
+      "streaming": null,
+      "timestamps": null,
+      "diarization": null,
+      "requirements": null
+    }
+  }
+}

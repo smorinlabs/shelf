@@ -40,6 +40,12 @@ def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> lis
 
 def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False) -> list[Finding]:
     findings: list[Finding] = []
+    from shelf.core.reference_transaction import JOURNAL
+
+    if (root / JOURNAL).exists():
+        findings.append(
+            Finding(4, "reference-transaction-pending", JOURNAL, "run 'shelf reference recover'")
+        )
 
     try:
         catalog_text = (root / "catalog.json").read_text(encoding="utf-8")
@@ -252,6 +258,31 @@ def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False
                 )
             )
             continue
+        if doc.get("reference") is not None:
+            from shelf.core.reference import read_record, render_reference, validate_record
+
+            try:
+                record = validate_record(doc["reference"])
+                pair = {f.get("format"): f.get("path") for f in files}
+                for fmt in ("html", "json"):
+                    target = (root / pair[fmt]).resolve()
+                    target.relative_to(root.resolve())
+                    if fmt == "html":
+                        matches = target.read_text(encoding="utf-8") == render_reference(record)
+                    else:
+                        matches = read_record(target) == record
+                    if not matches:
+                        raise ValueError("managed content differs from the reference record")
+            except (click.ClickException, OSError, ValueError, KeyError, TypeError):
+                findings.append(
+                    Finding(
+                        4,
+                        "reference-inconsistent",
+                        str(doc_id),
+                        "retain hand edits and reconcile record/HTML/JSON; "
+                        "recover a pending transaction",
+                    )
+                )
         expected_dir = _doc_dir(doc)
         if expected_dir:
             cataloged_dirs.add(expected_dir)

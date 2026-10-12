@@ -19,7 +19,7 @@ def test_init_scaffolds_default_library(isolated_env):
     assert r.exit_code == 0, r.output
     root = default_library_path()
     catalog = json.loads((root / "catalog.json").read_text())
-    assert catalog["schema_version"] == 1
+    assert catalog["schema_version"] == 2
     assert catalog["topics"] == []
     assert catalog["kinds"] == SEED_KINDS
     assert catalog["documents"] == []

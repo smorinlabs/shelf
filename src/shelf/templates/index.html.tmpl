@@ -120,6 +120,8 @@ input { font: inherit; }
 .k-playbook { background: #e8e1ec; color: #63496f; }
 .k-cheatsheet { background: #efe7d8; color: #7a6230; }
 
+.reference-actions { display:flex; flex-wrap:wrap; gap:8px 16px; }
+.reference-actions a { color:var(--ox); padding:8px 0; }
 /* ---------------- preview pane ---------------- */
 .prev { background: var(--card); overflow: hidden auto; }
 .prev-inner { width: var(--prev); padding: 22px 22px 40px; display: flex; flex-direction: column; gap: 16px; }
@@ -193,6 +195,18 @@ input { font: inherit; }
 .toast .p { font-family: var(--mono); font-size: 11.5px; color: #d8cdb8; }
 
 @media (max-width: 1080px) { :root { --prev: 0px; } .app[data-prev] .body { grid-template-columns: var(--side) 1fr 0 !important; } }
+@media (max-width: 600px) {
+  :root { --side:0px; }
+  .side, .prev, .mode, .kbar .kk { display:none; }
+  .list { grid-column:2; }
+  .topbar { gap:8px; padding:10px; }
+  .kbar { width:auto; flex:1; }
+  .row { grid-template-columns:minmax(0,1fr); padding:12px; }
+  .row .meta { flex-wrap:wrap; }
+  .row .meta .tags { white-space:normal; overflow-wrap:anywhere; }
+  .row .tl { flex-wrap:wrap; }
+  .row .title { white-space:normal; overflow-wrap:anywhere; }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -267,6 +281,7 @@ const TOPIC_ORDER = PAGE.topics;
 const KIND_ORDER = PAGE.kinds;
 
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]); }
+function referencePath(d){ return relPath(d, "html").split("/").map(encodeURIComponent).join("/"); }
 function relPath(d, fmt){ const variant=d.formats.find(x=>x.f===fmt); return variant ? variant.path : ""; }
 const FILE_ROOT = decodeURIComponent(location.pathname.replace(/\/index\.html$/, ""));
 function absPath(d, fmt){ return `${ENHANCED ? ROOT : FILE_ROOT}/${relPath(d, fmt)}`; }
@@ -343,6 +358,7 @@ function rowHTML(d){
   return `<div class="l">
       <div class="tl"><span class="title">${esc(d.title)}</span><span class="kind k-${esc(d.kind)}">${esc(d.kind)}</span></div>
       <div class="meta"><span class="id">${esc(d.id)}</span><span class="tags">${d.tags.map(esc).join(" · ")}</span></div>
+      ${d.reference ? `<div class="reference-actions"><a href="${esc(referencePath(d))}">Open reference</a><a href="${esc(d.original_source)}" target="_blank" rel="noopener noreferrer">Original source</a></div>` : ""}
     </div>
     <div class="r"><div class="fmts">${fmts}</div></div>`;
 }
@@ -395,7 +411,7 @@ function renderPreview(d){
       <div class="prev-id">${esc(relPath(d, primary(d).f))}</div>
       <div class="prev-tags">${d.tags.map(t=>`<span>${esc(t)}</span>`).join("")}</div>
     </div>
-    <div class="prev-actions">${acts}</div>
+    <div class="prev-actions">${d.reference ? `<a class="pa-btn" href="${esc(referencePath(d))}">Open reference</a><a class="pa-btn" href="${esc(d.original_source)}" target="_blank" rel="noopener noreferrer">Original source</a>` : ""}${acts}</div>
     <div class="snip-lbl">Preview <span class="rule"></span> ${esc(primary(d).f)}</div>
     <div class="snip">${d.snippet}</div>
     <div class="snip-hint">first lines · <b>copy text</b> or open to read the rest</div>

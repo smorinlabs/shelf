@@ -13,8 +13,9 @@ from shelf.core.atomic import atomic_write_text
 from shelf.core.errors import SchemaTooOldError
 from shelf.core.index import render_index
 from shelf.core.preview import build_snippets
+from shelf.core.reference import validate_record
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 CATALOG_FILENAME = "catalog.json"
 SEED_KINDS = ["reference", "explainer", "tutorial", "playbook", "spec", "cheatsheet"]
 
@@ -47,6 +48,7 @@ class Document:
     added: str | None = None
     doc_date: str | None = None
     source: str | None = None
+    reference: dict | None = None
 
     def to_dict(self) -> dict:
         out: dict = {
@@ -64,6 +66,8 @@ class Document:
         out.update(
             primary=self.primary, added=self.added, doc_date=self.doc_date, source=self.source
         )
+        if self.reference is not None:
+            out["reference"] = validate_record(self.reference)
         return out
 
     @classmethod
@@ -82,6 +86,9 @@ class Document:
             added=raw.get("added"),
             doc_date=raw.get("doc_date"),
             source=raw.get("source"),
+            reference=validate_record(raw["reference"])
+            if raw.get("reference") is not None
+            else None,
         )
 
 
@@ -130,6 +137,10 @@ def dumps_catalog(catalog: Catalog) -> str:
 
 
 def load_catalog(root: Path, *, for_write: bool = False) -> Catalog:
+    from shelf.core.reference_transaction import JOURNAL
+
+    if for_write and (root / JOURNAL).exists():
+        raise click.ClickException("pending reference transaction; run 'shelf reference recover'")
     raw = json.loads((root / CATALOG_FILENAME).read_text(encoding="utf-8"))
     found = raw.get("schema_version", 0)
     if not isinstance(found, int):

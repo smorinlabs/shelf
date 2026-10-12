@@ -48,7 +48,7 @@ def test_round_trip(tmp_path):
     cat = _catalog()
     commit_library(tmp_path, cat)
     loaded = load_catalog(tmp_path)
-    assert loaded.schema_version == 1
+    assert loaded.schema_version == 2
     assert loaded.topics == ["dev-tooling"]
     assert loaded.documents[0].id == "2026-01-01-a"
     assert loaded.documents[0].files[0].format == "md"

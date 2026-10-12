@@ -3,8 +3,11 @@
 import hashlib
 import json
 import re
+from html import escape
 from importlib.metadata import version
 from importlib.resources import files
+
+from shelf.core.reference import safe_url
 
 _FINGERPRINT_RE = re.compile(
     r"shelf:fingerprint catalog=sha256:([0-9a-f]{64}) "
@@ -57,6 +60,10 @@ def render_index(catalog_text: str, snippets: dict[str, str] | None = None) -> s
 
         page_docs.append(
             {
+                "original_source": safe_url(doc["reference"]["entity_url"])
+                if doc.get("reference")
+                else None,
+                "reference": bool(doc.get("reference")),
                 "id": doc["id"],
                 "title": doc["title"],
                 "description": doc["description"],
@@ -65,7 +72,16 @@ def render_index(catalog_text: str, snippets: dict[str, str] | None = None) -> s
                 "tags": list(doc.get("tags", [])),
                 "formats": formats,
                 "primary": doc.get("primary"),
-                "snippet": (snippets or {}).get(doc["id"], ""),
+                "snippet": (
+                    "<p>"
+                    + escape(doc["reference"].get("description") or "Unknown")
+                    + "</p>"
+                    + "<p>"
+                    + escape(doc["reference"].get("when_useful") or "Unknown")
+                    + "</p>"
+                    if doc.get("reference")
+                    else (snippets or {}).get(doc["id"], "")
+                ),
             }
         )
 

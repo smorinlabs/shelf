@@ -15,8 +15,8 @@
         "authentication": "ON_INSTALL"
       },
       "category": "Development",
-      "version": "0.1.1",
-      "description": "The shelf skill — manage a personal shelf documentation library through the `shelf` CLI: add, find, edit, remove, audit, open, and set up documents."
+      "version": "0.1.2",
+      "description": "Shelf and shelf-reference skills \u2014 manage documents and research safe, structured reference pages through the Shelf CLI. Available for Claude Code and Codex."
     }
   ]
 }

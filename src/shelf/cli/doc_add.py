@@ -21,6 +21,12 @@ from shelf.core.catalog import (
 from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
 from shelf.core.ingest import doc_rel_dir, infer_format, infer_repo_url, pick_primary
+from shelf.core.reference import check_reference, read_record
+from shelf.core.reference_transaction import (
+    begin_transaction,
+    clear_transaction,
+    write_reference_file,
+)
 from shelf.core.slugs import derive_slug
 
 
@@ -54,6 +60,7 @@ from shelf.core.slugs import derive_slug
 )
 @click.option("--slug", "slug_", default=None, help="Override the derived slug.")
 @click.option("--primary", "primary_", default=None, help="Primary format (default heuristic).")
+@click.option("--reference-record", type=click.Path(exists=True, dir_okay=False))
 @click.option("--doc-date", default=None)
 @click.option("--source", "source_", default=None)
 @click.option(
@@ -92,9 +99,13 @@ def doc_add(
     no_handoff,
     commit,
     commit_message,
+    reference_record,
 ):
     """Add a new document."""
     paths = [Path(f).resolve() for f in files]
+    record = read_record(reference_record) if reference_record else None
+    if record is not None and (format_ is not None or assets_):
+        raise click.UsageError("reference ingestion does not accept --format or --assets")
     if repo_ is not None and topic_ is not None:
         raise click.UsageError("--repo and --topic are mutually exclusive")
 
@@ -127,6 +138,10 @@ def doc_add(
         raise click.UsageError(f"--primary '{primary_}' is not among the added formats")
 
     root = get_library(ctx)
+    if record and any(
+        p.is_relative_to(root.resolve()) for p in [*paths, Path(reference_record).resolve()]
+    ):
+        raise click.UsageError("stage reference inputs outside the library to preserve originals")
     require_git_if_commit(root, commit)
     with library_lock(root):
         catalog = load_catalog(root, for_write=True)
@@ -147,6 +162,22 @@ def doc_add(
                 )
             catalog.topics.append(topic_)
 
+        if record is not None:
+            check_reference(record, paths, catalog)
+            if title != record["name"] or description != (record.get("description") or "Unknown"):
+                raise click.UsageError("title and description must match the reference record")
+            tags_ = tuple(
+                dict.fromkeys(
+                    [
+                        *tags_,
+                        *record.get("tags", []),
+                        *record.get("categories", []),
+                        *record.get("projects", []),
+                    ]
+                )
+            )
+            paths.append(Path(reference_record).resolve())
+            formats.append("json")
         added = datetime.date.today().isoformat()
         slug = derive_slug(title, added, slug_)
         if slug_ and len(slug) >= 10 and slug[4] == "-" and slug[7] == "-":
@@ -167,7 +198,8 @@ def doc_add(
             primary=primary_ or pick_primary(formats),
             added=added,
             doc_date=doc_date,
-            source=source_ or str(paths[0]),
+            source=record["entity_url"] if record else source_ or str(paths[0]),
+            reference=record,
         )
         rel_dir = doc_rel_dir(doc)
         dest = root / rel_dir
@@ -182,8 +214,13 @@ def doc_add(
         dest.mkdir(parents=True)
         before_text: str | None = None
         try:
+            staged = begin_transaction(root, doc, paths, formats) if record else {}
             for p, fmt in zip(paths, formats, strict=True):
-                shutil.copy2(p, dest / f"{slug}.{fmt}")
+                target = dest / f"{slug}.{fmt}"
+                if record:
+                    write_reference_file(target, staged[str(target.relative_to(root))]["after"])
+                else:
+                    shutil.copy2(p, target)
             for a in assets_:
                 ap = Path(a)
                 if ap.is_dir():
@@ -193,6 +230,8 @@ def doc_add(
             catalog.documents.append(doc)
             before_text = (root / CATALOG_FILENAME).read_text()
             commit_library(root, catalog)
+            if record:
+                clear_transaction(root)
         except BaseException:
             try:
                 committed = (
@@ -203,6 +242,8 @@ def doc_add(
                 committed = True
             if not committed:
                 shutil.rmtree(dest, ignore_errors=True)
+                if record:
+                    clear_transaction(root)
             raise
 
     if commit:
