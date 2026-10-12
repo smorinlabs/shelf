@@ -19,6 +19,12 @@ from shelf.core.catalog import (
 from shelf.core.errors import ConflictError, NotFoundError
 from shelf.core.git import git_commit_all
 from shelf.core.ingest import doc_rel_dir, infer_format
+from shelf.core.reference import check_reference, read_record
+from shelf.core.reference_transaction import (
+    begin_transaction,
+    clear_transaction,
+    write_reference_file,
+)
 
 
 def find_doc(catalog: Catalog, doc_id: str) -> Document:
@@ -33,6 +39,7 @@ def find_doc(catalog: Catalog, doc_id: str) -> Document:
 @click.command("add")
 @click.argument("doc_id")
 @click.argument("files", nargs=-1, required=True, type=click.Path(exists=True, dir_okay=False))
+@click.option("--reference-record", type=click.Path(exists=True, dir_okay=False))
 @click.option("--assets", "assets_", multiple=True, type=click.Path(exists=True))
 @click.option("--format", "format_", default=None)
 @click.option("--replace", is_flag=True, help="Overwrite an existing same-format variant.")
@@ -53,18 +60,52 @@ def format_add(
     remove_source_,
     commit,
     commit_message,
+    reference_record,
 ):
     """Add a format variant to an existing document."""
     paths = [Path(f).resolve() for f in files]
+    record = read_record(reference_record) if reference_record else None
+    if record is not None and (format_ is not None or assets_):
+        raise click.UsageError("reference ingestion does not accept --format or --assets")
     new_formats = [infer_format(p, format_) for p in paths]
     if len(set(new_formats)) != len(new_formats):
         raise click.UsageError("two files of the same format")
 
     root = get_library(ctx)
+    if record and any(
+        p.is_relative_to(root.resolve()) for p in [*paths, Path(reference_record).resolve()]
+    ):
+        raise click.UsageError("stage reference inputs outside the library to preserve originals")
     require_git_if_commit(root, commit)
     with library_lock(root):
         catalog = load_catalog(root, for_write=True)
         doc = find_doc(catalog, doc_id)
+        if doc.reference and assets_:
+            raise click.UsageError("managed references do not accept --assets")
+        if (
+            doc.reference
+            and record is None
+            and {"html", "json"} & {f.casefold() for f in new_formats}
+        ):
+            raise click.UsageError("managed references require --reference-record")
+        if record is not None:
+            check_reference(record, paths, catalog, old=doc, root=root)
+            paths.append(Path(reference_record).resolve())
+            new_formats.append("json")
+            doc.reference = record
+            doc.title = record["name"]
+            doc.description = record.get("description") or "Unknown"
+            doc.source = record["entity_url"]
+            doc.tags = list(
+                dict.fromkeys(
+                    [
+                        *doc.tags,
+                        *record.get("tags", []),
+                        *record.get("categories", []),
+                        *record.get("projects", []),
+                    ]
+                )
+            )
         existing = {f.format for f in doc.files}
         clashes = [f for f in new_formats if f in existing]
         if clashes and not replace:
@@ -78,13 +119,24 @@ def format_add(
         backups: dict[Path, bytes] = {}
         before_text: str | None = None
         try:
+            if record:
+                # Transaction describes the new pair, including initial adoption.
+                old_files = doc.files
+                doc.files = [f for f in doc.files if f.format not in new_formats] + [
+                    FileVariant(format=fmt, path=f"{rel_dir}/{doc.id}.{fmt}") for fmt in new_formats
+                ]
+                staged = begin_transaction(root, doc, paths, new_formats)
+                doc.files = old_files
             for p, fmt in zip(paths, new_formats, strict=True):
                 target = dest / f"{doc.id}.{fmt}"
                 if not target.exists():
                     created.append(target)
                 elif target.is_file():
                     backups.setdefault(target, target.read_bytes())
-                shutil.copy2(p, target)
+                if record:
+                    write_reference_file(target, staged[str(target.relative_to(root))]["after"])
+                else:
+                    shutil.copy2(p, target)
             for a in assets_:
                 ap = Path(a)
                 target = dest / ap.name
@@ -103,6 +155,8 @@ def format_add(
                 doc.primary = primary_
             before_text = (root / CATALOG_FILENAME).read_text()
             commit_library(root, catalog)
+            if record:
+                clear_transaction(root)
         except BaseException:
             try:
                 committed = (
@@ -118,7 +172,12 @@ def format_add(
                     else:
                         target.unlink(missing_ok=True)
                 for target, data in backups.items():
-                    target.write_bytes(data)
+                    if record:
+                        write_reference_file(target, data.decode("utf-8"))
+                    else:
+                        target.write_bytes(data)
+                if record:
+                    clear_transaction(root)
             raise
 
     if commit:
@@ -149,6 +208,10 @@ def format_delete(ctx, doc_id, fmt, primary_, force, commit, commit_message):
     with library_lock(root):
         catalog = load_catalog(root, for_write=True)
         doc = find_doc(catalog, doc_id)
+        if doc.reference and fmt in {"html", "json"}:
+            raise click.UsageError(
+                "cannot remove managed reference formats; delete the document instead"
+            )
         variant = next((f for f in doc.files if f.format == fmt), None)
         if variant is None:
             raise NotFoundError(f"document '{doc_id}' has no '{fmt}' variant")

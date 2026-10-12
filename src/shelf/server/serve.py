@@ -48,6 +48,11 @@ class LibraryRequestHandler(SimpleHTTPRequestHandler):
 
     def send_head(self):
         """Reject traversal before the standard handler opens or lists a path."""
+        from shelf.core.reference_transaction import JOURNAL
+
+        if (self.library_root / JOURNAL).exists():
+            self.send_error(503, "Reference update pending; run shelf reference recover")
+            return None
         target = self._resolve_url_path(self.path)
         if target is None:
             self.send_error(403, "Path resolves outside the library root")
@@ -61,6 +66,11 @@ class LibraryRequestHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         """Serve the live index with response-only PAGE.root injection."""
+        from shelf.core.reference_transaction import JOURNAL
+
+        if (self.library_root / JOURNAL).exists():
+            self.send_error(503, "Reference update pending; run shelf reference recover")
+            return
         if urllib.parse.urlsplit(self.path).path != "/":
             super().do_GET()
             return

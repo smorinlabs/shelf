@@ -138,6 +138,9 @@ def regen_cmd(
     root = get_library(ctx)
     require_git_if_commit(root, commit)
     with library_lock(root):
+        from shelf.core.reference_transaction import require_no_transaction
+
+        require_no_transaction(root)
         catalog_text = (root / CATALOG_FILENAME).read_text(encoding="utf-8")
         raw = json.loads(catalog_text)
         if raw.get("schema_version", 0) > CURRENT_SCHEMA_VERSION:
@@ -170,6 +173,9 @@ def migrate_cmd(
     root = get_library(ctx)
     require_git_if_commit(root, commit)
     with library_lock(root):
+        from shelf.core.reference_transaction import require_no_transaction
+
+        require_no_transaction(root)
         raw = json.loads((root / CATALOG_FILENAME).read_text(encoding="utf-8"))
         found = raw.get("schema_version", 0)
         if found > CURRENT_SCHEMA_VERSION:

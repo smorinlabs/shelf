@@ -86,6 +86,8 @@ def doc_update(
     with library_lock(root):
         catalog = load_catalog(root, for_write=True)
         doc = find_doc(catalog, doc_id)
+        if doc.reference and any(value is not None for value in (title, description, source_)):
+            raise click.UsageError("managed reference metadata requires --reference-record refresh")
         before = doc.to_dict()
 
         if kind_ is not None and kind_ not in catalog.kinds:

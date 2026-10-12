@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "name": "FIXTURE \u2014 hardware",
+  "entity_url": "https://example.com/hardware",
+  "description": "Synthetic validation fixture; not a real product.",
+  "what_it_is": null,
+  "when_useful": null,
+  "capabilities": [],
+  "prerequisites": [],
+  "limitations": [],
+  "categories": [
+    "Hardware/ESP32"
+  ],
+  "tags": [
+    "fixture"
+  ],
+  "projects": [
+    "Fixture project"
+  ],
+  "links": {
+    "homepage": [
+      "https://example.com/hardware"
+    ],
+    "repository": [],
+    "docs": [
+      "https://example.com/hardware/docs"
+    ],
+    "pricing": []
+  },
+  "cost": null,
+  "license": null,
+  "dates": {
+    "saved": "2020-01-02",
+    "added": null,
+    "researched": null,
+    "released": null
+  },
+  "notes": "Preserve my notes.\n<Do not execute> & \"quoted\".",
+  "sources": [],
+  "related": [],
+  "profiles": {
+    "hardware": {
+      "board": null,
+      "processor": null,
+      "voltage": null,
+      "interfaces": null,
+      "requirements": null
+    }
+  }
+}
