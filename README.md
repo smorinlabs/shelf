@@ -151,7 +151,7 @@ exec uv run --project /path/to/shelf shelf "$@"
 ```bash
 shelf init                 # plain folder at ${XDG_DATA_HOME:-~/.local/share}/shelf
 shelf init --git           # … also initialized as a Git repo with a first commit
-shelf init --github        # … also pushed to a new private GitHub repo <you>/shelf-library
+shelf init --github        # … also creates private GitHub repo <you>/shelf-library as origin
 ```
 
 You can skip this step if you use the agent. The first time you ask it to add
@@ -432,7 +432,7 @@ shelf doc add FILE… (--repo NAME | --topic NAME) --kind KIND \
 
 | Group | Options |
 |---|---|
-| Anchor (exactly one) | `--repo NAME`, with `--repo-url URL` (inferred from the source file's Git remote when possible) and `--subject LABEL`; **or** `--topic NAME`, with `--create-topic` to allow a new topic |
+| Anchor (exactly one) | `--repo NAME`, with `--repo-url URL` (inferred from the source file's Git remote when possible, and required when it cannot be inferred) and `--subject LABEL`; **or** `--topic NAME`, with `--create-topic` to allow a new topic |
 | Classification | `--kind KIND` (must already exist); `--tag TAG` (repeatable) |
 | Identity | `--title`, `--description`, `--slug` (override the derived slug), `--primary FMT`, `--doc-date YYYY-MM-DD`, `--source TEXT` (provenance; the default is the first input file's absolute path) |
 | Input | `--assets PATH` (repeatable; files or folders copied into the document folder so relative links in HTML work); `--format EXT` (override the format inferred from the extension) |
@@ -643,7 +643,8 @@ embeds the catalog metadata and a short preview of each document: the first
 heading and paragraph. It does not embed full document contents. The UI
 offers:
 
-- Fuzzy search over title, description, and tags.
+- Search as you type: a case-insensitive substring match over title,
+  description, tags, id, and repo subject.
 - Grouping by subject: topical documents under their topic, repo documents
   under their repo with `subject` sub-headings. A toggle regroups by kind.
 - One row per format variant, each with its own copy actions.
