@@ -186,6 +186,23 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
+## [~] Project P16: Complete README — pitch and full manual (docs only, no version bump)
+**Goal/Requirement**: Replace the placeholder `README.md` (a lone `# shelf` heading) with a README that first introduces and sells shelf — AI-first: a personal reference library your coding agents can use — and then serves as the full user manual.
+- Command reference built from `shelf --help` (authoritative), not the PRD, where the two diverge
+- Prominent warning that `doc add` removes the source file by default
+- Plugin/skill install summarized with a link to `plugins/shelf/README.md`
+
+**Out of Scope**
+- CLI or plugin code changes; version bump or tag
+- Reconciling PRD/`--help` divergences (`doc update -i`, `regen --json`, unused `browser` config key)
+
+### Tests & Tasks
+- [x] [P16-T01] Write `README.md`: pitch, quick start, install, concepts, configuration, command reference, exit codes, UI, git, audit, AI integration, new machine, development
+- [x] [P16-TS01] Every documented command and flag checked against `shelf <cmd> --help`; quick-start transcript re-run in a scratch library
+- [ ] [P16-TS02] `make check` and `just all` green; PR merged and main fast-forwarded
+
+---
+
 ## Backlog — minor
 - [x] **UI favicon 404** (found in the P08 browser smoke): FIXED — `index.html.tmpl` now declares `<link rel="icon" href="data:,">`, so browsers no longer request `/favicon.ico` (no 404) in either core `file://` or enhanced mode. Regression-tested (`test_index_declares_a_favicon_to_avoid_a_404`).
 - [x] Live browser smoke of the P08 UI hardening (C1 XSS / C3 copy-text / C4 search) — DONE; all three verified live with screenshots.
