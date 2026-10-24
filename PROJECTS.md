@@ -172,7 +172,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [~] Project P15: Shorten the shelf skill description to action-scoped triggers (plugin v0.1.1)
+## [x] Project P15: Shorten the shelf skill description to action-scoped triggers (plugin v0.1.1)
 **Goal**: Rewrite the `shelf` skill's frontmatter description to the fleet shape — what it does, "use when" a specific action, "not for" its two real sibling collisions (document-merge, repo-finder) — from 853 to 333 characters, so it survives Claude Code's skill-listing budget and Codex's description truncation. Body, references, and CLI behavior unchanged.
 
 **Notes**:
@@ -182,7 +182,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 ### Tests & Tasks
 - [x] [P15-T01] Rewrite the description; fold trigger phrases to four; keep the two sibling exclusions
 - [x] [P15-T02] Align both plugin manifests and the marketplace entries at 0.1.1
-- [ ] [P15-TS01] `make check` and `just all` green; PR merged and main fast-forwarded
+- [x] [P15-TS01] `make check` and `just all` green; PR merged and main fast-forwarded
 
 ---
 
