@@ -12,6 +12,9 @@ from shelf.core.atomic import atomic_write_text
 
 CONFIG_FILENAME = "shelf_config.toml"
 
+# Written by every `shelf init` up to 0.8.0 while nothing read it, so it records no choice.
+LEGACY_INIT_BROWSER = "Google Chrome"
+
 _KEY_MAP = {
     "library": "library",
     "remove-source": "remove_source",
@@ -26,7 +29,7 @@ class ShelfConfig:
     library: str | None = None
     remove_source: bool = True
     server_port: int = 8765
-    browser: str = "Google Chrome"
+    browser: str | None = None
     handoff_agent: str = "claude"
 
 
@@ -46,6 +49,8 @@ def load_config(path: Path) -> ShelfConfig:
     for key, attr in _KEY_MAP.items():
         if key in data:
             setattr(cfg, attr, data[key])
+    if cfg.browser == LEGACY_INIT_BROWSER:
+        cfg.browser = None
     return cfg
 
 

@@ -8,7 +8,7 @@ control to the CLI dies the instant the process exits, which killed the browser'
 connection before it could ever load the page.
 
 `open_cmd`'s corrected model exposes three seams:
-  - `_launch(url)` — opens a URL in the browser.
+  - `_launch(url, browser)` — opens a URL in the configured browser (None = default).
   - `_probe(port) -> bool` — True if a shelf server already answers on that port.
   - `_serve_blocking(server)` — blocks serving until interrupted (Ctrl-C); a no-op
     monkeypatch here so unit tests don't hang.
@@ -67,7 +67,7 @@ class _FakeServer:
 def test_open_static_opens_index_html_as_file_url(monkeypatch):
     root = _init()
     launched = []
-    monkeypatch.setattr("shelf.cli.open_cmd._launch", launched.append)
+    monkeypatch.setattr("shelf.cli.open_cmd._launch", lambda url, browser: launched.append(url))
 
     r = run(["open", "--static"])
 
@@ -89,7 +89,7 @@ def test_open_enhanced_reuses_running_server(monkeypatch):
     save_config(default_config_path(), ShelfConfig(library=str(root), server_port=9010))
 
     launched = []
-    monkeypatch.setattr("shelf.cli.open_cmd._launch", launched.append)
+    monkeypatch.setattr("shelf.cli.open_cmd._launch", lambda url, browser: launched.append(url))
     monkeypatch.setattr("shelf.cli.open_cmd._probe", lambda port: True)
 
     serve_calls = []
@@ -114,7 +114,7 @@ def test_open_enhanced_hosts_new_server_when_none_running(monkeypatch):
     save_config(default_config_path(), ShelfConfig(library=str(root), server_port=9020))
 
     launched = []
-    monkeypatch.setattr("shelf.cli.open_cmd._launch", launched.append)
+    monkeypatch.setattr("shelf.cli.open_cmd._launch", lambda url, browser: launched.append(url))
     monkeypatch.setattr("shelf.cli.open_cmd._probe", lambda port: False)
     monkeypatch.setattr("shelf.cli.open_cmd._serve_blocking", lambda server: None)
 
@@ -132,6 +132,83 @@ def test_open_enhanced_hosts_new_server_when_none_running(monkeypatch):
     assert len(serve_calls) == 1
     assert serve_calls[0][1] == 9020  # started on the resolved (configured) port
     assert launched == ["http://127.0.0.1:9020"]
+
+
+# --- browser selection: the `browser` config key, None = system default ----------
+
+
+def test_open_passes_the_configured_browser_to_launch(monkeypatch):
+    root = _init()
+    save_config(default_config_path(), ShelfConfig(library=str(root), browser="Firefox"))
+    calls = []
+    monkeypatch.setattr("shelf.cli.open_cmd._launch", lambda url, browser: calls.append(browser))
+
+    r = run(["open", "--static"])
+
+    assert r.exit_code == 0, r.output
+    assert calls == ["Firefox"]
+
+
+def test_launch_without_a_browser_uses_the_system_default(monkeypatch):
+    from shelf.cli import open_cmd
+
+    opened = []
+    monkeypatch.setattr(open_cmd.webbrowser, "open", opened.append)
+    open_cmd._launch("http://127.0.0.1:1", None)
+    assert opened == ["http://127.0.0.1:1"]
+
+
+def test_launch_with_a_browser_on_macos_uses_open_a(monkeypatch):
+    from shelf.cli import open_cmd
+
+    commands = []
+    monkeypatch.setattr(open_cmd.sys, "platform", "darwin")
+    monkeypatch.setattr(open_cmd.subprocess, "run", lambda cmd, **kw: commands.append(cmd))
+    open_cmd._launch("http://127.0.0.1:1", "Firefox")
+    assert commands == [["open", "-a", "Firefox", "http://127.0.0.1:1"]]
+
+
+def test_launch_with_a_browser_elsewhere_uses_webbrowser_get(monkeypatch):
+    from shelf.cli import open_cmd
+
+    opened = []
+
+    class _Controller:
+        def open(self, url):
+            opened.append(url)
+
+    names = []
+    monkeypatch.setattr(open_cmd.sys, "platform", "linux")
+    monkeypatch.setattr(
+        open_cmd.webbrowser, "get", lambda name: names.append(name) or _Controller()
+    )
+    open_cmd._launch("http://127.0.0.1:1", "firefox")
+    assert names == ["firefox"]
+    assert opened == ["http://127.0.0.1:1"]
+
+
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+def test_unknown_browser_exits_1_with_a_clear_error(monkeypatch, platform):
+    import webbrowser
+
+    from shelf.cli import open_cmd
+
+    def _fail_run(cmd, **kw):
+        raise subprocess.CalledProcessError(1, cmd, stderr="Unable to find application")
+
+    def _fail_get(name):
+        raise webbrowser.Error("could not locate runnable browser")
+
+    root = _init()
+    save_config(default_config_path(), ShelfConfig(library=str(root), browser="NoSuchBrowser"))
+    monkeypatch.setattr(open_cmd.sys, "platform", platform)
+    monkeypatch.setattr(open_cmd.subprocess, "run", _fail_run)
+    monkeypatch.setattr(open_cmd.webbrowser, "get", _fail_get)
+
+    r = run(["open", "--static"])
+
+    assert r.exit_code == 1
+    assert "NoSuchBrowser" in r.output
 
 
 # --- unconfigured library: exit 1 with `shelf init` guidance, before doing anything --

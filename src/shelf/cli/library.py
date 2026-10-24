@@ -126,11 +126,13 @@ def path_cmd(ctx: click.Context, which: str | None) -> None:
 
 @click.command("regen")
 @click.option("--dry-run", is_flag=True)
+@click.option("--json", "json_", is_flag=True, help="Machine-readable report.")
 @commit_options
 @click.pass_context
 def regen_cmd(
     ctx: click.Context,
     dry_run: bool,
+    json_: bool,
     commit: bool,
     commit_message: str | None,
 ) -> None:
@@ -144,14 +146,15 @@ def regen_cmd(
             raise click.ClickException(
                 "catalog schema_version is newer than this shelf understands — upgrade shelf"
             )
+        report = {"index": str((root / "index.html").resolve()), "dry_run": dry_run}
         if dry_run:
-            click.echo("would regenerate index.html")
+            click.echo(json.dumps(report) if json_ else "would regenerate index.html")
             return
         snips = build_snippets(root, raw.get("documents", []))
         atomic_write_text(root / "index.html", render_index(catalog_text, snips))
     if commit:
         git_commit_all(root, commit_message or auto_message("regen"))
-    click.echo("regenerated index.html")
+    click.echo(json.dumps(report) if json_ else "regenerated index.html")
 
 
 @click.command("migrate")

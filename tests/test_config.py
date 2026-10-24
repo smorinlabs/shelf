@@ -47,3 +47,24 @@ def test_precedence_flag_beats_env_beats_config(monkeypatch):
 def test_unresolvable_library_errors_with_guidance():
     with pytest.raises(click.ClickException, match="shelf init"):
         resolve_library(None, ShelfConfig())
+
+
+def test_browser_defaults_to_unset(tmp_path):
+    assert ShelfConfig().browser is None
+    path = tmp_path / "shelf_config.toml"
+    save_config(path, ShelfConfig(library="/tmp/lib"))
+    assert "browser" not in path.read_text()
+
+
+def test_explicit_browser_round_trips(tmp_path):
+    path = tmp_path / "shelf_config.toml"
+    save_config(path, ShelfConfig(library="/tmp/lib", browser="Firefox"))
+    assert load_config(path).browser == "Firefox"
+
+
+def test_legacy_init_browser_value_loads_as_unset(tmp_path):
+    """shelf init <= 0.8.0 always wrote browser = "Google Chrome" while nothing
+    read it, so that exact value is treated as never chosen."""
+    path = tmp_path / "shelf_config.toml"
+    path.write_text('library = "/tmp/lib"\nbrowser = "Google Chrome"\n')
+    assert load_config(path).browser is None

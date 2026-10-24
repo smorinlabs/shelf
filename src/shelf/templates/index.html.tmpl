@@ -412,14 +412,33 @@ const palresults = document.getElementById("palresults");
 let palRows = [], palSel = 0;
 function openPalette(){ scrim.classList.add("open"); palinput.value=""; renderPalette(""); palinput.focus(); }
 function closePalette(){ scrim.classList.remove("open"); }
-function scoreMatch(d, q){ const hay=(d.title+" "+(d.description||"")+" "+d.tags.join(" ")+" "+d.id+" "+(d.anchor.subject||"")).toLowerCase(); return hay.includes(q); }
+/* fuzzy:start */
+// Fuzzy match: every query character must appear in order. Each hit scores 1, plus 2 when it
+// directly follows the previous hit and 3 when it starts a word; a contiguous match adds more.
+// 0 means no match.
+function fuzzyScore(text, q){
+  text = text.toLowerCase(); let score = 0, from = 0, prev = -2;
+  for(const ch of q){
+    const at = text.indexOf(ch, from); if(at < 0) return 0;
+    score += 1 + (at === prev + 1 ? 2 : 0) + (at === 0 || !/[a-z0-9]/.test(text[at-1]) ? 3 : 0);
+    prev = at; from = at + 1;
+  }
+  return score + (text.includes(q) ? 2 * q.length : 0);
+}
+// Every query word must match some field; titles count double. 0 means no match.
+function scoreMatch(d, q){ const fields=[[d.title,2],[d.description||"",1],[d.tags.join(" "),1],[d.id,1],[d.anchor.subject||"",1]]; let total=0;
+  for(const word of q.split(/\s+/).filter(Boolean)){ let best=0; for(const [text,weight] of fields) best=Math.max(best, weight*fuzzyScore(text, word)); if(!best) return 0; total+=best; }
+  return total; }
+function rankDocs(ds, q){ return ds.map(d=>({d, s:scoreMatch(d,q)})).filter(r=>r.s>0).sort((a,b)=>b.s-a.s).map(r=>r.d); }
+/* fuzzy:end */
 function renderPalette(q){
   q = q.trim().toLowerCase();
-  const ds = q ? DOCS.filter(d=>scoreMatch(d,q)) : DOCS.slice(0,6);
+  const ds = q ? rankDocs(DOCS, q) : DOCS.slice(0,6);
   palRows = []; palSel = 0;
   if(!ds.length){ palresults.innerHTML = `<div class="pal-none">No documents match “${esc(q)}”.</div>`; return; }
-  // group by subject for display
+  // group by subject for display; with a query, the group holding the best match comes first
   let html = ""; const groups = groupsForList(ds);
+  if(q) groups.sort((a,b)=>ds.indexOf(a.items[0])-ds.indexOf(b.items[0]));
   groups.forEach(g=>{
     html += `<div class="pal-grp">${esc(g.label)}${g.sub?` <b>· ${esc(g.sub)}</b>`:""}</div>`;
     g.items.forEach(d=>{

@@ -111,9 +111,11 @@ XDG-based, TOML: `${XDG_CONFIG_HOME:-~/.config}/shelf/shelf_config.toml` — the
 library = "/Users/<user>/.local/share/shelf"
 remove-source = true          # default for `doc add` / `doc format add`
 server-port = 8765            # local UI server port
-browser = "Google Chrome"     # browser for `shelf open` on macOS
+# browser = "Firefox"         # optional: browser for `shelf open`; unset = system default
 handoff-agent = "claude"      # agent launched by the `doc add` handoff: claude | codex
 ```
+
+`shelf init` does not write `browser`. On macOS its value is an application name (`open -a`); elsewhere it is a Python `webbrowser` name or command. The value `"Google Chrome"`, which `shelf init` wrote up to v0.8.0 without anything reading it, is treated as unset (P17).
 
 ### Library path resolution
 
@@ -422,7 +424,7 @@ shelf doc update <id> [field options...] [--force] [options]
 
 **Not editable here** — the topic, the repo, and topical↔repo anchoring all relocate the document's folder and belong to `shelf doc move`; attempting them errors and points there. The `id`/slug is immutable.
 
-**Behavior** — `<id>` must exist; at least one field option required (or `-i` for a guided edit on a TTY); pure atomic `catalog.json` rewrite plus `index.html` regeneration; `--dry-run` shows a before/after diff.
+**Behavior** — `<id>` must exist; at least one field option required; pure atomic `catalog.json` rewrite plus `index.html` regeneration; `--dry-run` shows a before/after diff.
 
 ```
 shelf doc update 2026-05-22-cli-extension-prd \
@@ -478,7 +480,7 @@ Opens the UI.
 shelf open [--static]
 ```
 
-By default `shelf open` starts the local server (part of the shelf package, on the configured `server-port`, reusing an already-running instance) and opens the configured browser to `http://localhost:<port>` — **enhanced mode**, with copy-contents and inline HTML rendering. `--static` instead opens the on-disk `index.html` directly as a `file://` page — **core mode** (browse, search, copy-path). If the configured port is occupied, the server falls back to the next free port. Works from any directory because the CLI resolves the library location. The server binds `127.0.0.1` only and refuses to serve any path outside the library root.
+By default `shelf open` starts the local server (part of the shelf package, on the configured `server-port`, reusing an already-running instance) and opens the configured browser (the `browser` config key; the system default browser when unset) to `http://localhost:<port>` — **enhanced mode**, with copy-contents and inline HTML rendering. `--static` instead opens the on-disk `index.html` directly as a `file://` page — **core mode** (browse, search, copy-path). If the configured port is occupied, the server falls back to a free port chosen by the operating system. Works from any directory because the CLI resolves the library location. The server binds `127.0.0.1` only and refuses to serve any path outside the library root.
 
 ### 11.8 `shelf path`
 
@@ -607,7 +609,7 @@ The split exists because browsers block a `file://` page from fetching neighbori
 
 ### Search and organization
 
-- **Search:** autocomplete / fuzzy matching over document title, description, and tags.
+- **Search:** autocomplete / fuzzy matching over document title, description, tags, id, and repo `subject` — query characters match in order, every query word must match, and results are ranked with title, contiguous, and word-start matches first.
 - **Primary organization:** grouped by subject — topical documents by `category`, repo-anchored documents under their repo with `subject` sub-headings. `kind` is shown as a badge.
 - **Alternative view:** a toggle re-groups the same documents by `kind`.
 - **Per-variant rows:** each format variant has its own copy actions.
@@ -622,7 +624,7 @@ The split exists because browsers block a `file://` page from fetching neighbori
 ## 14. Open / Deferred Items
 
 1. **Plugin manifests — resolved (P09).** The dual manifests live in the `shelf` repo (monorepo, §3): `.claude-plugin/plugin.json` (skills auto-discovered from `skills/`) and `.codex-plugin/plugin.json` (`"skills": "./skills/"` + an `interface` block). Both verified via `skillsmith verify --deep` — claude-code and codex both pass, no findings. (PATH placement: the CLI installs via `uv tool install`, §5.)
-2. **Local server port.** Default `8765` from config, with fallback to the next free port when occupied. Confirm whether a fixed port with an error is preferred over automatic fallback.
+2. **Local server port.** Default `8765` from config, with fallback to a free port chosen by the operating system when occupied. Confirm whether a fixed port with an error is preferred over automatic fallback.
 3. **Multiple libraries.** The design assumes a single library. Named multi-library support is deferred; the resolution scheme in §4 can accommodate it later without breaking changes.
 4. **AI-session detection for the handoff.** The exact mechanism by which `shelf doc add` detects it is already running inside a Claude Code or Codex session (environment variable vs. parent-process inspection) is verified at build time, so the CLI never nests an interactive session (§11.2). Claude Code sets `CLAUDECODE=1` in its sessions — the candidate mechanism; the Codex equivalent is identified at build time.
 5. **Taxonomy maintenance.** `topic rename`, `topic remove`, and `kind remove` do not exist; a topic rename implies folder moves under `docs/topics/`. Deferred deliberately.
