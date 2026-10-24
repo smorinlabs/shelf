@@ -226,6 +226,24 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
+## [x] Project P18: Post-0.8.1 cleanups (v0.8.2)
+**Goal/Requirement**: Fix three small defects found during P17.
+- `SHELF-PRD.md` says `shelf open` opens `http://localhost:<port>`; the code opens `http://127.0.0.1:<port>`, matching the server's bind address. The PRD is corrected.
+- The ⌘K palette preview line uses `/\\s+/g`, which matches a literal backslash and `s`, not whitespace. It becomes `/\s+/g`, so whitespace runs collapse before the 64-character cut.
+- `pyproject.toml` pins `uv_build>=0.10.5,<0.11.0`, which excludes the installed uv 0.11.29 and makes every `uv build` warn and fetch an old backend. The range becomes `>=0.11.29,<0.12.0`.
+
+**Out of Scope**
+- Any other template, PRD, or build changes
+
+### Tests & Tasks
+- [x] [P18-TS01] Rendered `index.html` collapses whitespace in palette previews with `/\s+/g` and no longer contains `/\\s+/g`
+- [x] [P18-T01] Fix the preview regex in `index.html.tmpl`
+- [x] [P18-T02] Change `localhost` to `127.0.0.1` in `SHELF-PRD.md` §11.7 and §14
+- [x] [P18-T03] Widen the `uv_build` range; `uv build` prints no version warning
+- [ ] [P18-T04] Bump to v0.8.2; `make check` and `just all` green; PR merged; tag `v0.8.2` pushed
+
+---
+
 ## Backlog — minor
 - [x] **UI favicon 404** (found in the P08 browser smoke): FIXED — `index.html.tmpl` now declares `<link rel="icon" href="data:,">`, so browsers no longer request `/favicon.ico` (no 404) in either core `file://` or enhanced mode. Regression-tested (`test_index_declares_a_favicon_to_avoid_a_404`).
 - [x] Live browser smoke of the P08 UI hardening (C1 XSS / C3 copy-text / C4 search) — DONE; all three verified live with screenshots.
