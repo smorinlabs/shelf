@@ -81,3 +81,9 @@ def test_init_refuses_scaffold_over_existing_library_even_unconfigured(isolated_
     assert r.exit_code == 5, r.output
     assert "--force" in r.output or "--adopt" in r.output
     assert (root / "catalog.json").read_text() == marker  # untouched
+
+
+def test_init_writes_no_browser_key(isolated_env):
+    assert run(["init"]).exit_code == 0
+    lines = default_config_path().read_text().splitlines()
+    assert not any(line.startswith("browser") for line in lines)

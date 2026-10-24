@@ -3,6 +3,8 @@
 import hashlib
 import json
 import re
+import shutil
+import subprocess
 
 import pytest
 from click.testing import CliRunner
@@ -321,3 +323,56 @@ def test_index_declares_a_favicon_to_avoid_a_404(seeded_index):
     assert re.search(r'<link[^>]+rel="icon"', html_text), (
         'expected <link rel="icon"> in index.html so browsers do not request /favicon.ico'
     )
+
+
+_FUZZY_RE = re.compile(r"/\* fuzzy:start \*/(.*?)/\* fuzzy:end \*/", re.DOTALL)
+
+_FUZZY_CHECKS = r"""
+const assert = (cond, msg) => { if (!cond) { console.error("FAIL: " + msg); process.exit(1); } };
+const doc = (id, title, extra = {}) =>
+  ({ id, title, description: "", tags: [], anchor: { subject: "" }, ...extra });
+
+assert(fuzzyScore("uv inline scripts", "uvscr") > 0, "in-order characters match");
+assert(fuzzyScore("uv inline scripts", "rcs") === 0, "out-of-order characters do not match");
+assert(fuzzyScore("uv inline scripts", "xyz") === 0, "absent characters do not match");
+assert(fuzzyScore("config reference", "conf") > fuzzyScore("cats on nice fur", "conf"),
+  "a contiguous match outranks a scattered one");
+assert(fuzzyScore("uv inline scripts", "scr") > fuzzyScore("describe", "scr"),
+  "a match at a word start outranks one mid-word");
+
+const inTitle = doc("a", "Deploy guide");
+const inDescription = doc("b", "Shipping notes", { description: "how to deploy" });
+assert(scoreMatch(inTitle, "deploy") > scoreMatch(inDescription, "deploy"),
+  "a title match outranks a description match");
+assert(scoreMatch(doc("c", "Notes", { tags: ["python"] }), "pyth") > 0, "tags are searched");
+assert(scoreMatch(doc("d", "Notes", { anchor: { subject: "provider-config" } }), "provcfg") > 0,
+  "the repo subject is searched");
+
+const uv = doc("e", "uv Inline Scripts");
+assert(scoreMatch(uv, "uv scripts") > 0, "every query word matching is a match");
+assert(scoreMatch(uv, "uv zzz") === 0, "query words AND together");
+
+const ranked = rankDocs([inDescription, doc("f", "Unrelated"), inTitle], "deploy");
+assert(ranked.length === 2, "non-matching documents are dropped");
+assert(ranked[0] === inTitle && ranked[1] === inDescription, "results are ranked best first");
+console.log("ok");
+"""
+
+
+def test_palette_search_is_fuzzy_and_ranked(seeded_index, tmp_path):
+    """P17-TS04: the ⌘K palette matches characters in order (fuzzy), weights titles,
+    contiguous runs, and word starts, ANDs query words, and ranks results. The scorer
+    is pulled out of the rendered index.html and run under Node."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node not on PATH")
+    html_text = (seeded_index / "index.html").read_text()
+    match = _FUZZY_RE.search(html_text)
+    assert match is not None, "index.html must mark the scorer with /* fuzzy:start */ … end"
+    script = tmp_path / "fuzzy_check.js"
+    script.write_text(match.group(1) + _FUZZY_CHECKS, encoding="utf-8")
+
+    result = subprocess.run([node, str(script)], capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert result.stdout.strip() == "ok"

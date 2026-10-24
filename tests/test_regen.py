@@ -87,3 +87,22 @@ def test_regen_dry_run_writes_nothing(isolated_env):
     assert r.exit_code == 0
     assert "would regenerate" in r.output
     assert (root / "index.html").read_text() == before
+
+
+def test_regen_json_reports_the_index_path(isolated_env):
+    root = _init()
+    r = run(["regen", "--json"])
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output) == {
+        "index": str((root / "index.html").resolve()),
+        "dry_run": False,
+    }
+
+
+def test_regen_dry_run_json_reports_dry_run(isolated_env):
+    root = _init()
+    before = (root / "index.html").read_text()
+    r = run(["regen", "--dry-run", "--json"])
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output)["dry_run"] is True
+    assert (root / "index.html").read_text() == before

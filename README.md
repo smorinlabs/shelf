@@ -298,7 +298,7 @@ type. It warns you that previously copied absolute paths will stop resolving.
 library = "/Users/you/.local/share/shelf"   # library root
 remove-source = true                        # default for doc add / doc format add
 server-port = 8765                          # preferred port for `shelf open`
-browser = "Google Chrome"                   # written by init; not yet used (see below)
+# browser = "Firefox"                       # optional; unset = system default browser
 handoff-agent = "claude"                    # claude | codex, for the doc add handoff
 ```
 
@@ -307,7 +307,7 @@ handoff-agent = "claude"                    # claude | codex, for the doc add ha
 | `library` | set by `init` | Library root. See the resolution order below. |
 | `remove-source` | `true` | Whether `doc add` and `doc format add` delete the original files after success. `--remove-source` / `--no-remove-source` override it per command. |
 | `server-port` | `8765` | Port that `shelf open` tries first. If the port is busy, shelf uses a free port chosen by the operating system. |
-| `browser` | `"Google Chrome"` | Not read by the current CLI. `shelf open` uses the system default browser. |
+| `browser` | unset | Browser that `shelf open` uses; unset means the system default browser. On macOS, give an application name such as `"Firefox"` (opened with `open -a`). Elsewhere, give a Python `webbrowser` name such as `"firefox"`. If shelf cannot find that browser, `shelf open` exits `1`. `shelf init` does not write this key. The value `"Google Chrome"`, which `shelf init` wrote up to v0.8.0, is treated as unset. |
 | `handoff-agent` | `"claude"` | Agent started by the `doc add` handoff. |
 
 **Where shelf looks for the library**, highest precedence first:
@@ -388,7 +388,7 @@ as `shelf doc`, prints that group's help and exits `2`.
 | `--commit` / `--no-commit` | every mutating command | Record the change as a Git commit. The default is off. The automatic message is `shelf: <verb> <slug>`. Requires a Git library. |
 | `--commit-message TEXT` | every mutating command | Replace the automatic commit message |
 | `--dry-run` | `doc add`, `update`, `move`, `delete`; `regen`; `migrate` | Show what would happen, then change nothing |
-| `-o, --output table\|json`, `--json` | `doc list`, `doc view`, `topic list`, `kind list`, `orphan list`, `audit` | `table` is for humans and may change between releases. `json` is stable within a major version. `--json` is shorthand for `-o json`. `migrate --json` prints a machine-readable report. |
+| `-o, --output table\|json`, `--json` | `doc list`, `doc view`, `topic list`, `kind list`, `orphan list`, `audit` | `table` is for humans and may change between releases. `json` is stable within a major version. `--json` is shorthand for `-o json`. `regen --json` and `migrate --json` print a machine-readable report. |
 | `-y, --yes` | `doc delete`, `orphan delete` | Consent without prompting. Required when not on a TTY. |
 | `-f, --force` | `doc update`, `doc format delete` | Override a safety guard. It never counts as consent. |
 
@@ -596,12 +596,17 @@ uncommitted-changes check.
 ### `shelf regen`
 
 ```bash
-shelf regen [--dry-run] [--commit]
+shelf regen [--dry-run] [--json] [--commit]
 ```
 
 Rewrites `index.html` from the current catalog and the installed template, and
 never touches `catalog.json`. Run it after upgrading shelf, or when audit
-reports a stale index.
+reports a stale index. `--json` prints the absolute path of `index.html` and
+whether this was a dry run:
+
+```json
+{"index": "/Users/you/.local/share/shelf/index.html", "dry_run": false}
+```
 
 ### `shelf migrate`
 
@@ -643,8 +648,11 @@ embeds the catalog metadata and a short preview of each document: the first
 heading and paragraph. It does not embed full document contents. The UI
 offers:
 
-- Search as you type: a case-insensitive substring match over title,
-  description, tags, id, and repo subject.
+- Fuzzy search as you type over title, description, tags, id, and repo
+  subject. Query characters must appear in order, so `uvscr` finds
+  "uv Inline Scripts". Every word of a multi-word query must match. The best
+  matches come first: title matches count double, and runs of consecutive
+  characters and matches at the start of a word score higher.
 - Grouping by subject: topical documents under their topic, repo documents
   under their repo with `subject` sub-headings. A toggle regroups by kind.
 - One row per format variant, each with its own copy actions.
@@ -660,6 +668,8 @@ the library over HTTP.
 
 `shelf open` behaves as follows:
 
+- It opens the browser named by the `browser` config key, or the system
+  default browser when the key is unset.
 - If a shelf server is already answering on `server-port`, it opens the
   browser there.
 - Otherwise it starts a local server, falling back to a free port if

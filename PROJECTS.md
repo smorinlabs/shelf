@@ -203,6 +203,29 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
+## [~] Project P17: Reconcile PRD with CLI behavior (v0.8.1)
+**Goal/Requirement**: Close the five gaps between `SHELF-PRD.md` and the code found while writing the README (P16).
+- `shelf open` honors the `browser` config key; unset means the system default browser. The legacy value `browser = "Google Chrome"`, which `shelf init` always wrote, is treated as unset, and `init` no longer writes it.
+- The ⌘K palette search in `index.html` is fuzzy (in-order character match with consecutive, word-start, and title bonuses), and results are ranked by score.
+- `shelf regen --json` prints a machine-readable report, like `migrate --json`.
+- PRD: the busy-port fallback describes an OS-chosen free port; `doc update -i` is removed.
+
+**Out of Scope**
+- Other PRD or README wording; the closed PR #8 (structured references)
+
+### Tests & Tasks
+- [x] [P17-TS01] Config: `browser` defaults to unset; legacy "Google Chrome" loads as unset; `init` writes no `browser` key
+- [x] [P17-TS02] `shelf open`: unset browser uses the system default; a set browser is used (macOS `open -a`, elsewhere `webbrowser.get`); an unknown browser exits 1 with a clear error
+- [x] [P17-TS03] `regen --json` and `regen --dry-run --json` print `{"index", "dry_run"}`
+- [x] [P17-TS04] Fuzzy scorer, run under Node from the rendered `index.html`: subsequence matches, non-matches rejected, title and contiguous matches rank higher, multi-word queries AND together
+- [x] [P17-T01] Implement `browser` config handling and `shelf open` browser selection
+- [x] [P17-T02] Implement `regen --json`
+- [x] [P17-T03] Implement fuzzy scoring and ranked palette results in `index.html.tmpl`
+- [x] [P17-T04] Update `SHELF-PRD.md` (port fallback, remove `-i`) and `README.md` (browser, search, `regen --json`)
+- [ ] [P17-T05] Bump to v0.8.1; `make check` and `just all` green; PR merged; tag `v0.8.1` pushed
+
+---
+
 ## Backlog — minor
 - [x] **UI favicon 404** (found in the P08 browser smoke): FIXED — `index.html.tmpl` now declares `<link rel="icon" href="data:,">`, so browsers no longer request `/favicon.ico` (no 404) in either core `file://` or enhanced mode. Regression-tested (`test_index_declares_a_favicon_to_avoid_a_404`).
 - [x] Live browser smoke of the P08 UI hardening (C1 XSS / C3 copy-text / C4 search) — DONE; all three verified live with screenshots.
