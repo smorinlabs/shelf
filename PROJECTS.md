@@ -186,7 +186,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [~] Project P16: Complete README — pitch and full manual (docs only, no version bump)
+## [x] Project P16: Complete README — pitch and full manual (docs only, no version bump)
 **Goal/Requirement**: Replace the placeholder `README.md` (a lone `# shelf` heading) with a README that first introduces and sells shelf — AI-first: a personal reference library your coding agents can use — and then serves as the full user manual.
 - Command reference built from `shelf --help` (authoritative), not the PRD, where the two diverge
 - Prominent warning that `doc add` removes the source file by default
@@ -199,7 +199,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 ### Tests & Tasks
 - [x] [P16-T01] Write `README.md`: pitch, quick start, install, concepts, configuration, command reference, exit codes, UI, git, audit, AI integration, new machine, development
 - [x] [P16-TS01] Every documented command and flag checked against `shelf <cmd> --help`; quick-start transcript re-run in a scratch library
-- [ ] [P16-TS02] `make check` and `just all` green; PR merged and main fast-forwarded
+- [x] [P16-TS02] `make check` and `just all` green; PR merged and main fast-forwarded
 
 ---
 
