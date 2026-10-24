@@ -203,7 +203,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [~] Project P17: Reconcile PRD with CLI behavior (v0.8.1)
+## [x] Project P17: Reconcile PRD with CLI behavior (v0.8.1)
 **Goal/Requirement**: Close the five gaps between `SHELF-PRD.md` and the code found while writing the README (P16).
 - `shelf open` honors the `browser` config key; unset means the system default browser. The legacy value `browser = "Google Chrome"`, which `shelf init` always wrote, is treated as unset, and `init` no longer writes it.
 - The ⌘K palette search in `index.html` is fuzzy (in-order character match with consecutive, word-start, and title bonuses), and results are ranked by score.
@@ -222,7 +222,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P17-T02] Implement `regen --json`
 - [x] [P17-T03] Implement fuzzy scoring and ranked palette results in `index.html.tmpl`
 - [x] [P17-T04] Update `SHELF-PRD.md` (port fallback, remove `-i`) and `README.md` (browser, search, `regen --json`)
-- [ ] [P17-T05] Bump to v0.8.1; `make check` and `just all` green; PR merged; tag `v0.8.1` pushed
+- [x] [P17-T05] Bump to v0.8.1; `make check` and `just all` green; PR merged; tag `v0.8.1` pushed
 
 ---
 
