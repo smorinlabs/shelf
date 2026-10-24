@@ -226,7 +226,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [x] Project P18: Post-0.8.1 cleanups (v0.8.2)
+## [~] Project P18: Post-0.8.1 cleanups (v0.8.2)
 **Goal/Requirement**: Fix three small defects found during P17.
 - `SHELF-PRD.md` says `shelf open` opens `http://localhost:<port>`; the code opens `http://127.0.0.1:<port>`, matching the server's bind address. The PRD is corrected.
 - The ⌘K palette preview line uses `/\\s+/g`, which matches a literal backslash and `s`, not whitespace. It becomes `/\s+/g`, so whitespace runs collapse before the 64-character cut.
