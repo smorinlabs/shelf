@@ -10,6 +10,14 @@ Route the user's intent to the right `shelf` CLI operation, drive classification
 and confirmation, and let the CLI own every mutation. One skill, seven
 operations, each detailed in a reference loaded on demand.
 
+## Authoring boundary
+
+Saving an existing file or fetched page uses this skill's add flow; it does not imply
+researching or rewriting it. For a request to research a resource link and author an
+original reference page, use the sibling `../shelf-reference/SKILL.md` (relative to
+this skill directory, following symlinks), then return here for add/find/edit. Shelf
+remains authoritative for every library operation and mutation.
+
 ## Invariants (every operation)
 
 - **Shell out to the `shelf` CLI. Never edit `catalog.json`, `index.html`, or
