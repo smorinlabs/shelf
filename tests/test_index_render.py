@@ -385,3 +385,15 @@ def test_palette_preview_collapses_whitespace(seeded_index):
     html_text = (seeded_index / "index.html").read_text()
     assert '.replace(/\\s+/g," ")' in html_text
     assert "/\\\\s+/g" not in html_text
+
+
+def test_sidebar_footer_shows_real_values(seeded_index):
+    """P19-TS01: the sidebar footer must not carry mockup constants. Enhanced mode
+    shows the real host (127.0.0.1 and the configured or fallback port), and the
+    footer shows no fixed file count."""
+    html_text = (seeded_index / "index.html").read_text()
+    footer = next(line for line in html_text.splitlines() if 'getElementById("sidefoot")' in line)
+    assert "location.host" in footer
+    assert "localhost:8765" not in footer
+    assert "13 files" not in footer
+    assert "3 docs" in footer

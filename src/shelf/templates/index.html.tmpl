@@ -318,7 +318,7 @@ function renderSidebar(){
       sel=0; renderSidebar(); renderList();
     });
   });
-  document.getElementById("sidefoot").innerHTML = `__SHELF_DOC_COUNT__ docs · 13 files<br><b>${ENHANCED ? "enhanced" : "core"}</b> · ${ENHANCED ? "localhost:8765" : "file"}<br>${ENHANCED ? ROOT : FILE_ROOT}`;
+  document.getElementById("sidefoot").innerHTML = `__SHELF_DOC_COUNT__ docs<br><b>${ENHANCED ? "enhanced" : "core"}</b> · ${ENHANCED ? location.host : "file"}<br>${ENHANCED ? ROOT : FILE_ROOT}`;
 }
 
 /* ---------------- list ---------------- */

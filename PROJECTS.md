@@ -244,6 +244,21 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
+## [~] Project P19: Sidebar footer shows real values (v0.8.3)
+**Goal/Requirement**: Remove two mockup leftovers from the UI sidebar footer in `index.html.tmpl` (found by CodeRabbit on PR #12).
+- Enhanced mode shows the page's real host (`location.host`, for example `127.0.0.1:8765` or the fallback port) instead of the literal `localhost:8765`.
+- The constant `13 files` count is removed; the footer keeps the real document count.
+
+**Out of Scope**
+- Adding a real file count; other footer or sidebar changes
+
+### Tests & Tasks
+- [x] [P19-TS01] Rendered `index.html` footer uses `location.host` and contains neither `localhost:8765` nor `13 files`
+- [x] [P19-T01] Fix the footer line in `index.html.tmpl`
+- [ ] [P19-T02] Bump to v0.8.3; `make check` and `just all` green; PR merged; tag `v0.8.3` pushed
+
+---
+
 ## Backlog — minor
 - [x] **UI favicon 404** (found in the P08 browser smoke): FIXED — `index.html.tmpl` now declares `<link rel="icon" href="data:,">`, so browsers no longer request `/favicon.ico` (no 404) in either core `file://` or enhanced mode. Regression-tested (`test_index_declares_a_favicon_to_avoid_a_404`).
 - [x] Live browser smoke of the P08 UI hardening (C1 XSS / C3 copy-text / C4 search) — DONE; all three verified live with screenshots.
