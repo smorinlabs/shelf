@@ -31,9 +31,10 @@ agent ▸  Found 2026-10-24-cli-extension-prd (spec, flox-cli). Reading it now.
 ## Why shelf
 
 - **Built for agents, and safe for them.** The shelf skills work in both Claude
-  Code and Codex. They propose a classification, preview every change with
-  `--dry-run`, and ask before anything destructive. All writes go through the
-  `shelf` CLI, so an agent never hand-edits your catalog.
+  Code and Codex. They propose a classification, preview every change
+  (with `--dry-run` where the CLI supports it), and ask before anything
+  destructive. All writes go through the `shelf` CLI, so an agent never
+  hand-edits your catalog.
 - **Paths that never break.** Every document lives at a permanent path such as
   `docs/topics/dev-tooling/2026-06-03-uv-inline-scripts/…`. Changing a title,
   kind, or tags is a metadata change, and the file stays where it is. Paths you
