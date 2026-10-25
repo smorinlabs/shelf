@@ -15,7 +15,7 @@
         "authentication": "ON_INSTALL"
       },
       "category": "Development",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "description": "The shelf skills — manage a personal shelf documentation library through the `shelf` CLI (add, find, edit, remove, audit, open, and set up documents), and research a resource link into an original HTML reference page."
     }
   ]
