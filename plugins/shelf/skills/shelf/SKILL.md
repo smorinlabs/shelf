@@ -1,6 +1,6 @@
 ---
 name: shelf
-description: Manage a personal document library through the shelf CLI, adding, finding, editing, removing, auditing, and opening documents. Use when the user says "add this to my shelf", "what do I have in shelf about X", "grab my notes from shelf", or "audit my shelf". Not for merging documents (document-merge) or locating repos (repo-finder).
+description: Manage a personal document library through the shelf CLI, adding, finding, editing, removing, auditing, and opening documents. Use when the user says "add this to my shelf", "what do I have in shelf about X", "grab my notes from shelf", or "audit my shelf". Not for merging documents (document-merge), locating repos (repo-finder), or researching a link into a new reference page (shelf-reference).
 allowed-tools: Bash, Read, WebFetch
 ---
 
