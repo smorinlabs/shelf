@@ -80,10 +80,14 @@ work; do not invent jobs, schedules, destinations, permissions or source identit
    `diff -u` against the backup. Confirm identity/classification, notes, dates and
    provenance. For a new document, preview with `doc add ... --dry-run`, then ingest
    with the same flags. For an existing ID, use format addition/replacement instead
-   of `doc add`. Keep sources with `--no-remove-source`. Never manually edit catalog,
+   of `doc add`. Keep sources with `--no-remove-source`. Replacement rebuilds the
+   variant and clears its `files[].source` unless `--source` is passed: read that
+   value from `doc view ID --json` first and pass it unchanged when non-null.
+   Never manually edit catalog,
    index or saved library files; never pass an in-library file as replacement input.
 7. **Verify.** Use `shelf doc view ID --json` and the resolved HTML path. Confirm one
-   stable ID, expected source and links, unchanged notes/original dates/provenance,
+   stable ID, expected document and HTML-variant sources and links, unchanged
+   notes/original dates/provenance,
    and subject tags. Use `shelf audit` per the shelf workflow. Check exact tag filters
    below and narrow/desktop layout. Report sources, unknown facts and saved path.
    If one CLI operation fails, inspect state before continuing; metadata and content
@@ -126,6 +130,8 @@ shelf doc add /tmp/reference.html --topic tools --kind reference \
 
 # Existing entry: show HTML diff and recheck saved-file hash before this operation.
 shelf doc format add ID /tmp/refreshed.html --replace --primary html --no-remove-source
+# If the existing HTML variant's files[].source is non-null, also pass it exactly:
+#   --source 'https://existing-variant-source.example/'
 # Optional approved subject enrichment; creation provenance remains unchanged.
 shelf doc update ID --add-tag electronics --dry-run
 ```
