@@ -244,7 +244,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [~] Project P19: Sidebar footer shows real values (v0.8.3)
+## [x] Project P19: Sidebar footer shows real values (v0.8.3)
 **Goal/Requirement**: Remove two mockup leftovers from the UI sidebar footer in `index.html.tmpl` (found by CodeRabbit on PR #12).
 - Enhanced mode shows the page's real host (`location.host`, for example `127.0.0.1:8765` or the fallback port) instead of the literal `localhost:8765`.
 - The constant `13 files` count is removed; the footer keeps the real document count.
@@ -255,7 +255,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 ### Tests & Tasks
 - [x] [P19-TS01] Rendered `index.html` footer uses `location.host` and contains neither `localhost:8765` nor `13 files`
 - [x] [P19-T01] Fix the footer line in `index.html.tmpl`
-- [ ] [P19-T02] Bump to v0.8.3; `make check` and `just all` green; PR merged; tag `v0.8.3` pushed
+- [x] [P19-T02] Bump to v0.8.3; `make check` and `just all` green; PR merged; tag `v0.8.3` pushed
 
 ---
 
