@@ -1,6 +1,6 @@
 ---
 name: shelf
-description: Manage a personal document library through the shelf CLI, adding, finding, editing, removing, auditing, and opening documents. Use when the user says "add this to my shelf", "what do I have in shelf about X", "grab my notes from shelf", or "audit my shelf". Not for merging documents (document-merge) or locating repos (repo-finder).
+description: Manage a personal document library through the shelf CLI, adding, finding, editing, removing, auditing, and opening documents. Use when the user says "add this to my shelf", "what do I have in shelf about X", "grab my notes from shelf", or "audit my shelf". Not for merging documents (document-merge), locating repos (repo-finder), or researching a link into a new reference page (shelf-reference).
 allowed-tools: Bash, Read, WebFetch
 ---
 
@@ -10,6 +10,14 @@ Route the user's intent to the right `shelf` CLI operation, drive classification
 and confirmation, and let the CLI own every mutation. One skill, seven
 operations, each detailed in a reference loaded on demand.
 
+## Authoring boundary
+
+Saving an existing file or fetched page uses this skill's add flow; it does not imply
+researching or rewriting it. For a request to research a resource link and author an
+original reference page, use the sibling `../shelf-reference/SKILL.md` (relative to
+this skill directory, following symlinks), then return here for add/find/edit. Shelf
+remains authoritative for every library operation and mutation.
+
 ## Invariants (every operation)
 
 - **Shell out to the `shelf` CLI. Never edit `catalog.json`, `index.html`, or
@@ -17,7 +25,8 @@ operations, each detailed in a reference loaded on demand.
   catalog, regenerates the UI, and (in a git library) commits. The skill reads
   intent, runs the right command, and confirms the result.
 - **Preview before mutating.** Where a command supports `--dry-run`, run it
-  (add `--json` when parsing) to show the user what will happen, then run for
+  (add `--json` only where `--help` lists it; `doc add`, `doc update`,
+  `doc delete`, and `doc move` do not) to show the user what will happen, then run for
   real on confirmation.
 - **Confirm destructive or ambiguous actions.** Deletes, moves, and any
   plural-match resolution get an explicit confirmation first.
@@ -51,7 +60,7 @@ them one at a time in order.
 | "I'll just edit `catalog.json` / `index.html` to fix this" | Never. The CLI owns library state; the skill only shells out. |
 | "Delete looks clear, skip the confirmation" | Deletes remove the entry *and* its folder. Show exactly what's lost, then confirm. |
 | "One match is probably right, run it" | Resolve plural matches with the user before acting on an id. |
-| "Run the real add straight away" | Preview with `--dry-run --json` first, then run for real on confirmation. |
+| "Run the real add straight away" | Preview with `--dry-run` first, then run for real on confirmation. |
 
 ## See also
 
