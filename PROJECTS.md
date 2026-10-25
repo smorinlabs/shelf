@@ -226,7 +226,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [~] Project P18: Post-0.8.1 cleanups (v0.8.2)
+## [x] Project P18: Post-0.8.1 cleanups (v0.8.2)
 **Goal/Requirement**: Fix three small defects found during P17.
 - `SHELF-PRD.md` says `shelf open` opens `http://localhost:<port>`; the code opens `http://127.0.0.1:<port>`, matching the server's bind address. The PRD is corrected.
 - The ⌘K palette preview line uses `/\\s+/g`, which matches a literal backslash and `s`, not whitespace. It becomes `/\s+/g`, so whitespace runs collapse before the 64-character cut.
@@ -240,7 +240,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P18-T01] Fix the preview regex in `index.html.tmpl`
 - [x] [P18-T02] Change `localhost` to `127.0.0.1` in `SHELF-PRD.md` §11.7 and §14
 - [x] [P18-T03] Widen the `uv_build` range; `uv build` prints no version warning
-- [ ] [P18-T04] Bump to v0.8.2; `make check` and `just all` green; PR merged; tag `v0.8.2` pushed
+- [x] [P18-T04] Bump to v0.8.2; `make check` and `just all` green; PR merged; tag `v0.8.2` pushed
 
 ---
 
