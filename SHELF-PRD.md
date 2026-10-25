@@ -480,7 +480,7 @@ Opens the UI.
 shelf open [--static]
 ```
 
-By default `shelf open` starts the local server (part of the shelf package, on the configured `server-port`, reusing an already-running instance) and opens the configured browser (the `browser` config key; the system default browser when unset) to `http://localhost:<port>` — **enhanced mode**, with copy-contents and inline HTML rendering. `--static` instead opens the on-disk `index.html` directly as a `file://` page — **core mode** (browse, search, copy-path). If the configured port is occupied, the server falls back to a free port chosen by the operating system. Works from any directory because the CLI resolves the library location. The server binds `127.0.0.1` only and refuses to serve any path outside the library root.
+By default `shelf open` starts the local server (part of the shelf package, on the configured `server-port`, reusing an already-running instance) and opens the configured browser (the `browser` config key; the system default browser when unset) to `http://127.0.0.1:<port>` — **enhanced mode**, with copy-contents and inline HTML rendering. `--static` instead opens the on-disk `index.html` directly as a `file://` page — **core mode** (browse, search, copy-path). If the configured port is occupied, the server falls back to a free port chosen by the operating system. Works from any directory because the CLI resolves the library location. The server binds `127.0.0.1` only and refuses to serve any path outside the library root.
 
 ### 11.8 `shelf path`
 
@@ -603,7 +603,7 @@ A generated single-page interface for finding and accessing documents.
 The UI runs in one of two modes:
 
 - **Core mode** (`file://`) — the file is opened directly (double-click, or `shelf open --static`). Search, browse, and **copy absolute path** all work with no server.
-- **Enhanced mode** (served) — `shelf open` runs a lightweight local server and opens the browser to `http://localhost:<port>`. In addition to everything in core mode, this enables **copy contents** and **inline rendering of HTML documents** with their assets, because the page can fetch document files over HTTP.
+- **Enhanced mode** (served) — `shelf open` runs a lightweight local server and opens the browser to `http://127.0.0.1:<port>`. In addition to everything in core mode, this enables **copy contents** and **inline rendering of HTML documents** with their assets, because the page can fetch document files over HTTP.
 
 The split exists because browsers block a `file://` page from fetching neighboring files. Copy-contents is therefore an enhanced-mode feature; the UI hides or disables it in core mode.
 

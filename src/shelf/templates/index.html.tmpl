@@ -445,7 +445,7 @@ function renderPalette(q){
       const i = palRows.length; palRows.push(d);
       html += `<div class="pal-item" data-i="${i}">
         <div class="pl"><div class="ptl"><span class="ptt">${esc(d.title)}</span><span class="kind k-${esc(d.kind)}">${esc(d.kind)}</span></div>
-          <div class="pd">${d.snippet.replace(/<[^>]+>/g," ").replace(/\\s+/g," ").trim().slice(0,64)}…</div></div>
+          <div class="pd">${d.snippet.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,64)}…</div></div>
         <div class="pr2"><span>${d.formats.map(x=>esc(x.f)).join(" · ")}</span><span class="ent">⏎</span></div></div>`;
     });
   });

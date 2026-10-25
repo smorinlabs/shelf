@@ -376,3 +376,12 @@ def test_palette_search_is_fuzzy_and_ranked(seeded_index, tmp_path):
 
     assert result.returncode == 0, result.stderr or result.stdout
     assert result.stdout.strip() == "ok"
+
+
+def test_palette_preview_collapses_whitespace(seeded_index):
+    """P18-TS01: the palette preview must collapse whitespace with /\\s+/g. The
+    template is copied verbatim, so a doubled backslash would reach the browser and
+    match a literal backslash followed by "s" instead of whitespace."""
+    html_text = (seeded_index / "index.html").read_text()
+    assert '.replace(/\\s+/g," ")' in html_text
+    assert "/\\\\s+/g" not in html_text

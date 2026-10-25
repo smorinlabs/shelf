@@ -1,6 +1,6 @@
 [project]
 name = "shelf"
-version = "0.8.1"
+version = "0.8.2"
 description = "A private documentation library and management CLI"
 readme = "README.md"
 authors = [
@@ -16,7 +16,7 @@ dependencies = [
 shelf = "shelf.cli.main:cli"
 
 [build-system]
-requires = ["uv_build>=0.10.5,<0.11.0"]
+requires = ["uv_build>=0.11.29,<0.12.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
