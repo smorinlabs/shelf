@@ -25,7 +25,8 @@ remains authoritative for every library operation and mutation.
   catalog, regenerates the UI, and (in a git library) commits. The skill reads
   intent, runs the right command, and confirms the result.
 - **Preview before mutating.** Where a command supports `--dry-run`, run it
-  (add `--json` when parsing) to show the user what will happen, then run for
+  (add `--json` only where `--help` lists it; `doc add`, `doc update`,
+  `doc delete`, and `doc move` do not) to show the user what will happen, then run for
   real on confirmation.
 - **Confirm destructive or ambiguous actions.** Deletes, moves, and any
   plural-match resolution get an explicit confirmation first.
@@ -59,7 +60,7 @@ them one at a time in order.
 | "I'll just edit `catalog.json` / `index.html` to fix this" | Never. The CLI owns library state; the skill only shells out. |
 | "Delete looks clear, skip the confirmation" | Deletes remove the entry *and* its folder. Show exactly what's lost, then confirm. |
 | "One match is probably right, run it" | Resolve plural matches with the user before acting on an id. |
-| "Run the real add straight away" | Preview with `--dry-run --json` first, then run for real on confirmation. |
+| "Run the real add straight away" | Preview with `--dry-run` first, then run for real on confirmation. |
 
 ## See also
 

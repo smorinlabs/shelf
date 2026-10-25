@@ -33,7 +33,7 @@ add `<path>` to shelf. Walk me through classification."
    - **`--tag`** (repeatable), `--title`, `--description`.
    - **Source disposition** — ask whether to keep or remove the original;
      pass the explicit `--remove-source` or `--no-remove-source`.
-5. **Preview:** run the add with `--dry-run --json` and show the user the
+5. **Preview:** run the add with `--dry-run` (`doc add` has no `--json`) and show the user the
    planned destination and catalog entry.
 6. **Commit for real** on confirmation with the chosen flags. Add `--commit`
    when the library is a git repo (omit otherwise). The CLI copies the file
