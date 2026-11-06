@@ -4,7 +4,12 @@ import shutil
 
 import click
 
-from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
+from shelf.cli.commit import (
+    auto_message,
+    commit_options,
+    library_paths,
+    require_git_if_commit,
+)
 from shelf.cli.doc_variants import find_doc
 from shelf.cli.runtime import get_library
 from shelf.core.atomic import library_lock
@@ -88,7 +93,11 @@ def doc_move(
             raise
         shutil.rmtree(src_dir, ignore_errors=True)
     if commit:
-        git_commit_all(root, commit_message or auto_message("doc", "move", doc_id))
+        git_commit_all(
+            root,
+            commit_message or auto_message("doc", "move", doc_id),
+            library_paths(old_rel, new_rel),
+        )
     click.echo(f"moved '{doc_id}' {old_rel} -> {new_rel}")
     click.echo(
         "warning: absolute paths previously copied for this document no longer resolve",

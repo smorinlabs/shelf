@@ -4,7 +4,12 @@ import json
 
 import click
 
-from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
+from shelf.cli.commit import (
+    auto_message,
+    commit_options,
+    library_paths,
+    require_git_if_commit,
+)
 from shelf.cli.output import output_options, resolve_format
 from shelf.cli.runtime import get_library
 from shelf.core.atomic import library_lock
@@ -44,7 +49,7 @@ def topic_add(ctx, name, commit, commit_message):
     require_git_if_commit(root, commit)
     _add(root, "topics", name)
     if commit:
-        git_commit_all(root, commit_message or auto_message("topic", "add", name))
+        git_commit_all(root, commit_message or auto_message("topic", "add", name), library_paths())
     click.echo(f"added topic '{name}'")
 
 
@@ -66,7 +71,7 @@ def kind_add(ctx, name, commit, commit_message):
     require_git_if_commit(root, commit)
     _add(root, "kinds", name)
     if commit:
-        git_commit_all(root, commit_message or auto_message("kind", "add", name))
+        git_commit_all(root, commit_message or auto_message("kind", "add", name), library_paths())
     click.echo(f"added kind '{name}'")
 
 

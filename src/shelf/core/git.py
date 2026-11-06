@@ -1,5 +1,6 @@
 """Git and GitHub subprocess helpers."""
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -27,28 +28,77 @@ def git_init(root: Path) -> None:
         raise click.ClickException(f"git init failed: {detail}") from exc
 
 
-def git_commit_all(root: Path, message: str) -> None:
-    """Stage all changes and create an operation commit, even with no net diff."""
-    # P07 hook safety requires committing outside the library lock. In the accepted
-    # single-user model, a second shelf process can mutate after lock release and
-    # before `git add -A`, so its change may be swept into this commit and leave its
-    # own commit empty. This muddles Git history only; it never loses data or
-    # corrupts the library. A path-scoped add plus a Git-serialization lock threaded
-    # through all callers is deferred.
-    commands = (["add", "-A"], ["commit", "--allow-empty", "-m", message])
-    for args in commands:
-        try:
-            subprocess.run(
-                ["git", "-C", str(root), *args],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except FileNotFoundError as exc:
-            raise click.ClickException("git is not installed or not on PATH") from exc
-        except subprocess.CalledProcessError as exc:
-            detail = exc.stderr.strip() or "git exited with a non-zero status"
-            raise click.ClickException(f"git {args[0]} failed: {detail}") from exc
+def _git(root: Path, args: list[str], literal: bool = False) -> str:
+    # GIT_LITERAL_PATHSPECS: shelf passes real file paths, which may contain glob
+    # characters such as `*`; `--` alone would still expand them as patterns.
+    env = {**os.environ, "GIT_LITERAL_PATHSPECS": "1"} if literal else None
+    try:
+        return subprocess.run(
+            ["git", "-C", str(root), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        ).stdout
+    except FileNotFoundError as exc:
+        raise click.ClickException("git is not installed or not on PATH") from exc
+    except subprocess.CalledProcessError as exc:
+        detail = exc.stderr.strip() or "git exited with a non-zero status"
+        raise click.ClickException(f"git {args[0]} failed: {detail}") from exc
+
+
+def merge_in_progress(root: Path) -> bool:
+    """Return whether *root* has an unfinished merge (Git refuses partial commits then)."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "-q", "--verify", "MERGE_HEAD"],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise click.ClickException("git is not installed or not on PATH") from exc
+    return result.returncode == 0
+
+
+def git_commit_all(root: Path, message: str, paths: list[str] | None = None) -> None:
+    """Create an operation commit, even with no net diff.
+
+    With *paths* (library-relative), stage and commit only those paths: unrelated
+    working-tree changes and anything the user already staged stay out of the commit
+    and keep their state. Paths that are neither on disk nor tracked are skipped.
+    Without *paths*, stage and commit everything (used by `init`).
+    """
+    # P07 hook safety requires committing outside the library lock. Path scoping keeps
+    # the user's own work out of shelf commits (P13-T02). A second shelf process that
+    # mutates the same paths between lock release and this commit can still have its
+    # change recorded here; the Git-serialization lock for that is P13-T01 (deferred).
+    if paths is None:
+        _git(root, ["add", "-A"])
+        _git(root, ["commit", "--allow-empty", "-m", message])
+        return
+    # On disk or in the index: stage, then commit. Only in HEAD (a deletion the user
+    # already staged): `git add` rejects the path, but `commit --only` records it.
+    staged = [
+        p
+        for p in paths
+        if (root / p).exists()
+        or _git(root, ["ls-files", "--cached", "--", p], literal=True).strip()
+    ]
+    head_only = [
+        p
+        for p in paths
+        if p not in staged
+        and _git(root, ["ls-tree", "-r", "--name-only", "HEAD", "--", p], literal=True).strip()
+    ]
+    usable = staged + head_only
+    if not usable:
+        # `--only` with no pathspec records an empty commit and leaves the index,
+        # including anything the user staged, out of it.
+        _git(root, ["commit", "--only", "--allow-empty", "-m", message])
+        return
+    if staged:
+        _git(root, ["add", "-A", "--", *staged], literal=True)
+    _git(root, ["commit", "--only", "--allow-empty", "-m", message, "--", *usable], literal=True)
 
 
 def _gh(args: list[str]) -> str:

@@ -151,8 +151,9 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ### Tests & Tasks
 - [ ] [P13-T01] `.shelf.gitlock` advisory lock around add+commit (proven not to deadlock with the pre-commit `shelf audit` hook)
-- [ ] [P13-T02] Path-scoped `git_commit_all(paths)`; thread through all callers — **promoted 2026-11-05: prerequisite of P20, ships alone as v0.8.4.** A project library shares the host repo, where `git add -A` would sweep the user's unrelated uncommitted files into a shelf commit
-- [ ] [P13-TS02] Path-scoped commit test: an unrelated dirty file in the library's repo stays unstaged and out of the shelf commit
+- [x] [P13-T02] Path-scoped `git_commit_all(paths)`; thread through all callers — **promoted 2026-11-05: prerequisite of P20, ships alone as v0.8.4.** A project library shares the host repo, where `git add -A` would sweep the user's unrelated uncommitted files into a shelf commit
+- [x] [P13-TS02] Path-scoped commit test: an unrelated dirty file in the library's repo stays unstaged and out of the shelf commit
+      Done 2026-11-06 (v0.8.4): `git add -A -- <paths>` + `git commit --only -- <paths>`; missing-and-untracked paths skipped; `catalog.json` anchors an otherwise-empty commit; `init` keeps `-A`. 347 tests passing; live smoke confirmed an unstaged edit and an untracked file stay out of a `doc add --commit`
 - [ ] [P13-TS01] Concurrency isolation test: two shelf processes → each commit contains only its own changes (no mixed/empty commits)
 
 ---

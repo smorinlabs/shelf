@@ -122,6 +122,152 @@ def test_git_commit_all_wraps_missing_binary(tmp_path, monkeypatch):
         git_commit_all(tmp_path, "shelf: doc add a")
 
 
+# --- git_commit_all(paths=...) — P13-T02 path-scoped commits ---------------
+
+
+def _git(root, *args):
+    return subprocess.run(
+        ["git", "-C", str(root), *args], capture_output=True, text=True, check=True
+    ).stdout
+
+
+def _baseline(root):
+    init_repo_with_identity(root)
+    (root / "catalog.json").write_text("{}\n")
+    (root / "keep.txt").write_text("user file\n")
+    (root / "docs" / "old").mkdir(parents=True)
+    (root / "docs" / "old" / "a.md").write_text("a\n")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "baseline")
+
+
+def _committed(root):
+    return set(_git(root, "show", "--name-only", "--format=", "HEAD").split())
+
+
+def test_git_commit_all_with_paths_commits_only_those_paths(tmp_path):
+    _baseline(tmp_path)
+    (tmp_path / "catalog.json").write_text('{"v": 2}\n')
+    (tmp_path / "keep.txt").write_text("user edit\n")
+    (tmp_path / "untracked.txt").write_text("user scratch\n")
+
+    git_commit_all(tmp_path, "shelf: doc update x", paths=["catalog.json"])
+
+    assert _committed(tmp_path) == {"catalog.json"}
+    status = _git(tmp_path, "status", "--porcelain").splitlines()
+    assert " M keep.txt" in status
+    assert "?? untracked.txt" in status
+
+
+def test_git_commit_all_with_paths_leaves_prestaged_changes_staged(tmp_path):
+    _baseline(tmp_path)
+    (tmp_path / "keep.txt").write_text("staged by the user\n")
+    _git(tmp_path, "add", "keep.txt")
+    (tmp_path / "catalog.json").write_text('{"v": 2}\n')
+
+    git_commit_all(tmp_path, "shelf: doc update x", paths=["catalog.json"])
+
+    assert _committed(tmp_path) == {"catalog.json"}
+    assert "M  keep.txt" in _git(tmp_path, "status", "--porcelain").splitlines()
+
+
+def test_git_commit_all_with_paths_records_a_moved_folder(tmp_path):
+    _baseline(tmp_path)
+    (tmp_path / "docs" / "old").rename(tmp_path / "docs" / "new")
+
+    git_commit_all(tmp_path, "shelf: doc move x", paths=["docs/old", "docs/new"])
+
+    tree = set(_git(tmp_path, "ls-tree", "-r", "--name-only", "HEAD").split())
+    assert "docs/new/a.md" in tree
+    assert "docs/old/a.md" not in tree
+
+
+def test_git_commit_all_skips_paths_that_are_missing_and_untracked(tmp_path):
+    _baseline(tmp_path)
+    (tmp_path / "catalog.json").write_text('{"v": 2}\n')
+
+    git_commit_all(tmp_path, "shelf: doc delete x", paths=["catalog.json", "docs/never-tracked"])
+
+    assert _committed(tmp_path) == {"catalog.json"}
+
+
+def test_git_commit_all_treats_paths_literally_not_as_wildcards(tmp_path):
+    """Review finding (PR #17): `--` does not disable pathspec globbing."""
+    _baseline(tmp_path)
+    (tmp_path / "scratch-notes.md").write_text("tracked\n")
+    _git(tmp_path, "add", "scratch-notes.md")
+    _git(tmp_path, "commit", "-q", "-m", "track scratch-notes")
+    (tmp_path / "scratch-notes.md").write_text("user edit\n")
+    (tmp_path / "scratch*.md").write_text("orphan with a glob character\n")
+
+    git_commit_all(tmp_path, "shelf: x", paths=["scratch*.md"])
+
+    assert _committed(tmp_path) == {"scratch*.md"}
+    assert " M scratch-notes.md" in _git(tmp_path, "status", "--porcelain").splitlines()
+
+
+def test_git_commit_all_records_a_deletion_the_user_already_staged(tmp_path):
+    """Review finding (PR #17): a path present only in HEAD must still be committed."""
+    _baseline(tmp_path)
+    _git(tmp_path, "rm", "-rq", "docs/old")
+    (tmp_path / "keep.txt").write_text("staged by the user\n")
+    _git(tmp_path, "add", "keep.txt")
+    (tmp_path / "catalog.json").write_text('{"v": 2}\n')
+
+    git_commit_all(tmp_path, "shelf: doc delete x", paths=["catalog.json", "docs/old"])
+
+    tree = set(_git(tmp_path, "ls-tree", "-r", "--name-only", "HEAD").split())
+    assert "docs/old/a.md" not in tree
+    assert _committed(tmp_path) == {"catalog.json", "docs/old/a.md"}
+    assert "M  keep.txt" in _git(tmp_path, "status", "--porcelain").splitlines()
+
+
+def test_merge_in_progress_is_detected(tmp_path):
+    _baseline(tmp_path)
+    assert git_core.merge_in_progress(tmp_path) is False
+    _git(tmp_path, "checkout", "-qb", "side")
+    (tmp_path / "side.txt").write_text("side\n")
+    _git(tmp_path, "add", "side.txt")
+    _git(tmp_path, "commit", "-qm", "side")
+    _git(tmp_path, "checkout", "-q", "-")
+    (tmp_path / "keep.txt").write_text("main change\n")
+    _git(tmp_path, "commit", "-qam", "main")
+    _git(tmp_path, "merge", "--no-commit", "-q", "side")
+    assert git_core.merge_in_progress(tmp_path) is True
+
+
+def test_require_git_if_commit_refuses_during_a_merge(tmp_path, monkeypatch):
+    init_repo_with_identity(tmp_path)
+    monkeypatch.setattr(git_core, "merge_in_progress", lambda root: True)
+    with pytest.raises(click.ClickException, match="merge is in progress"):
+        require_git_if_commit(tmp_path, True)
+    require_git_if_commit(tmp_path, False)  # no --commit: no check
+
+
+def test_git_commit_all_with_no_usable_paths_leaves_an_unstaged_catalog_alone(tmp_path):
+    """Review finding (PR #17): the fallback must not commit catalog.json."""
+    _baseline(tmp_path)
+    (tmp_path / "catalog.json").write_text('{"uncommitted": true}\n')
+
+    git_commit_all(tmp_path, "shelf: orphan delete gone", paths=["docs/never-tracked"])
+
+    assert _committed(tmp_path) == set()
+    assert " M catalog.json" in _git(tmp_path, "status", "--porcelain").splitlines()
+
+
+def test_git_commit_all_with_no_usable_paths_commits_nothing_from_the_index(tmp_path):
+    _baseline(tmp_path)
+    (tmp_path / "keep.txt").write_text("staged by the user\n")
+    _git(tmp_path, "add", "keep.txt")
+    before = int(_git(tmp_path, "rev-list", "--count", "HEAD"))
+
+    git_commit_all(tmp_path, "shelf: orphan delete gone", paths=["docs/never-tracked"])
+
+    assert int(_git(tmp_path, "rev-list", "--count", "HEAD")) == before + 1
+    assert _committed(tmp_path) == set()
+    assert "M  keep.txt" in _git(tmp_path, "status", "--porcelain").splitlines()
+
+
 # --- _gh -----------------------------------------------------------------
 
 
