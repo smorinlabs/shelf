@@ -31,7 +31,7 @@ The library content is the user's data. By default it is stored in the standard 
 
 ### Non-Goals
 
-- Not a hosted service or public site.
+- Not a hosted service or public site. *(Planned, P21: opt-in publishing of a filtered static site, with a private-repo guard — see `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md`.)*
 - No third-party or hosted marketplace — the `shelf` repo **self-hosts its own marketplace** (`.claude-plugin/marketplace.json` for Claude Code, `.agents/plugins/marketplace.json` for Codex), installed with `/plugin marketplace add` or `codex plugin marketplace add` (§3, §12). *(P14, 2026-07-24: supersedes the original "no marketplace initially" non-goal — the repo became its own marketplace.)*
 - No automated ingestion — every catalog mutation is user-initiated. The UI and skills assist, but the human stays in the loop and confirms classification. (A user-confirmed URL fetch performed by the `shelf` skill is user-initiated, not automated.)
 - No heavy build pipeline. The only runtime is an optional lightweight local server for the UI's enhanced mode (§13).
@@ -128,7 +128,7 @@ Highest precedence first:
 
 This provides a **direct** override (`--library` / `SHELF_LIBRARY`) and an **indirect** one — `XDG_CONFIG_HOME` relocates the config directory, and the config file carries the library path.
 
-The design assumes a single library. Multiple named libraries could be added later without breaking this scheme.
+The design assumes a single library. Multiple named libraries could be added later without breaking this scheme. *(Planned, P20: a project scope discovered from `.shelf/shelf_config.toml`, inserted between `SHELF_LIBRARY` and the user config — see `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md`.)*
 
 ### Default library location
 
@@ -189,7 +189,7 @@ The CLI conforms to the org **CLI Design Standard** (cli-standards repo, v1.4.14
 
 - **R2.1 — `add` instead of `create`** for `doc add`, `topic add`, `kind add`. Shelf ingests existing artifacts rather than creating them, and "add to shelf" is the product's language; one waiver covers all three for consistency.
 - **R2.2 — `regen` abbreviation.** Rare, mostly skill-invoked maintenance command; the abbreviation is well understood in context.
-- **R5.1/R5.2 — no project or system config scopes.** Shelf is a per-user library tool; only the user scope (`$XDG_CONFIG_HOME/shelf/shelf_config.toml`) and the `--config` override exist.
+- **R5.1/R5.2 — no project or system config scopes.** Shelf is a per-user library tool; only the user scope (`$XDG_CONFIG_HOME/shelf/shelf_config.toml`) and the `--config` override exist. *(Planned, P20: project scope lifts this waiver; system scope stays waived — see `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md`.)*
 
 ---
 
@@ -625,7 +625,7 @@ The split exists because browsers block a `file://` page from fetching neighbori
 
 1. **Plugin manifests — resolved (P09).** The dual manifests live in the `shelf` repo (monorepo, §3): `.claude-plugin/plugin.json` (skills auto-discovered from `skills/`) and `.codex-plugin/plugin.json` (`"skills": "./skills/"` + an `interface` block). Both verified via `skillsmith verify --deep` — claude-code and codex both pass, no findings. (PATH placement: the CLI installs via `uv tool install`, §5.)
 2. **Local server port.** Default `8765` from config, with fallback to a free port chosen by the operating system when occupied. Confirm whether a fixed port with an error is preferred over automatic fallback.
-3. **Multiple libraries.** The design assumes a single library. Named multi-library support is deferred; the resolution scheme in §4 can accommodate it later without breaking changes.
+3. **Multiple libraries.** The design assumes a single library. Named multi-library support is deferred; the resolution scheme in §4 can accommodate it later without breaking changes. *(2026-11-05: user + project scopes approved as P20 — see `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md`.)*
 4. **AI-session detection for the handoff.** The exact mechanism by which `shelf doc add` detects it is already running inside a Claude Code or Codex session (environment variable vs. parent-process inspection) is verified at build time, so the CLI never nests an interactive session (§11.2). Claude Code sets `CLAUDECODE=1` in its sessions — the candidate mechanism; the Codex equivalent is identified at build time.
 5. **Taxonomy maintenance.** `topic rename`, `topic remove`, and `kind remove` do not exist; a topic rename implies folder moves under `docs/topics/`. Deferred deliberately.
 6. **Scaffolding sequencing.** The `shelf` repo starts with py-launch-blueprint's core conventions only (src layout, click, pytest/ruff/ty, just + make check). The remaining scaffolding — CI, release automation, hooks, docs — is layered on by template-press when it is ready; those files are additive and do not disturb the package.
