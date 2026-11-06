@@ -114,7 +114,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [ ] Project P10: Taxonomy maintenance (v0.9.0)
+## [ ] Project P10: Taxonomy maintenance (version TBD — v0.9.0 reassigned to P20 on 2026-11-05)
 **Goal**: Add the deferred taxonomy-maintenance commands (PRD §14.5): `topic rename` (folder moves under `docs/topics/` + catalog `category` updates + regen), `topic remove`, `kind remove`. Follows the existing mutation pipeline (advisory lock, atomic commit-point, audit-detectable), with in-use guards.
 
 ### Tests & Tasks
@@ -134,12 +134,14 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [?] Project P12: Multiple libraries (far out)
+## [>] Project P12: Multiple libraries (far out) → continued by P20
+**Redirect (2026-11-05)**: the concrete need appeared as user + project scopes; see **P20**. Fully named libraries remain a possible later generalization of P20's two scopes.
+
 **Goal**: (far-future idea, PRD §14.3) Named multi-library support. The current design assumes a single library; the §4 resolution scheme can accommodate named libraries later **without breaking changes**. Not scoped — revisit only when a real multi-library need appears.
 
 ---
 
-## [ ] Project P13: Concurrency-safe git commits (D2 — optional/deferred)
+## [ ] Project P13: Concurrency-safe git commits (D2 — optional/deferred; T02 required by P20, ships as v0.8.4)
 **Goal**: (final-review D2, currently accept+documented) Isolate each command's commit from a concurrent second shelf process so the post-lock `git add -A` can no longer sweep another process's change into this commit. Single-user is the intended model, so this is **optional** — pursue only if real multi-process/automation use appears. No data-loss risk today; the impact is muddled git-history attribution only.
 
 **Approach**:
@@ -149,7 +151,8 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ### Tests & Tasks
 - [ ] [P13-T01] `.shelf.gitlock` advisory lock around add+commit (proven not to deadlock with the pre-commit `shelf audit` hook)
-- [ ] [P13-T02] Path-scoped `git_commit_all(paths)`; thread through all callers
+- [ ] [P13-T02] Path-scoped `git_commit_all(paths)`; thread through all callers — **promoted 2026-11-05: prerequisite of P20, ships alone as v0.8.4.** A project library shares the host repo, where `git add -A` would sweep the user's unrelated uncommitted files into a shelf commit
+- [ ] [P13-TS02] Path-scoped commit test: an unrelated dirty file in the library's repo stays unstaged and out of the shelf commit
 - [ ] [P13-TS01] Concurrency isolation test: two shelf processes → each commit contains only its own changes (no mixed/empty commits)
 
 ---
@@ -256,6 +259,107 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P19-TS01] Rendered `index.html` footer uses `location.host` and contains neither `localhost:8765` nor `13 files`
 - [x] [P19-T01] Fix the footer line in `index.html.tmpl`
 - [x] [P19-T02] Bump to v0.8.3; `make check` and `just all` green; PR merged; tag `v0.8.3` pushed
+
+---
+
+## [ ] Project P20: Project-scoped libraries (v0.9.0, plugin v0.2.0)
+**Goal/Requirement**: Give shelf a **project** scope beside the existing **user** scope, like Claude Code skills. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 1). Approved 2026-11-05.
+- Discovery per CLI Design Standard R5.2: search the current directory and its parents for `.shelf/shelf_config.toml`, stopping at `.git`; its `library` is a relative path (default `shelf`)
+- Precedence: `--library` → `SHELF_LIBRARY` → project scope → user config → error
+- `doc list` / `doc view` search both scopes and label each result with `scope`; mutating and library-level commands act on one library (project when discovered); `--scope user|project|all` overrides
+- `doc move --to-scope user|project` moves a document between libraries
+- `shelf init --scope project`: no nested `git init`, appends to `.gitignore`, project defaults (topic anchors, `remove-source = false`, `index.html` gitignored)
+- Skill: find labels scope; add always asks which scope when a project scope exists; init gains the project path; plugin README documents project-scope plugin install
+
+**Out of Scope**
+- Named libraries beyond the two scopes (P12 generalization); system scope (`$XDG_CONFIG_DIRS`)
+- Publishing (P21)
+
+### Tests & Tasks
+- [ ] [P20-T00] Prerequisite: P13-T02 path-scoped commits merged and released (v0.8.4)
+- [ ] [P20-TS01] Discovery: nearest `.shelf/shelf_config.toml` wins; search stops at `.git`; absolute `library` in a project config is rejected; `--config` replaces discovered files
+- [ ] [P20-TS02] Precedence matrix: `--library` > `SHELF_LIBRARY` > project > user > unconfigured error; `--scope project` without a project scope exits 2
+- [ ] [P20-TS03] Combined reads: `doc list`/`doc view` return both scopes with a `scope` field (table and JSON); `--scope` narrows
+- [ ] [P20-TS04] `init --scope project`: inside an existing repo creates no nested `.git`; appends to an existing `.gitignore` without losing lines; writes project defaults; rejects `--git`/`--github`
+- [ ] [P20-TS05] `doc move --to-scope`: document lands in the target and leaves the source; an injected failure after the add leaves an audit-detectable duplicate
+- [ ] [P20-TS06] Project-scope `--commit` stages only shelf paths in the host repo
+- [ ] [P20-T01] Project config discovery and relative `library` resolution (`core/config.py`, `core/paths.py`)
+- [ ] [P20-T02] `--scope` option and single-target resolution for mutating and library-level commands
+- [ ] [P20-T03] Combined-scope `doc list` / `doc view` with the `scope` field
+- [ ] [P20-T04] `init --scope project` with enclosing-repo detection and `.gitignore` append (also fixes the overwrite in plain `init`)
+- [ ] [P20-T05] `doc move --to-scope`
+- [ ] [P20-T06] Deterministic sorted document order in `catalog.json` to reduce merge conflicts
+- [ ] [P20-T07] Skill updates (`find`, `add`, `init` references) and plugin README; bump plugin to 0.2.0
+- [ ] [P20-T08] PRD: rewrite §4 precedence, remove the R5.1/R5.2 waiver in §5, close §14.3; README configuration section
+- [ ] [P20-T09] Bump to v0.9.0; `make check` and `just all` green; PR merged; tag `v0.9.0` pushed
+- [ ] Regression Test Status
+
+### Deliverable
+```bash
+$ cd my-repo && shelf init --scope project
+initialized project library at my-repo/shelf
+$ shelf doc list --scope all
+2026-11-05-api-guide	API Guide	explainer	topic:api	project
+2026-10-24-uv-inline-scripts	uv Inline Scripts	explainer	topic:dev-tooling	user
+```
+
+### Automated Verification
+- `just all` passes, including the P20-TS* tests
+- `make check` passes
+
+### Manual Verification
+- In a scratch repo with uncommitted files, `shelf doc add … --commit` commits only shelf paths
+- The skill asks which scope to use when adding inside a repo that has a project library
+
+---
+
+## [ ] Project P21: Publishing and GitHub Pages (v0.10.0, plugin v0.3.0)
+**Goal/Requirement**: Publish a library (user or project scope) as a filtered static site, deployable to GitHub Pages, without leaking private documents. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 2). Approved 2026-11-05.
+- Per-document `publish: true|false` catalog field (schema v1 → v2 via `shelf migrate`), set with `doc add --publish` and `doc update --publish|--no-publish`
+- Config switch `publish = "marked"` (default) | `"all"`; `"all"` publishes every document and every variant (HTML, Markdown, PDF)
+- **Private-repo guard, always on:** any publish from a private, internal, or unverifiable repo exits 2 unless `--force` is passed, in both modes; no config key bypasses it
+- Discoverability: `publish --dry-run` footer, `--help` examples, README section, and the skill all explain how to publish everything and when `--force` is required
+- `shelf publish --out _site` builds a filtered catalog, filtered `index.html` (no topic/kind/tag leakage from unpublished documents), published files, and `.nojekyll`
+- `base-url` config key: hosted UI copies URLs and links to GitHub source
+- `shelf init --pages [--force]` generates an Actions workflow (`upload-pages-artifact` + `deploy-pages`); `shelf init --readme` adds a link-only README block
+
+**Out of Scope**
+- Hosting outside GitHub Pages (the `_site/` folder is portable, but not automated)
+- A `publish-formats` filter
+
+### Tests & Tasks
+- [ ] [P21-TS01] Schema v2 migration: v1 catalogs migrate with `publish: false`; `doc add --publish` and `doc update --publish|--no-publish` set the field
+- [ ] [P21-TS02] Filtering: `marked` mode includes only `publish: true` documents; `all` includes every document and variant; the published index contains no title, tag, topic, kind, or snippet from an unpublished document
+- [ ] [P21-TS03] Guard matrix: public → publishes; private, internal, or unknown → exit 2 without `--force` in both modes, publishes with it; `--dry-run` never requires `--force`; detection reads `$GITHUB_EVENT_PATH` first, then `gh`, and any failure counts as unknown
+- [ ] [P21-TS04] `--dry-run` output lists documents, visibility, the not-published count, and the publish-everything footer (with the `--force` note for private repos)
+- [ ] [P21-TS05] `_site` contains `.nojekyll`; `base-url` fills `root` so Copy path yields URLs
+- [ ] [P21-TS06] `init --pages` writes the workflow; for a private repo it refuses without `--force` and writes `--force` into the workflow with it; `init --readme` inserts and updates the marked block idempotently
+- [ ] [P21-T01] Catalog schema v2 + migration + `--publish` flags
+- [ ] [P21-T02] `shelf publish` site builder with filtered catalog and index
+- [ ] [P21-T03] Visibility detection and the `--force` guard
+- [ ] [P21-T04] `base-url` hosted mode in `index.html.tmpl`
+- [ ] [P21-T05] `init --pages` workflow generator and `init --readme` block
+- [ ] [P21-T06] Skill: publish routing, mode and visibility reporting; bump plugin to 0.3.0
+- [ ] [P21-T07] PRD (§2 non-goal, §4, §5, §10, §11) and README "Publishing" section
+- [ ] [P21-T08] Bump to v0.10.0; `make check` and `just all` green; PR merged; tag `v0.10.0` pushed
+- [ ] Regression Test Status
+
+### Deliverable
+```bash
+$ shelf publish --dry-run
+would publish 3 of 15 documents (mode: marked) from smorin/shelf-library (private)
+12 documents not published. To publish everything, set publish = "all" in ~/.config/shelf/shelf_config.toml.
+This repo is private: publishing requires --force.
+$ shelf publish --out _site
+error: smorin/shelf-library is private; publishing 3 documents requires --force (exit 2)
+```
+
+### Automated Verification
+- `just all` passes, including the P21-TS* tests
+- `make check` passes
+
+### Manual Verification
+- A pilot deploy of a test repo to GitHub Pages serves the filtered index; copy-text and Copy path work on the hosted page
 
 ---
 
