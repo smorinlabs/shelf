@@ -322,7 +322,11 @@ $ shelf doc list --scope all
 - Discoverability: `publish --dry-run` footer, `--help` examples, README section, and the skill all explain how to publish everything and when `--force` is required
 - `shelf publish --out _site` builds a filtered catalog, filtered `index.html` (no topic/kind/tag leakage from unpublished documents), published files, and `.nojekyll`
 - `base-url`: detected automatically (CI: `actions/configure-pages` output; locally: `gh api …/pages`), overridable by `--base-url` or the `base-url` config key; `init --pages` never writes it. Hosted UI copies URLs and links to GitHub source
-- `shelf pages status | enable [--yes] | enable --print`: check Pages, turn it on (POST or PUT `build_type=workflow`), or print the command
+- `shelf pages status [--json]`: the seven-step readiness checklist (library, Git repo, GitHub repo, plan, Pages enabled, workflow pushed, documents to publish), each failing step with its fix command; exit 1 when any step fails
+- `shelf pages enable [--yes] | enable --print`: turn Pages on (POST or PUT `build_type=workflow`) or print the command
+- `shelf github create [--owner] [--name] [--public] [--dry-run]`: separate command that creates the GitHub repo for a user library (initializing Git if needed); refuses for project libraries; `init --pages` never creates repos
+- Flags: `--yes` is consent; `--force` is only the private-repo guard override; `--no-input` prints commands instead of asking or running them
+- One-line next-step hints (suppressed by `-q`) after `doc add|update --publish` and local `shelf publish` when deploy is not set up
 - `shelf init --pages [--force] [--shelf-version X.Y.Z]` generates an Actions workflow (`configure-pages` → install shelf → `shelf publish` → `upload-pages-artifact` → `deploy-pages`), then offers `pages enable`; on "no" it prints the command
 - The Action installs the `shelf_version` recorded in `catalog.json` (written on every library write) unless `SHELF_VERSION` pins one in the workflow file; versions below v0.10.0 or a missing value stop the run
 - On failure, the Action's job summary and an `::error::` annotation name the fix (Pages off, private-repo guard, version resolution)
@@ -341,6 +345,9 @@ $ shelf doc list --scope all
 - [ ] [P21-TS06] `init --pages` writes the workflow; for a private repo it refuses without `--force` and writes `--force` into the workflow with it; `--shelf-version` writes the `SHELF_VERSION` pin; it never writes `base-url`; `init --readme` inserts and updates the marked block idempotently
 - [ ] [P21-TS07] `shelf_version` is written on every library write; the workflow's version step uses the pin when set, else the catalog value, and fails with a named fix when the value is missing or below v0.10.0
 - [ ] [P21-TS08] `pages status` exit codes (0 ready, 1 not ready); `pages enable` chooses POST vs PUT by state, asks before running, `--yes` skips, `--print` runs nothing; `init --pages` offers enable and prints the command on "no"
+- [ ] [P21-TS10] Readiness checklist: steps evaluate in order and later steps report `skipped` after a failure; `--json` carries `status` and `fix`; hints appear after `doc add|update --publish` and local `publish` only when deploy is not set up, and `-q` suppresses them
+- [ ] [P21-TS11] `github create`: initializes Git when missing, runs `gh repo create … --private --source --push` (`--public` honored), `--dry-run` runs nothing, refuses for a project library with exit 2
+- [ ] [P21-TS12] Flag semantics: `init --pages --yes` runs `pages enable` without asking but still refuses a private repo without `--force`; `--no-input` prints commands and runs none
 - [ ] [P21-TS09] Generated workflow: `if: failure()` step writes an annotation and job summary with the fix for each failing step (configure-pages, guard exit 2, version resolution)
 - [ ] [P21-T01] Catalog schema v2 + migration + `--publish` flags
 - [ ] [P21-T02] `shelf publish` site builder with filtered catalog and index
@@ -348,7 +355,9 @@ $ shelf doc list --scope all
 - [ ] [P21-T04] Hosted mode in `index.html.tmpl` and base-URL resolution (`--base-url`, config, `--detected-base-url`, `gh` detection)
 - [ ] [P21-T05] `init --pages` workflow generator (version step with `SHELF_VERSION` pin, failure-summary step) and `init --readme` block
 - [ ] [P21-T09] `shelf_version` written by every library write (`commit_library`) as part of schema v2
-- [ ] [P21-T10] `shelf pages status | enable | enable --print`
+- [ ] [P21-T10] `shelf pages status | enable | enable --print` with the readiness checklist
+- [ ] [P21-T11] `shelf github create`
+- [ ] [P21-T12] Next-step hints in `doc add`, `doc update`, and `publish`
 - [ ] [P21-T06] Skill: publish routing, mode and visibility reporting; bump plugin to 0.3.0
 - [ ] [P21-T07] PRD (§2 non-goal, §4, §5, §10, §11) and README "Publishing" section
 - [ ] [P21-T08] Bump to v0.10.0; `make check` and `just all` green; PR merged; tag `v0.10.0` pushed

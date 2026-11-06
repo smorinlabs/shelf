@@ -32,6 +32,9 @@ Existing properties make this feasible. Catalog paths are library-relative. The 
 | D7 | Turning on Pages | `shelf init --pages` offers to run the setting change; on "no" it prints the command. `shelf pages enable --print` prints it any time. A failed Action names the fix in its job summary. |
 | D8 | Shelf version used by the Action | The version recorded in `catalog.json` (`shelf_version`, written on every library write), overridable by a pin (`SHELF_VERSION`) in the workflow file |
 | D9 | `base-url` | Detected automatically; overridable by `--base-url` or the `base-url` config key. `init --pages` does not write it. |
+| D10 | Skipping questions | `--yes` accepts offers (consent); `--force` stays the private-repo guard override only; `--no-input` never asks and never runs external commands, printing them instead |
+| D11 | Guidance when setup is missing | One seven-step readiness checklist. `shelf pages status` shows it in full; other commands show only the next failing step and its command, one line, where it fits the flow |
+| D12 | Creating the GitHub repo | Its own command, `shelf github create`. `init --pages` never creates a repo; it prints that command and stops. |
 
 ---
 
@@ -219,8 +222,8 @@ A workflow deploy needs the repo's Pages source set to "GitHub Actions", a one-t
 
 | Command | Behavior |
 |---|---|
-| `shelf pages status` | Reports whether Pages is enabled, its source, and its URL. Exits `1` when Pages is not set to deploy from GitHub Actions (a predicate result, R6.2). |
-| `shelf pages enable` | Shows the exact command, asks for confirmation, runs it. `--yes` skips the prompt. |
+| `shelf pages status [--json]` | Prints the readiness checklist below. Exits `1` when any step fails (a predicate result, R6.2). |
+| `shelf pages enable` | Shows the exact command, asks for confirmation, runs it. `--yes` skips the prompt; `--no-input` prints instead of asking. |
 | `shelf pages enable --print` | Prints the command and runs nothing |
 
 The command depends on the current state, which `status` detects:
@@ -229,6 +232,61 @@ The command depends on the current state, which `status` detects:
 gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow   # Pages never enabled
 gh api -X PUT  repos/<owner>/<repo>/pages -f build_type=workflow   # enabled, but deploying from a branch
 ```
+
+Pages deploys from the **same repo** that holds the library; no separate repo is needed. (A `<owner>.github.io` repo, which serves at the domain root, is optional and outside shelf. Deploying a private library to a separate public repo, the workaround for GitHub Free, is out of scope: it needs a stored token and commits published output into public history.)
+
+### Readiness checklist
+
+Deploying requires every step below, checked in order; a step is not evaluated until the steps before it pass.
+
+| # | Check | How shelf checks | Fix shelf names |
+|---|---|---|---|
+| 1 | A library exists | Existing resolution | `shelf init` |
+| 2 | The library is in a Git repo | `git rev-parse` | User library: `shelf github create` (initializes Git first). A project library is always in a repo. |
+| 3 | The repo exists on GitHub | `origin` points at github.com and `gh api repos/<o>/<r>` succeeds | `shelf github create` |
+| 4 | The plan allows Pages for this repo | For a private repo under the user's own account, the plan from `gh api user`; otherwise GitHub's refusal at enable time is translated into this step | Upgrade the plan, or make the repo public |
+| 5 | Pages is on, deploying from GitHub Actions | `gh api repos/<o>/<r>/pages` | `shelf pages enable` |
+| 6 | The workflow file exists and is pushed | File present; `git ls-remote` shows it on `main` | `shelf init --pages`, then commit and push |
+| 7 | At least one document will be published | Catalog count under the current `publish` mode | `shelf doc update <id> --publish`, or `publish = "all"` |
+
+`shelf pages status` output:
+
+```text
+Pages readiness — smorin/shelf-library (private)
+  ✓ library         ~/.local/share/shelf
+  ✓ git repo
+  ✓ GitHub repo     smorin/shelf-library
+  ✓ plan            Pro (private Pages allowed)
+  ✗ Pages enabled   not enabled
+      fix: shelf pages enable
+           (runs: gh api -X POST repos/smorin/shelf-library/pages -f build_type=workflow)
+  · workflow        checked after Pages is enabled
+  ✓ published docs  3 marked
+Next: shelf pages enable
+```
+
+`--json` returns each step's `status` (`pass`, `fail`, `skipped`) and `fix` command. The skill and the Action's failure summary use the same fix text.
+
+**Where the next step appears.** Other commands show only the first failing step, as one line after their normal output, and only where publishing is relevant. `-q` suppresses these hints.
+
+| When | Hint |
+|---|---|
+| `doc add --publish` or `doc update --publish` succeeds and no deploy is set up | `Marked for publishing. This library isn't deployed yet: shelf pages status` |
+| `shelf publish` builds locally and no deploy is set up | `Built _site/. Not deployed: next step is <fix of first failing step>` |
+| `shelf init --pages` reaches a failing step | Steps 2–3: prints `shelf github create` and stops. Step 5: offers `pages enable` (see below). |
+| The user asks the skill to publish | The skill runs `shelf pages status --json` and walks the failing steps one at a time, asking before each external action |
+
+### `shelf github create`
+
+Creates the GitHub repo for a library that does not have one. It is a separate command so that creating an external repo is always an explicit action, never a side effect of `init --pages`.
+
+`shelf github create [--owner OWNER] [--name NAME] [--public] [--dry-run]`:
+
+- **User library only.** For a project library it refuses (exit 2) and prints the `gh repo create` command, because the host code repo is not shelf's to create.
+- If the library is not a Git repo, it initializes one with a first commit (the `init --git` behavior).
+- Runs `gh repo create <owner>/<name> --private --source <library> --push`. Defaults: owner is the `gh` user, name `shelf-library`, private unless `--public`.
+- Running the command is the consent; `--dry-run` prints the commands without running them.
+- Like `init --github`, it does not roll back: if a later step fails after GitHub created the repo, the message names the repo to delete or reuse.
 
 ### Which shelf version the Action runs
 
@@ -245,12 +303,14 @@ uv tool install "git+https://github.com/smorinlabs/shelf@v$v"
 
 ### `shelf init --pages`
 
-`shelf init --pages [--force] [--shelf-version X.Y.Z]`:
+`shelf init --pages [--yes] [--force] [--no-input] [--shelf-version X.Y.Z]`:
 
 1. Checks repo visibility; a private or unknown repo refuses without `--force` (same message as `publish`). With `--force`, `--force` is written into the workflow's `shelf publish` step.
 2. Writes `.github/workflows/shelf-pages.yml`: trigger on pushes to `main` that touch the library (no path filter for the dedicated repo) plus `workflow_dispatch`; permissions `contents: read`, `pages: write`, `id-token: write`; a `pages` concurrency group; the six steps above; the library path for this layout.
-3. Runs the `pages status` check. If Pages is not ready, offers to run `pages enable`; on "no", prints the command and `https://github.com/<owner>/<repo>/settings/pages`.
+3. Runs the readiness checklist. If step 2 or 3 fails, prints `shelf github create` and stops. If step 5 fails, offers to run `pages enable`: `--yes` accepts without asking; "no" or `--no-input` prints the command and `https://github.com/<owner>/<repo>/settings/pages`.
 4. Never commits the workflow; the user commits it.
+
+`--yes` is consent only; it never bypasses the private-repo guard. A fully scripted setup of a private repo is `shelf init --pages --yes --force`.
 
 The workflow never commits or pushes, never runs on pull requests, and uses no secrets (deploy authenticates with GitHub's OIDC token).
 
