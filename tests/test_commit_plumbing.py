@@ -449,6 +449,21 @@ def test_orphan_delete_commit_contains_only_the_orphan(git_root):
     _assert_user_dirt_untouched(git_root)
 
 
+def test_orphan_delete_of_untracked_orphan_does_not_commit_pending_catalog_work(git_root):
+    """Review finding (PR #17): an uncommitted `topic add` must stay uncommitted."""
+    assert run(["topic", "add", "pending-topic"]).exit_code == 0  # no --commit
+    rel = "docs/topics/dev-tooling/2026-01-01-untracked-stray"
+    (git_root / rel).mkdir(parents=True)
+    (git_root / rel / "stray.md").write_text("# stray")
+
+    r = run(["orphan", "delete", rel, "--yes", "--commit"])
+
+    assert r.exit_code == 0, r.output
+    assert last_subject(git_root) == f"shelf: orphan delete {rel}"
+    assert _committed_paths(git_root) == set()
+    assert " M catalog.json" in _status_lines(git_root)
+
+
 def test_init_git_still_commits_the_whole_scaffold(isolated_env, isolated_git_identity):
     r = run(["init", "--git"])
     assert r.exit_code == 0, r.output

@@ -191,6 +191,32 @@ def test_git_commit_all_skips_paths_that_are_missing_and_untracked(tmp_path):
     assert _committed(tmp_path) == {"catalog.json"}
 
 
+def test_git_commit_all_treats_paths_literally_not_as_wildcards(tmp_path):
+    """Review finding (PR #17): `--` does not disable pathspec globbing."""
+    _baseline(tmp_path)
+    (tmp_path / "scratch-notes.md").write_text("tracked\n")
+    _git(tmp_path, "add", "scratch-notes.md")
+    _git(tmp_path, "commit", "-q", "-m", "track scratch-notes")
+    (tmp_path / "scratch-notes.md").write_text("user edit\n")
+    (tmp_path / "scratch*.md").write_text("orphan with a glob character\n")
+
+    git_commit_all(tmp_path, "shelf: x", paths=["scratch*.md"])
+
+    assert _committed(tmp_path) == {"scratch*.md"}
+    assert " M scratch-notes.md" in _git(tmp_path, "status", "--porcelain").splitlines()
+
+
+def test_git_commit_all_with_no_usable_paths_leaves_an_unstaged_catalog_alone(tmp_path):
+    """Review finding (PR #17): the fallback must not commit catalog.json."""
+    _baseline(tmp_path)
+    (tmp_path / "catalog.json").write_text('{"uncommitted": true}\n')
+
+    git_commit_all(tmp_path, "shelf: orphan delete gone", paths=["docs/never-tracked"])
+
+    assert _committed(tmp_path) == set()
+    assert " M catalog.json" in _git(tmp_path, "status", "--porcelain").splitlines()
+
+
 def test_git_commit_all_with_no_usable_paths_commits_nothing_from_the_index(tmp_path):
     _baseline(tmp_path)
     (tmp_path / "keep.txt").write_text("staged by the user\n")

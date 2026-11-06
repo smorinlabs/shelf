@@ -1,5 +1,6 @@
 """Git and GitHub subprocess helpers."""
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -27,13 +28,17 @@ def git_init(root: Path) -> None:
         raise click.ClickException(f"git init failed: {detail}") from exc
 
 
-def _git(root: Path, args: list[str]) -> str:
+def _git(root: Path, args: list[str], literal: bool = False) -> str:
+    # GIT_LITERAL_PATHSPECS: shelf passes real file paths, which may contain glob
+    # characters such as `*`; `--` alone would still expand them as patterns.
+    env = {**os.environ, "GIT_LITERAL_PATHSPECS": "1"} if literal else None
     try:
         return subprocess.run(
             ["git", "-C", str(root), *args],
             check=True,
             capture_output=True,
             text=True,
+            env=env,
         ).stdout
     except FileNotFoundError as exc:
         raise click.ClickException("git is not installed or not on PATH") from exc
@@ -61,13 +66,16 @@ def git_commit_all(root: Path, message: str, paths: list[str] | None = None) -> 
     usable = [
         p
         for p in paths
-        if (root / p).exists() or _git(root, ["ls-files", "--cached", "--", p]).strip()
+        if (root / p).exists()
+        or _git(root, ["ls-files", "--cached", "--", p], literal=True).strip()
     ]
-    # An empty pathspec would commit the whole index, user-staged changes included;
-    # catalog.json is always present, so it anchors an otherwise-empty commit.
-    scope = usable or ["catalog.json"]
-    _git(root, ["add", "-A", "--", *scope])
-    _git(root, ["commit", "--only", "--allow-empty", "-m", message, "--", *scope])
+    if not usable:
+        # `--only` with no pathspec records an empty commit and leaves the index,
+        # including anything the user staged, out of it.
+        _git(root, ["commit", "--only", "--allow-empty", "-m", message])
+        return
+    _git(root, ["add", "-A", "--", *usable], literal=True)
+    _git(root, ["commit", "--only", "--allow-empty", "-m", message, "--", *usable], literal=True)
 
 
 def _gh(args: list[str]) -> str:
