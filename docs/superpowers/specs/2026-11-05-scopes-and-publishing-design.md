@@ -36,7 +36,7 @@ Existing properties make this feasible. Catalog paths are library-relative. The 
 | D11 | Guidance when setup is missing | One seven-step readiness checklist. `shelf pages status` shows it in full; other commands show only the next failing step and its command, one line, where it fits the flow |
 | D12 | Creating the GitHub repo | Its own command, `shelf github create`. `init --pages` never creates a repo; it prints that command and stops. |
 | D13 | Installing the agent skills | `shelf agent install | status | uninstall`, modeled on `baml agent install`; skills bundled in the package so they match the CLI version. `shelf skill` is an alias for `shelf agent`, listed in `--help`. |
-| D14 | Skill install scopes | `user` (default, provisional) and `project` |
+| D14 | Skill install scopes | `user` (default) and `project`. Without `--scope`, inside a repo with a project shelf, shelf asks whether to install at project scope instead. |
 | D15 | Dev mode | `--dev` installs symlinks into a shelf checkout (`--source PATH`) instead of copies |
 | D16 | Existing placements | Anything shelf did not install, or installed in the other mode, is skipped unless `--force`; every replacement is backed up |
 
@@ -359,7 +359,19 @@ Today the skills ship only through the plugin marketplace. P09 excluded `plugins
 | `user` (default) | `~/.claude/skills/<name>` and `~/.agents/skills/<name>` | Home directory |
 | `project` | `<root>/.claude/skills/<name>` and `<root>/.agents/skills/<name>`, committed so teammates get the skills | The directory holding `.shelf/` when a project scope is discovered (P20), else the Git repo root. Refused when there is no Git repo, when the repo root is the home directory, or when the repo root is not an ancestor of the current directory (BAML's dotfiles-repo guard). |
 
-User is the default (provisional, pending confirmation) because the skill serves both scopes' libraries and the main use is from any repo. Unlike library writes (D2), installing a skill is one-time machine setup, and writing into a shared repo should be a deliberate choice. Project-scope installs are reached through two prompts: `shelf init --scope project` (P20) offers to run `shelf agent install --scope project`, and `shelf agent status` notes when the current repo has a project library but no project-scope skill.
+User is the default because the skill serves both scopes' libraries and the main use is from any repo. Unlike library writes (D2), installing a skill is one-time machine setup, and writing into a shared repo should be a deliberate choice.
+
+**Asking when a project shelf is present.** When `--scope` is not given and the current directory is inside a repo with a discovered project scope (`.shelf/shelf_config.toml`, P20):
+
+| Situation | Behavior |
+|---|---|
+| Interactive terminal | Asks: `This repo has a project shelf (<root>). Install the skills at project scope, so they are committed for everyone? [y/N]`. Yes → project scope; no or Enter → user scope. |
+| `--no-input` or no TTY | Uses user scope and prints one line: `Installed at user scope. This repo has a project shelf: shelf agent install --scope project` |
+| `--scope` given | No question |
+
+The question is a choice, not consent, so `--yes` does not answer it; scripts pass `--scope`. Before P20 ships there is no project-scope discovery, so the question never appears.
+
+Two other places also point to project scope: `shelf init --scope project` (P20) offers to run `shelf agent install --scope project`, and `shelf agent status` notes when the current repo has a project library but no project-scope skill.
 
 ### Install modes
 
