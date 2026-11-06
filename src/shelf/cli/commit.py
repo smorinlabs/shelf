@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from shelf.core.git import is_git_repo
+from shelf.core import git as git_core
 
 
 def commit_options(fn):
@@ -16,8 +16,15 @@ def commit_options(fn):
 
 def require_git_if_commit(root: Path, commit: bool) -> None:
     """Fail before mutation when a requested commit has no Git repository."""
-    if commit and not is_git_repo(root):
+    if not commit:
+        return
+    if not git_core.is_git_repo(root):
         raise click.ClickException("not a git repository; initialize one with 'shelf init --git'")
+    if git_core.merge_in_progress(root):
+        raise click.ClickException(
+            "a merge is in progress in the library's repository; finish or abort it, "
+            "then re-run with --commit"
+        )
 
 
 def library_paths(*extra: object) -> list[str]:

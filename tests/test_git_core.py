@@ -206,6 +206,44 @@ def test_git_commit_all_treats_paths_literally_not_as_wildcards(tmp_path):
     assert " M scratch-notes.md" in _git(tmp_path, "status", "--porcelain").splitlines()
 
 
+def test_git_commit_all_records_a_deletion_the_user_already_staged(tmp_path):
+    """Review finding (PR #17): a path present only in HEAD must still be committed."""
+    _baseline(tmp_path)
+    _git(tmp_path, "rm", "-rq", "docs/old")
+    (tmp_path / "keep.txt").write_text("staged by the user\n")
+    _git(tmp_path, "add", "keep.txt")
+    (tmp_path / "catalog.json").write_text('{"v": 2}\n')
+
+    git_commit_all(tmp_path, "shelf: doc delete x", paths=["catalog.json", "docs/old"])
+
+    tree = set(_git(tmp_path, "ls-tree", "-r", "--name-only", "HEAD").split())
+    assert "docs/old/a.md" not in tree
+    assert _committed(tmp_path) == {"catalog.json", "docs/old/a.md"}
+    assert "M  keep.txt" in _git(tmp_path, "status", "--porcelain").splitlines()
+
+
+def test_merge_in_progress_is_detected(tmp_path):
+    _baseline(tmp_path)
+    assert git_core.merge_in_progress(tmp_path) is False
+    _git(tmp_path, "checkout", "-qb", "side")
+    (tmp_path / "side.txt").write_text("side\n")
+    _git(tmp_path, "add", "side.txt")
+    _git(tmp_path, "commit", "-qm", "side")
+    _git(tmp_path, "checkout", "-q", "-")
+    (tmp_path / "keep.txt").write_text("main change\n")
+    _git(tmp_path, "commit", "-qam", "main")
+    _git(tmp_path, "merge", "--no-commit", "-q", "side")
+    assert git_core.merge_in_progress(tmp_path) is True
+
+
+def test_require_git_if_commit_refuses_during_a_merge(tmp_path, monkeypatch):
+    init_repo_with_identity(tmp_path)
+    monkeypatch.setattr(git_core, "merge_in_progress", lambda root: True)
+    with pytest.raises(click.ClickException, match="merge is in progress"):
+        require_git_if_commit(tmp_path, True)
+    require_git_if_commit(tmp_path, False)  # no --commit: no check
+
+
 def test_git_commit_all_with_no_usable_paths_leaves_an_unstaged_catalog_alone(tmp_path):
     """Review finding (PR #17): the fallback must not commit catalog.json."""
     _baseline(tmp_path)

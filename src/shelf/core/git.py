@@ -47,6 +47,19 @@ def _git(root: Path, args: list[str], literal: bool = False) -> str:
         raise click.ClickException(f"git {args[0]} failed: {detail}") from exc
 
 
+def merge_in_progress(root: Path) -> bool:
+    """Return whether *root* has an unfinished merge (Git refuses partial commits then)."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "-q", "--verify", "MERGE_HEAD"],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise click.ClickException("git is not installed or not on PATH") from exc
+    return result.returncode == 0
+
+
 def git_commit_all(root: Path, message: str, paths: list[str] | None = None) -> None:
     """Create an operation commit, even with no net diff.
 
@@ -63,18 +76,28 @@ def git_commit_all(root: Path, message: str, paths: list[str] | None = None) -> 
         _git(root, ["add", "-A"])
         _git(root, ["commit", "--allow-empty", "-m", message])
         return
-    usable = [
+    # On disk or in the index: stage, then commit. Only in HEAD (a deletion the user
+    # already staged): `git add` rejects the path, but `commit --only` records it.
+    staged = [
         p
         for p in paths
         if (root / p).exists()
         or _git(root, ["ls-files", "--cached", "--", p], literal=True).strip()
     ]
+    head_only = [
+        p
+        for p in paths
+        if p not in staged
+        and _git(root, ["ls-tree", "-r", "--name-only", "HEAD", "--", p], literal=True).strip()
+    ]
+    usable = staged + head_only
     if not usable:
         # `--only` with no pathspec records an empty commit and leaves the index,
         # including anything the user staged, out of it.
         _git(root, ["commit", "--only", "--allow-empty", "-m", message])
         return
-    _git(root, ["add", "-A", "--", *usable], literal=True)
+    if staged:
+        _git(root, ["add", "-A", "--", *staged], literal=True)
     _git(root, ["commit", "--only", "--allow-empty", "-m", message, "--", *usable], literal=True)
 
 
