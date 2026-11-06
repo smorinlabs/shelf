@@ -35,7 +35,7 @@ Existing properties make this feasible. Catalog paths are library-relative. The 
 | D10 | Skipping questions | `--yes` accepts offers (consent); `--force` stays the private-repo guard override only; `--no-input` never asks and never runs external commands, printing them instead |
 | D11 | Guidance when setup is missing | One seven-step readiness checklist. `shelf pages status` shows it in full; other commands show only the next failing step and its command, one line, where it fits the flow |
 | D12 | Creating the GitHub repo | Its own command, `shelf github create`. `init --pages` never creates a repo; it prints that command and stops. |
-| D13 | Installing the agent skills | `shelf agent install | status | uninstall`, modeled on `baml agent install`; skills bundled in the package so they match the CLI version. Command name provisional. |
+| D13 | Installing the agent skills | `shelf agent install | status | uninstall`, modeled on `baml agent install`; skills bundled in the package so they match the CLI version. `shelf skill` is an alias for `shelf agent`, listed in `--help`. |
 | D14 | Skill install scopes | `user` (default, provisional) and `project` |
 | D15 | Dev mode | `--dev` installs symlinks into a shelf checkout (`--source PATH`) instead of copies |
 | D16 | Existing placements | Anything shelf did not install, or installed in the other mode, is skipped unless `--force`; every replacement is backed up |
@@ -344,6 +344,8 @@ Today the skills ship only through the plugin marketplace. P09 excluded `plugins
 
 ### Commands
 
+`shelf skill` is an alias for `shelf agent` (for example `shelf skill install`), listed in `shelf --help` like the existing `doc rm` and `doc ls` aliases.
+
 | Command | What it does |
 |---|---|
 | `shelf agent install [--scope user\|project] [--dev [--source PATH]] [--force] [--dry-run]` | Installs `shelf` and `shelf-reference` into both skill folders of the chosen scope |
@@ -357,7 +359,7 @@ Today the skills ship only through the plugin marketplace. P09 excluded `plugins
 | `user` (default) | `~/.claude/skills/<name>` and `~/.agents/skills/<name>` | Home directory |
 | `project` | `<root>/.claude/skills/<name>` and `<root>/.agents/skills/<name>`, committed so teammates get the skills | The directory holding `.shelf/` when a project scope is discovered (P20), else the Git repo root. Refused when there is no Git repo, when the repo root is the home directory, or when the repo root is not an ancestor of the current directory (BAML's dotfiles-repo guard). |
 
-User is the default because the skill serves both scopes' libraries and the main use is from any repo. `shelf init --scope project` (P20) offers to run `shelf agent install --scope project`.
+User is the default (provisional, pending confirmation) because the skill serves both scopes' libraries and the main use is from any repo. Unlike library writes (D2), installing a skill is one-time machine setup, and writing into a shared repo should be a deliberate choice. Project-scope installs are reached through two prompts: `shelf init --scope project` (P20) offers to run `shelf agent install --scope project`, and `shelf agent status` notes when the current repo has a project library but no project-scope skill.
 
 ### Install modes
 
