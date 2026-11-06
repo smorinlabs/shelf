@@ -1,6 +1,6 @@
 # Library scopes and Pages publishing — design (2026-11-05)
 
-**Goal:** Give shelf the same **user** and **project** scopes that Claude Code skills have, and let either scope's library be published to GitHub Pages without leaking private content. Fulfills **P20** (project scope) and **P21** (publishing), with **P13-T02** (path-scoped commits) as a prerequisite.
+**Goal:** Give shelf the same **user** and **project** scopes that Claude Code skills have, let either scope's library be published to GitHub Pages without leaking private content, and let the CLI install its own agent skills at either scope. Fulfills **P20** (project scope), **P21** (publishing), and **P22** (`shelf agent`), with **P13-T02** (path-scoped commits) as a prerequisite of P20.
 
 **Status:** Approved design (2026-11-05). Not implemented. Until P20 and P21 ship, `SHELF-PRD.md` §4 and §5 describe current behavior.
 
@@ -35,6 +35,10 @@ Existing properties make this feasible. Catalog paths are library-relative. The 
 | D10 | Skipping questions | `--yes` accepts offers (consent); `--force` stays the private-repo guard override only; `--no-input` never asks and never runs external commands, printing them instead |
 | D11 | Guidance when setup is missing | One seven-step readiness checklist. `shelf pages status` shows it in full; other commands show only the next failing step and its command, one line, where it fits the flow |
 | D12 | Creating the GitHub repo | Its own command, `shelf github create`. `init --pages` never creates a repo; it prints that command and stops. |
+| D13 | Installing the agent skills | `shelf agent install | status | uninstall`, modeled on `baml agent install`; skills bundled in the package so they match the CLI version. Command name provisional. |
+| D14 | Skill install scopes | `user` (default, provisional) and `project` |
+| D15 | Dev mode | `--dev` installs symlinks into a shelf checkout (`--source PATH`) instead of copies |
+| D16 | Existing placements | Anything shelf did not install, or installed in the other mode, is skipped unless `--force`; every replacement is backed up |
 
 ---
 
@@ -330,7 +334,95 @@ A step guarded by `if: failure()` writes an `::error::` annotation and a job sum
 
 ---
 
+## Part 3 — Installing the agent skills: `shelf agent` (P22)
+
+Modeled on `baml agent install` (BoundaryML; researched 2026-11-05 from `baml_cli/src/agent_command.rs` and PRs #3689 and #3789). BAML bundles its skill inside the CLI so the skill always matches the toolchain, writes it to both `.claude/skills/` and `.agents/skills/`, swaps it in atomically, and keeps the previous copy. Shelf adopts those ideas and adds a user scope, a dev mode that installs symlinks, and a rule against replacing anything shelf did not install.
+
+### Why
+
+Today the skills ship only through the plugin marketplace. P09 excluded `plugins/` from the Python package, so `uv tool install` gives the CLI without its skills. The skill names CLI flags, so a skill a version behind the CLI gives the agent wrong instructions. Bundling the skills in the package and installing them from the CLI removes that mismatch.
+
+### Commands
+
+| Command | What it does |
+|---|---|
+| `shelf agent install [--scope user\|project] [--dev [--source PATH]] [--force] [--dry-run]` | Installs `shelf` and `shelf-reference` into both skill folders of the chosen scope |
+| `shelf agent status [--scope user\|project\|all] [--json]` | Lists each placement: kind, target, installed version vs CLI version, and whether it is stale |
+| `shelf agent uninstall [--scope user\|project] [--force] [--dry-run]` | Removes placements shelf installed; anything else needs `--force` |
+
+### Scopes
+
+| Scope | Folders written | Root |
+|---|---|---|
+| `user` (default) | `~/.claude/skills/<name>` and `~/.agents/skills/<name>` | Home directory |
+| `project` | `<root>/.claude/skills/<name>` and `<root>/.agents/skills/<name>`, committed so teammates get the skills | The directory holding `.shelf/` when a project scope is discovered (P20), else the Git repo root. Refused when there is no Git repo, when the repo root is the home directory, or when the repo root is not an ancestor of the current directory (BAML's dotfiles-repo guard). |
+
+User is the default because the skill serves both scopes' libraries and the main use is from any repo. `shelf init --scope project` (P20) offers to run `shelf agent install --scope project`.
+
+### Install modes
+
+| Mode | Flag | What gets placed | Source |
+|---|---|---|---|
+| Copy | (default) | A copy of each skill folder, plus a `.shelf-agent.json` stamp recording `{"mode": "copy", "version": …}` | Package data bundled in the installed CLI, so the skill matches the CLI version |
+| Dev | `--dev` | A **symlink** per skill folder pointing into a shelf checkout, so edits in the checkout take effect immediately | `--source PATH` (a shelf checkout root); without it, the checkout the running CLI was installed from (editable or `uv run --project` install), found from the package location; neither → exit 2 asking for `--source` |
+
+Dev-mode rules:
+
+- The source must contain `plugins/shelf/skills/<name>/SKILL.md` for each skill, with a matching `name:`; otherwise exit 2.
+- **User scope:** absolute symlinks (the current `~/.claude/skills/shelf -> ~/c/shelf/plugins/shelf/skills/shelf` shape).
+- **Project scope:** a committed absolute symlink would point at one machine's paths, so dev mode is allowed only when the source checkout is inside the same repo, and the link is **relative** (as the shelf repo's own `.agents/skills/shelf` already is). Any other combination exits 2 with this explanation.
+- The stamp is never written into a symlinked folder, because that would write into the source checkout.
+
+### Never replace what shelf did not install
+
+Before writing, each destination is classified:
+
+| Destination state | Without `--force` | With `--force` |
+|---|---|---|
+| Missing | Created | Created |
+| Copy with shelf's stamp, same mode requested | Refreshed (reports `updated` or `unchanged`) | Same |
+| Symlink to the requested source, dev mode requested | `unchanged` | Same |
+| Symlink to a different target (another checkout, skillsmith, anything else) | **Skipped**, target shown | Replaced; old link kept in the backup slot |
+| Copy without shelf's stamp (hand-made or another tool's) | **Skipped** | Replaced; old copy kept in the backup slot |
+| Copy ↔ symlink (switching modes) | **Skipped**, with the flag to add | Replaced; old placement kept in the backup slot |
+| A `shelf@shelf` plugin is enabled at this scope | **Skipped**, because two registrations of the same skill name conflict | Installed; warning repeated |
+
+- **Backup slot:** `<skills folder>/shelf-old_skills/<name>`, one previous placement per skill, as in BAML. Placed one level deeper than `<name>/SKILL.md`, so agents do not load it.
+- **Symlinks are unlinked, never followed.** Replacing or uninstalling a symlink removes the link only; the checkout it points to is never touched.
+- **Atomic swap:** write to a temporary folder beside the destination, then rename into place; on failure, restore from the backup slot.
+- `--force` overrides the guard only; following shelf's convention it never counts as consent, and no prompt is needed because every replacement is backed up.
+- Exit code: `0` when every placement is created, updated, or unchanged; `1` when any placement was skipped (a partial result, R6.3), with the reason and the flag that resolves it.
+
+### Output
+
+One line per skill per folder, then a reminder to restart running agent sessions:
+
+```text
+$ shelf agent install --dev --source ~/c/shelf
+Installed shelf agent skills (scope: user, mode: dev → ~/c/shelf)
+  Claude Code (~/.claude/skills)
+    shelf             unchanged (dev link)
+    shelf-reference   unchanged (dev link)
+  Codex / Cursor (~/.agents/skills)
+    shelf             unchanged (dev link)
+    shelf-reference   skipped: copy not installed by shelf (use --force)
+Restart any running agent session to pick up changes.
+```
+
+`--dry-run` prints the same lines as `would create`, `would update`, `would replace`, or `would skip`, and writes nothing.
+
+### Stale-skill warning
+
+When a copy's stamped version is older than the CLI, `shelf agent status` marks it stale, and `shelf audit` adds a one-line note (`installed shelf skill is v0.9.0, CLI is v0.10.0: shelf agent install`), suppressed by `-q`. Dev links are never stale; they track the checkout.
+
+### Packaging
+
+The skill files must be in the Python package and in `plugins/shelf/skills/` for the marketplace. Recommended: keep the canonical files in `plugins/shelf/skills/`, copy them into package data at build time or keep a committed copy under `src/shelf/`, and add a test that fails when the two differ. A symlink from the plugin folder into `src/` is not used, because it is unverified whether Claude Code's plugin install follows a symlink that leaves the plugin folder.
+
+---
+
 ## PRD changes when each project ships
 
 - **P20:** rewrite §4 to the new precedence chain; remove the R5.1/R5.2 waiver in §5 (system scope stays out); close §14.3 by pointing at the two scopes.
+- **P22:** add `shelf agent` to §5 and §11; update §12 (skills) with the two install paths, plugin and `shelf agent install`.
 - **P21:** narrow the §2 non-goal "Not a hosted service or public site" to "not a hosted service; opt-in static publishing only"; add `shelf publish` and `shelf pages` to §5 and §11; document `publish` and `base-url` in §4; bump §10 to schema version 2 (`publish` per document, `shelf_version` at the top level).

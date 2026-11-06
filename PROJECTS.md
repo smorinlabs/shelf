@@ -383,6 +383,59 @@ error: smorin/shelf-library is private; publishing 3 documents requires --force 
 
 ---
 
+## [ ] Project P22: Install agent skills from the CLI — `shelf agent` (version TBD; plugin unchanged)
+**Goal/Requirement**: Let the CLI install its own skills (`shelf`, `shelf-reference`) for Claude Code and Codex/Cursor at user or project scope, as copies matched to the CLI version or as dev-mode symlinks into a checkout, never replacing a placement shelf did not install unless forced. Modeled on `baml agent install`. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 3). Approved 2026-11-06; command name and default scope provisional.
+- `shelf agent install [--scope user|project] [--dev [--source PATH]] [--force] [--dry-run]`, `shelf agent status [--json]`, `shelf agent uninstall`
+- Writes both `.claude/skills/<name>` and `.agents/skills/<name>`; user scope under `~`, project scope at the `.shelf/` directory or Git repo root (refused for no repo, `$HOME` repos, and non-ancestor repo roots)
+- Copy mode: bundled package data plus a `.shelf-agent.json` stamp; dev mode: absolute symlinks at user scope, relative symlinks at project scope only when the source is inside the same repo
+- Skip-unless-forced: foreign copies, symlinks to other targets, mode switches, and an enabled `shelf@shelf` plugin are skipped (exit 1, with reason) unless `--force`; replacements go to `shelf-old_skills/<name>`; symlinks are unlinked, never followed
+- Per-skill status lines, `--dry-run`, restart reminder; stale-copy note in `agent status` and `audit`
+
+**Out of Scope**
+- Downloading skills from GitHub (`--source` URL/archive); prefixing skill names; agents beyond Claude Code and the `.agents/skills` readers (Codex, Cursor, OpenCode)
+
+### Tests & Tasks
+- [ ] [P22-TS01] Scope roots: user → `~/.claude/skills` and `~/.agents/skills`; project → `.shelf/` dir or repo root; refused outside a repo, for a `$HOME` repo root, and for a non-ancestor repo root
+- [ ] [P22-TS02] Copy mode: installs bundled skills with stamp; re-run reports `unchanged`; newer CLI reports `updated`; unrelated skills untouched
+- [ ] [P22-TS03] Dev mode: `--source` and auto-detected checkout; invalid source exits 2; user scope writes absolute links; project scope writes relative links only for an in-repo source, else exits 2; no stamp written through a link
+- [ ] [P22-TS04] Classification matrix: each destination state from the spec table produces the right action with and without `--force`; skipped placements give exit 1 and name the flag
+- [ ] [P22-TS05] Safety: replacing or uninstalling a symlink never modifies its target; backup slot holds exactly the previous placement; an injected failure mid-swap restores it
+- [ ] [P22-TS06] `--dry-run` writes nothing and prints `would …` lines; `agent status --json` reports kind, target, version, stale
+- [ ] [P22-TS07] Packaging: the wheel contains the skills; the packaged copy matches `plugins/shelf/skills/` byte for byte
+- [ ] [P22-TS08] Adoption: on a machine whose placements are symlinks to the same checkout (the current dev setup), `install --dev --source <checkout>` reports `unchanged` and changes nothing
+- [ ] [P22-T01] Bundle the skills as package data with the sync test
+- [ ] [P22-T02] Scope-root resolution
+- [ ] [P22-T03] Destination classification, backup slot, atomic swap, symlink-safe removal
+- [ ] [P22-T04] `agent install` (copy and dev modes) with status output and `--dry-run`
+- [ ] [P22-T05] `agent status` and `agent uninstall`
+- [ ] [P22-T06] Stale-copy note in `shelf audit`; `init --scope project` offer (after P20)
+- [ ] [P22-T07] README and plugin README: the two install paths (plugin, `shelf agent install`) and when to use each; PRD §5, §11, §12
+- [ ] [P22-T08] Bump version; `make check` and `just all` green; PR merged; tag pushed
+- [ ] Regression Test Status
+
+### Deliverable
+```bash
+$ shelf agent install
+Installed shelf agent skills (scope: user, mode: copy, v0.x.y)
+  Claude Code (~/.claude/skills)
+    shelf             created
+    shelf-reference   created
+  Codex / Cursor (~/.agents/skills)
+    shelf             created
+    shelf-reference   created
+Restart any running agent session to pick up changes.
+```
+
+### Automated Verification
+- `just all` passes, including the P22-TS* tests
+- `make check` passes
+
+### Manual Verification
+- On this machine, `shelf agent install --dev --source ~/c/shelf` leaves the existing dev links unchanged; `shelf agent install` (copy) skips them and names `--force`
+- A fresh Claude Code and Codex session each load the installed `shelf` skill
+
+---
+
 ## Backlog — minor
 - [x] **UI favicon 404** (found in the P08 browser smoke): FIXED — `index.html.tmpl` now declares `<link rel="icon" href="data:,">`, so browsers no longer request `/favicon.ico` (no 404) in either core `file://` or enhanced mode. Regression-tested (`test_index_declares_a_favicon_to_avoid_a_404`).
 - [x] Live browser smoke of the P08 UI hardening (C1 XSS / C3 copy-text / C4 search) — DONE; all three verified live with screenshots.
