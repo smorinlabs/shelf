@@ -4,7 +4,12 @@ from pathlib import Path
 
 import click
 
-from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
+from shelf.cli.commit import (
+    auto_message,
+    commit_options,
+    library_paths,
+    require_git_if_commit,
+)
 from shelf.cli.runtime import get_library
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import Document, FileVariant, RepoRef, commit_library, load_catalog
@@ -107,5 +112,9 @@ def doc_adopt(
         catalog.documents.append(doc)
         commit_library(root, catalog)
     if commit:
-        git_commit_all(root, commit_message or auto_message("doc", "adopt", slug))
+        git_commit_all(
+            root,
+            commit_message or auto_message("doc", "adopt", slug),
+            library_paths(rel),
+        )
     click.echo(f"adopted '{slug}' ({', '.join(formats)})")

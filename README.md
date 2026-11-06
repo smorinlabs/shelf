@@ -387,7 +387,7 @@ as `shelf doc`, prints that group's help and exits `2`.
 
 | Option | On | Meaning |
 |---|---|---|
-| `--commit` / `--no-commit` | every mutating command | Record the change as a Git commit. The default is off. The automatic message is `shelf: <verb> <slug>`. Requires a Git library. |
+| `--commit` / `--no-commit` | every mutating command | Record the change as a Git commit. The default is off. The commit contains only the paths the command touched. The automatic message is `shelf: <verb> <slug>`. Requires a Git library. |
 | `--commit-message TEXT` | every mutating command | Replace the automatic commit message |
 | `--dry-run` | `doc add`, `update`, `move`, `delete`; `regen`; `migrate` | Show what would happen, then change nothing |
 | `-o, --output table\|json`, `--json` | `doc list`, `doc view`, `topic list`, `kind list`, `orphan list`, `audit` | `table` is for humans and may change between releases. `json` is stable within a major version. `--json` is shorthand for `-o json`. `regen --json` and `migrate --json` print a machine-readable report. |
@@ -698,6 +698,11 @@ Then pass `--commit` on any mutating command to record that change as a commit:
 shelf doc update 2026-10-24-uv-inline-scripts --kind tutorial --commit
 # commit message: "shelf: …" (override with --commit-message)
 ```
+
+The commit contains only the paths that command touched: `catalog.json`,
+`index.html`, and the document's folder. Other uncommitted changes in the
+library, including files you have already staged, stay out of the commit and
+keep their state.
 
 `--commit` on a library that is not a Git repo is an error. shelf does not
 push; run `git -C "$(shelf path)" push` when you want to.

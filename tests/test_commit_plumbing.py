@@ -328,6 +328,135 @@ def test_regen_commit_message(git_root):
     assert last_subject(git_root) == "shelf: regen"
 
 
+# --- P13-TS02: commits are path-scoped; the user's own work is never swept in --
+
+
+def _committed_paths(root):
+    out = subprocess.run(
+        ["git", "-C", str(root), "show", "--name-only", "--format=", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    return set(out.split())
+
+
+def _status_lines(root):
+    return subprocess.run(
+        ["git", "-C", str(root), "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.splitlines()
+
+
+def _add_user_dirt(root):
+    """Uncommitted work that belongs to the user, not to shelf."""
+    (root / "notes.txt").write_text("my scratch\n")  # untracked
+    (root / "README.md").write_text("my unstaged edit\n")  # tracked, modified
+    (root / ".gitignore").write_text(".shelf.lock\nmine/\n")  # tracked, pre-staged
+    subprocess.run(["git", "-C", str(root), "add", ".gitignore"], check=True)
+
+
+def _assert_user_dirt_untouched(root):
+    status = _status_lines(root)
+    assert "?? notes.txt" in status
+    assert " M README.md" in status
+    assert "M  .gitignore" in status
+
+
+DOC_DIR = f"docs/topics/dev-tooling/{SLUG}"
+
+
+def _commit_seeded_doc(tmp_path):
+    _seed_doc(tmp_path, extra=("--commit",))
+
+
+@pytest.mark.parametrize(
+    ("label", "setup", "args", "allowed_prefixes"),
+    [
+        (
+            "doc add",
+            None,
+            ["doc", "add", "{src}", "--topic", "dev-tooling", *BASE, "--no-remove-source"],
+            ("catalog.json", "index.html", DOC_DIR + "/"),
+        ),
+        (
+            "doc update",
+            "seed",
+            ["doc", "update", SLUG, "--title", "Renamed"],
+            ("catalog.json", "index.html"),
+        ),
+        (
+            "doc move",
+            "seed",
+            ["doc", "move", SLUG, "--topic", "moved-topic", "--create-topic"],
+            ("catalog.json", "index.html", DOC_DIR + "/", f"docs/topics/moved-topic/{SLUG}/"),
+        ),
+        (
+            "doc delete",
+            "seed",
+            ["doc", "delete", SLUG, "--yes"],
+            ("catalog.json", "index.html", DOC_DIR + "/"),
+        ),
+        (
+            "doc format add",
+            "seed",
+            ["doc", "format", "add", SLUG, "{pdf}", "--no-remove-source"],
+            ("catalog.json", "index.html", DOC_DIR + "/"),
+        ),
+        ("topic add", None, ["topic", "add", "fresh-topic"], ("catalog.json", "index.html")),
+        ("kind add", None, ["kind", "add", "worksheet"], ("catalog.json", "index.html")),
+        ("regen", "stale-index", ["regen"], ("index.html",)),
+    ],
+)
+def test_commit_contains_only_shelf_paths_and_leaves_user_work_untouched(
+    git_root, tmp_path, label, setup, args, allowed_prefixes
+):
+    if setup == "seed":
+        _commit_seeded_doc(tmp_path)
+    elif setup == "stale-index":
+        (git_root / "index.html").write_text("stale\n")
+        subprocess.run(["git", "-C", str(git_root), "commit", "-qam", "stale index"], check=True)
+    _add_user_dirt(git_root)
+    src = _src(tmp_path, name="fresh.md")
+    pdf = tmp_path / "n.pdf"
+    pdf.write_text("%PDF")
+    argv = [a.format(src=src, pdf=pdf) for a in args] + ["--commit"]
+
+    r = run(argv)
+
+    assert r.exit_code == 0, f"{label}: {r.output}"
+    committed = _committed_paths(git_root)
+    assert committed, f"{label}: expected shelf changes in the commit"
+    stray = {p for p in committed if not p.startswith(allowed_prefixes)}
+    assert not stray, f"{label}: commit swept in non-shelf paths {stray}"
+    _assert_user_dirt_untouched(git_root)
+
+
+def test_orphan_delete_commit_contains_only_the_orphan(git_root):
+    rel = "docs/topics/dev-tooling/2026-01-01-strays"
+    (git_root / rel).mkdir(parents=True)
+    (git_root / rel / "strays.md").write_text("# stray")
+    subprocess.run(["git", "-C", str(git_root), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(git_root), "commit", "-qm", "track stray"], check=True)
+    _add_user_dirt(git_root)
+
+    r = run(["orphan", "delete", rel, "--yes", "--commit"])
+
+    assert r.exit_code == 0, r.output
+    assert _committed_paths(git_root) == {f"{rel}/strays.md"}
+    _assert_user_dirt_untouched(git_root)
+
+
+def test_init_git_still_commits_the_whole_scaffold(isolated_env, isolated_git_identity):
+    r = run(["init", "--git"])
+    assert r.exit_code == 0, r.output
+    root = default_library_path()
+    files = tree_files(root)
+    assert {"catalog.json", "index.html", "README.md", ".gitignore"} <= files
+
+
 # --- default (no --commit) leaves the working tree dirty everywhere ---------
 
 

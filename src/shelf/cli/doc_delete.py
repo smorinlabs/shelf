@@ -7,7 +7,12 @@ from pathlib import Path
 
 import click
 
-from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
+from shelf.cli.commit import (
+    auto_message,
+    commit_options,
+    library_paths,
+    require_git_if_commit,
+)
 from shelf.cli.doc_variants import find_doc
 from shelf.cli.output import output_options, resolve_format
 from shelf.cli.runtime import get_library
@@ -58,7 +63,11 @@ def doc_delete(ctx, doc_id, yes, dry_run, commit, commit_message):
         commit_library(root, catalog)
         shutil.rmtree(root / rel_dir, ignore_errors=True)
     if commit:
-        git_commit_all(root, commit_message or auto_message("doc", "delete", doc_id))
+        git_commit_all(
+            root,
+            commit_message or auto_message("doc", "delete", doc_id),
+            library_paths(rel_dir),
+        )
     click.echo(f"deleted '{doc_id}'")
 
 
@@ -157,5 +166,5 @@ def orphan_delete(ctx, path, yes, commit, commit_message):
         else:
             target.unlink()
     if commit:
-        git_commit_all(root, commit_message or auto_message("orphan", "delete", rel))
+        git_commit_all(root, commit_message or auto_message("orphan", "delete", rel), [str(rel)])
     click.echo(f"deleted orphan '{rel}'")

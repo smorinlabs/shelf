@@ -5,7 +5,12 @@ from pathlib import Path
 
 import click
 
-from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
+from shelf.cli.commit import (
+    auto_message,
+    commit_options,
+    library_paths,
+    require_git_if_commit,
+)
 from shelf.cli.runtime import active_config_path, get_config, get_library
 from shelf.core import git as git_core
 from shelf.core.atomic import atomic_write_text, library_lock
@@ -153,7 +158,7 @@ def regen_cmd(
         snips = build_snippets(root, raw.get("documents", []))
         atomic_write_text(root / "index.html", render_index(catalog_text, snips))
     if commit:
-        git_commit_all(root, commit_message or auto_message("regen"))
+        git_commit_all(root, commit_message or auto_message("regen"), ["index.html"])
     click.echo(json.dumps(report) if json_ else "regenerated index.html")
 
 
@@ -197,7 +202,7 @@ def migrate_cmd(
             raw = MIGRATIONS[step](raw)
         commit_library(root, Catalog.from_dict(raw))
     if commit:
-        git_commit_all(root, commit_message or auto_message("migrate"))
+        git_commit_all(root, commit_message or auto_message("migrate"), library_paths())
     click.echo(
         json.dumps(report)
         if json_

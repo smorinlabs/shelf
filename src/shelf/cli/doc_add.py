@@ -6,7 +6,12 @@ from pathlib import Path
 
 import click
 
-from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
+from shelf.cli.commit import (
+    auto_message,
+    commit_options,
+    library_paths,
+    require_git_if_commit,
+)
 from shelf.cli.runtime import get_config, get_library
 from shelf.core import handoff
 from shelf.core.atomic import library_lock
@@ -206,7 +211,11 @@ def doc_add(
             raise
 
     if commit:
-        git_commit_all(root, commit_message or auto_message("doc", "add", slug))
+        git_commit_all(
+            root,
+            commit_message or auto_message("doc", "add", slug),
+            library_paths(rel_dir),
+        )
     effective_remove = get_config(ctx).remove_source if remove_source_ is None else remove_source_
     if effective_remove:
         for p in paths:

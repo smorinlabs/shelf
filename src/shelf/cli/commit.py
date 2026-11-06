@@ -20,6 +20,11 @@ def require_git_if_commit(root: Path, commit: bool) -> None:
         raise click.ClickException("not a git repository; initialize one with 'shelf init --git'")
 
 
+def library_paths(*extra: object) -> list[str]:
+    """Paths a catalog-writing command touches: the catalog, the index, plus *extra*."""
+    return ["catalog.json", "index.html", *map(str, extra)]
+
+
 def auto_message(*parts: object) -> str:
     """Build the conventional automatic Shelf commit message."""
     return "shelf: " + " ".join(map(str, parts))

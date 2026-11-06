@@ -2,7 +2,12 @@
 
 import click
 
-from shelf.cli.commit import auto_message, commit_options, require_git_if_commit
+from shelf.cli.commit import (
+    auto_message,
+    commit_options,
+    library_paths,
+    require_git_if_commit,
+)
 from shelf.cli.doc_variants import find_doc
 from shelf.cli.runtime import get_library
 from shelf.core.atomic import library_lock
@@ -147,6 +152,10 @@ def doc_update(
             return
         commit_library(root, catalog)
     if commit:
-        git_commit_all(root, commit_message or auto_message("doc", "update", doc_id))
+        git_commit_all(
+            root,
+            commit_message or auto_message("doc", "update", doc_id),
+            library_paths(),
+        )
     for line in changes:
         click.echo(line)
