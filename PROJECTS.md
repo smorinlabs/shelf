@@ -315,13 +315,18 @@ $ shelf doc list --scope all
 
 ## [ ] Project P21: Publishing and GitHub Pages (v0.10.0, plugin v0.3.0)
 **Goal/Requirement**: Publish a library (user or project scope) as a filtered static site, deployable to GitHub Pages, without leaking private documents. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 2). Approved 2026-11-05.
+- `shelf publish` never creates a repo or pushes; it builds `_site/` from the library in whichever repo holds it. Locally it is a preview; deploys happen only through the Action (artifact deploy, never a `gh-pages` branch)
 - Per-document `publish: true|false` catalog field (schema v1 → v2 via `shelf migrate`), set with `doc add --publish` and `doc update --publish|--no-publish`
 - Config switch `publish = "marked"` (default) | `"all"`; `"all"` publishes every document and every variant (HTML, Markdown, PDF)
 - **Private-repo guard, always on:** any publish from a private, internal, or unverifiable repo exits 2 unless `--force` is passed, in both modes; no config key bypasses it
 - Discoverability: `publish --dry-run` footer, `--help` examples, README section, and the skill all explain how to publish everything and when `--force` is required
 - `shelf publish --out _site` builds a filtered catalog, filtered `index.html` (no topic/kind/tag leakage from unpublished documents), published files, and `.nojekyll`
-- `base-url` config key: hosted UI copies URLs and links to GitHub source
-- `shelf init --pages [--force]` generates an Actions workflow (`upload-pages-artifact` + `deploy-pages`); `shelf init --readme` adds a link-only README block
+- `base-url`: detected automatically (CI: `actions/configure-pages` output; locally: `gh api …/pages`), overridable by `--base-url` or the `base-url` config key; `init --pages` never writes it. Hosted UI copies URLs and links to GitHub source
+- `shelf pages status | enable [--yes] | enable --print`: check Pages, turn it on (POST or PUT `build_type=workflow`), or print the command
+- `shelf init --pages [--force] [--shelf-version X.Y.Z]` generates an Actions workflow (`configure-pages` → install shelf → `shelf publish` → `upload-pages-artifact` → `deploy-pages`), then offers `pages enable`; on "no" it prints the command
+- The Action installs the `shelf_version` recorded in `catalog.json` (written on every library write) unless `SHELF_VERSION` pins one in the workflow file; versions below v0.10.0 or a missing value stop the run
+- On failure, the Action's job summary and an `::error::` annotation name the fix (Pages off, private-repo guard, version resolution)
+- `shelf init --readme` adds a link-only README block
 
 **Out of Scope**
 - Hosting outside GitHub Pages (the `_site/` folder is portable, but not automated)
@@ -332,13 +337,18 @@ $ shelf doc list --scope all
 - [ ] [P21-TS02] Filtering: `marked` mode includes only `publish: true` documents; `all` includes every document and variant; the published index contains no title, tag, topic, kind, or snippet from an unpublished document
 - [ ] [P21-TS03] Guard matrix: public → publishes; private, internal, or unknown → exit 2 without `--force` in both modes, publishes with it; `--dry-run` never requires `--force`; detection reads `$GITHUB_EVENT_PATH` first, then `gh`, and any failure counts as unknown
 - [ ] [P21-TS04] `--dry-run` output lists documents, visibility, the not-published count, and the publish-everything footer (with the `--force` note for private repos)
-- [ ] [P21-TS05] `_site` contains `.nojekyll`; `base-url` fills `root` so Copy path yields URLs
-- [ ] [P21-TS06] `init --pages` writes the workflow; for a private repo it refuses without `--force` and writes `--force` into the workflow with it; `init --readme` inserts and updates the marked block idempotently
+- [ ] [P21-TS05] `_site` contains `.nojekyll`; base-URL precedence `--base-url` > config > detected (`--detected-base-url` in CI, `gh` locally) > none; Copy path yields URLs when one resolves
+- [ ] [P21-TS06] `init --pages` writes the workflow; for a private repo it refuses without `--force` and writes `--force` into the workflow with it; `--shelf-version` writes the `SHELF_VERSION` pin; it never writes `base-url`; `init --readme` inserts and updates the marked block idempotently
+- [ ] [P21-TS07] `shelf_version` is written on every library write; the workflow's version step uses the pin when set, else the catalog value, and fails with a named fix when the value is missing or below v0.10.0
+- [ ] [P21-TS08] `pages status` exit codes (0 ready, 1 not ready); `pages enable` chooses POST vs PUT by state, asks before running, `--yes` skips, `--print` runs nothing; `init --pages` offers enable and prints the command on "no"
+- [ ] [P21-TS09] Generated workflow: `if: failure()` step writes an annotation and job summary with the fix for each failing step (configure-pages, guard exit 2, version resolution)
 - [ ] [P21-T01] Catalog schema v2 + migration + `--publish` flags
 - [ ] [P21-T02] `shelf publish` site builder with filtered catalog and index
 - [ ] [P21-T03] Visibility detection and the `--force` guard
-- [ ] [P21-T04] `base-url` hosted mode in `index.html.tmpl`
-- [ ] [P21-T05] `init --pages` workflow generator and `init --readme` block
+- [ ] [P21-T04] Hosted mode in `index.html.tmpl` and base-URL resolution (`--base-url`, config, `--detected-base-url`, `gh` detection)
+- [ ] [P21-T05] `init --pages` workflow generator (version step with `SHELF_VERSION` pin, failure-summary step) and `init --readme` block
+- [ ] [P21-T09] `shelf_version` written by every library write (`commit_library`) as part of schema v2
+- [ ] [P21-T10] `shelf pages status | enable | enable --print`
 - [ ] [P21-T06] Skill: publish routing, mode and visibility reporting; bump plugin to 0.3.0
 - [ ] [P21-T07] PRD (§2 non-goal, §4, §5, §10, §11) and README "Publishing" section
 - [ ] [P21-T08] Bump to v0.10.0; `make check` and `just all` green; PR merged; tag `v0.10.0` pushed
@@ -360,6 +370,7 @@ error: smorin/shelf-library is private; publishing 3 documents requires --force 
 
 ### Manual Verification
 - A pilot deploy of a test repo to GitHub Pages serves the filtered index; copy-text and Copy path work on the hosted page
+- With Pages disabled on the pilot repo, the failed run's summary shows the `gh api` command; `shelf pages enable` fixes it and a re-run deploys
 
 ---
 

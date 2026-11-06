@@ -29,6 +29,9 @@ Existing properties make this feasible. Catalog paths are library-relative. The 
 | D4 | What gets published | Allowlist per document, plus a library-level `publish` switch. Making everything publishable must be easy to discover. |
 | D5 | "Publish everything" scope | Every document and every variant (HTML, Markdown, PDF). No format filter. |
 | D6 | Private-repo guard | **Always:** any publish from a private, internal, or unverifiable repo requires `--force`, in both publish modes |
+| D7 | Turning on Pages | `shelf init --pages` offers to run the setting change; on "no" it prints the command. `shelf pages enable --print` prints it any time. A failed Action names the fix in its job summary. |
+| D8 | Shelf version used by the Action | The version recorded in `catalog.json` (`shelf_version`, written on every library write), overridable by a pin (`SHELF_VERSION`) in the workflow file |
+| D9 | `base-url` | Detected automatically; overridable by `--base-url` or the `base-url` config key. `init --pages` does not write it. |
 
 ---
 
@@ -159,6 +162,8 @@ Every `shelf publish` run (except `--dry-run`) checks the visibility of the repo
 
 ### `shelf publish --out DIR`
 
+`shelf publish` never creates a repo and never pushes. It builds a folder from a library that already exists, in whichever repo holds it: the dedicated `<you>/shelf-library` repo (user library, created by `shelf init --github`) or the code repo containing `shelf/` (project library).
+
 Default `DIR` is `_site`. It builds:
 
 - a filtered `catalog.json` containing only published documents;
@@ -168,18 +173,104 @@ Default `DIR` is `_site`. It builds:
 
 The output is a build artifact. It is not committed, and `shelf audit` ignores it.
 
-### Hosted-mode UI
+Run locally, `shelf publish` is a **preview**: the same filter and the same guard, with the result viewable through any static server (for example `python3 -m http.server -d _site`). Deploying happens only through the Action, so every deploy corresponds to a pushed commit.
 
-New library config key `base-url` (for example `https://you.github.io/repo/`) fills `page_data["root"]` in the published index. With it set, **Copy path** copies the document's URL instead of `/docs/...`, and each document gets a "view source on GitHub" link when the GitHub repo is known. Copy-text needs no change; it already fetches by relative path.
+### How deployment works
 
-### Setup commands
+```text
+ your machine                         GitHub
+ shelf doc add --publish … --commit
+ git push  ──────────────────────▶  repo main branch (catalog.json + docs/; never _site/)
+                                           │  push to main triggers
+                                           ▼
+                                    Actions runner (temporary)
+                                      1. checkout
+                                      2. actions/configure-pages  → Pages on? site URL?
+                                      3. install shelf (version: see below)
+                                      4. shelf publish --out _site  (filter + guard)
+                                      5. actions/upload-pages-artifact (zip _site/)
+                                      6. actions/deploy-pages
+                                           ▼
+                                    Pages serves https://<owner>.github.io/<repo>/
+```
 
-- `shelf init --pages [--force]` writes `.github/workflows/shelf-pages.yml`. The workflow runs `shelf publish`, then `actions/upload-pages-artifact` and `actions/deploy-pages`. It works for both the repo-root layout and the `shelf/` layout, and it avoids branch deploys, which can serve only `/` or `/docs`.
-- `shelf init --readme` adds a link-only block to the repo's `README.md`, between `<!-- shelf:start -->` and `<!-- shelf:end -->`: a link to the library folder and, when `base-url` is set, to the Pages site. Re-running updates the block in place.
+The site is deployed as an artifact, not committed to a `gh-pages` branch, so filtered output never enters Git history; an un-published document disappears at the next deploy.
+
+**Plan limits:** on GitHub Free, Pages works only for public repos. A private repo needs GitHub Pro, Team, or Enterprise, and its Pages site is still public unless Enterprise Cloud access control is on.
+
+### Hosted-mode UI and `base-url`
+
+`base-url` fills `page_data["root"]` in the published index. With it set, **Copy path** copies the document's URL instead of `/docs/...`, and each document gets a "view source on GitHub" link when the GitHub repo is known. Copy-text needs no change; it already fetches by relative path.
+
+Resolution, highest precedence first:
+
+| # | Source | Use |
+|---|---|---|
+| 1 | `shelf publish --base-url URL` | One-off override |
+| 2 | `base-url` key in the config that selected the library | Lasting override, for example a fixed custom domain |
+| 3 | Detected Pages URL | In CI, the `base_url` output of `actions/configure-pages`, passed by the workflow as `--detected-base-url`. Locally, `gh api repos/<owner>/<repo>/pages --jq .html_url`. Both include a custom domain. |
+| 4 | None | Copy path copies relative paths |
+
+`init --pages` does **not** write `base-url`; a written value would override detection and hide a later custom-domain change.
+
+### Turning on Pages: `shelf pages`
+
+A workflow deploy needs the repo's Pages source set to "GitHub Actions", a one-time repo setting outside the workflow file.
+
+| Command | Behavior |
+|---|---|
+| `shelf pages status` | Reports whether Pages is enabled, its source, and its URL. Exits `1` when Pages is not set to deploy from GitHub Actions (a predicate result, R6.2). |
+| `shelf pages enable` | Shows the exact command, asks for confirmation, runs it. `--yes` skips the prompt. |
+| `shelf pages enable --print` | Prints the command and runs nothing |
+
+The command depends on the current state, which `status` detects:
+
+```bash
+gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow   # Pages never enabled
+gh api -X PUT  repos/<owner>/<repo>/pages -f build_type=workflow   # enabled, but deploying from a branch
+```
+
+### Which shelf version the Action runs
+
+Every library write records the writing version in `catalog.json` as `"shelf_version"` (added with schema version 2). The workflow installs that version unless the workflow file pins one:
+
+```bash
+v="${SHELF_VERSION:-$(jq -r '.shelf_version // empty' <library>/catalog.json)}"
+uv tool install "git+https://github.com/smorinlabs/shelf@v$v"
+```
+
+- **Default:** `SHELF_VERSION` is empty in the generated workflow, so the site is built by the version that last wrote the catalog. Upgrading shelf locally and changing the library moves CI forward.
+- **Override:** `shelf init --pages --shelf-version X.Y.Z` writes `SHELF_VERSION: "X.Y.Z"` into the workflow's `env`. The pin lives in the workflow file because the Action can read only the repo, and the user library's config sits outside it (`~/.config`).
+- **Minimum version:** a version below v0.10.0 (no publishing support), or a missing `shelf_version` with no pin, stops the run with a message naming the fix.
+
+### `shelf init --pages`
+
+`shelf init --pages [--force] [--shelf-version X.Y.Z]`:
+
+1. Checks repo visibility; a private or unknown repo refuses without `--force` (same message as `publish`). With `--force`, `--force` is written into the workflow's `shelf publish` step.
+2. Writes `.github/workflows/shelf-pages.yml`: trigger on pushes to `main` that touch the library (no path filter for the dedicated repo) plus `workflow_dispatch`; permissions `contents: read`, `pages: write`, `id-token: write`; a `pages` concurrency group; the six steps above; the library path for this layout.
+3. Runs the `pages status` check. If Pages is not ready, offers to run `pages enable`; on "no", prints the command and `https://github.com/<owner>/<repo>/settings/pages`.
+4. Never commits the workflow; the user commits it.
+
+The workflow never commits or pushes, never runs on pull requests, and uses no secrets (deploy authenticates with GitHub's OIDC token).
+
+### Failure reporting in the Action
+
+A step guarded by `if: failure()` writes an `::error::` annotation and a job summary (`$GITHUB_STEP_SUMMARY`) naming the fix, so the cause shows on the failed run itself:
+
+| Failing step | Summary tells you |
+|---|---|
+| `actions/configure-pages` (Pages off or wrong source) | The exact `gh api` command, `shelf pages enable`, and the settings URL |
+| `shelf publish` exit 2 (private-repo guard) | The repo is private; how to add `--force` via `shelf init --pages --force` |
+| Version resolution (missing or too-old `shelf_version`) | Upgrade shelf locally and write the library, or set `SHELF_VERSION` |
+
+### `shelf init --readme`
+
+- `shelf init --readme` adds a link-only block to the repo's `README.md`, between `<!-- shelf:start -->` and `<!-- shelf:end -->`: a link to the library folder and, when a base URL resolves (see the `base-url` table), to the Pages site. Re-running updates the block in place.
 
 ---
 
 ## PRD changes when each project ships
 
 - **P20:** rewrite §4 to the new precedence chain; remove the R5.1/R5.2 waiver in §5 (system scope stays out); close §14.3 by pointing at the two scopes.
-- **P21:** narrow the §2 non-goal "Not a hosted service or public site" to "not a hosted service; opt-in static publishing only"; add `shelf publish` to §5 and §11; document `publish` and `base-url` in §4; bump §10 to schema version 2.
+- **P21:** narrow the §2 non-goal "Not a hosted service or public site" to "not a hosted service; opt-in static publishing only"; add `shelf publish` and `shelf pages` to §5 and §11; document `publish` and `base-url` in §4; bump §10 to schema version 2 (`publish` per document, `shelf_version` at the top level).
