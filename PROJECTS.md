@@ -277,7 +277,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - Publishing (P21)
 
 ### Tests & Tasks
-- [ ] [P20-T00] Prerequisite: P13-T02 path-scoped commits merged and released (v0.8.4)
+- [x] [P20-T00] Prerequisite: P13-T02 path-scoped commits merged and released (v0.8.4, PR #17, 2026-11-06)
 - [ ] [P20-TS01] Discovery: nearest `.shelf/shelf_config.toml` wins; search stops at `.git`; absolute `library` in a project config is rejected; `--config` replaces discovered files
 - [ ] [P20-TS02] Precedence matrix: `--library` > `SHELF_LIBRARY` > project > user > unconfigured error; `--scope project` without a project scope exits 2
 - [ ] [P20-TS03] Combined reads: `doc list`/`doc view` return both scopes with a `scope` field (table and JSON); `--scope` narrows
@@ -384,7 +384,7 @@ error: smorin/shelf-library is private; publishing 3 documents requires --force 
 
 ---
 
-## [ ] Project P22: Install agent skills from the CLI — `shelf agent` (version TBD; plugin unchanged)
+## [~] Project P22: Install agent skills from the CLI — `shelf agent` (version TBD; plugin unchanged)
 **Goal/Requirement**: Let the CLI install its own skills (`shelf`, `shelf-reference`) for Claude Code and Codex/Cursor at user or project scope, as copies matched to the CLI version or as dev-mode symlinks into a checkout, never replacing a placement shelf did not install unless forced. Modeled on `baml agent install`. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 3). Approved 2026-11-06; `shelf skill` is an alias for `shelf agent`; default scope `user`, asking about project scope inside a repo with a project shelf.
 - `shelf agent install [--scope user|project] [--dev [--source PATH]] [--force] [--dry-run]`, `shelf agent status [--json]`, `shelf agent uninstall`; `shelf skill …` is an alias
 - Writes both `.claude/skills/<name>` and `.agents/skills/<name>`; user scope under `~`, project scope at the `.shelf/` directory or Git repo root (refused for no repo, `$HOME` repos, and non-ancestor repo roots)
@@ -403,7 +403,7 @@ error: smorin/shelf-library is private; publishing 3 documents requires --force 
 - [ ] [P22-TS05] Safety: replacing or uninstalling a symlink never modifies its target; backup slot holds exactly the previous placement; an injected failure mid-swap restores it
 - [ ] [P22-TS06] `--dry-run` writes nothing and prints `would …` lines; `agent status --json` reports kind, target, version, stale
 - [ ] [P22-TS07] Packaging: the wheel contains the skills; the packaged copy matches `plugins/shelf/skills/` byte for byte
-- [ ] [P22-TS10] Scope question: without `--scope` inside a repo with a project shelf, a TTY asks (yes → project, no/Enter → user); `--no-input`/no TTY installs at user scope and prints the project-scope command; `--scope` and `--yes` behave as specified (no question, `--yes` does not answer it); no project shelf → no question
+- [ ] [P22-TS10] (moved to P20: needs project-shelf discovery) Scope question: without `--scope` inside a repo with a project shelf, a TTY asks (yes → project, no/Enter → user); `--no-input`/no TTY installs at user scope and prints the project-scope command; `--scope` and `--yes` behave as specified (no question, `--yes` does not answer it); no project shelf → no question
 - [ ] [P22-TS09] Alias: `shelf skill install|status|uninstall` behaves identically to `shelf agent …` and appears in `--help`; `agent status` notes a missing project-scope skill in a repo with a project library
 - [ ] [P22-TS08] Adoption: on a machine whose placements are symlinks to the same checkout (the current dev setup), `install --dev --source <checkout>` reports `unchanged` and changes nothing
 - [ ] [P22-T01] Bundle the skills as package data with the sync test
