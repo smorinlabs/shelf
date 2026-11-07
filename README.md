@@ -837,10 +837,11 @@ shelf/                               # monorepo: CLI + plugin + marketplace
 ├── src/shelf/                       # the Python package (the only thing in the wheel)
 │   ├── cli/                         # click command tree
 │   ├── core/                        # config, catalog, paths, slugs, atomic writes, audit, git
+│   ├── agent_skills/                # GENERATED copy of plugins/shelf/skills for `shelf agent install`
 │   ├── server/                      # local server for `shelf open`
 │   └── templates/index.html.tmpl    # UI template, rendered into each library
 ├── tests/                           # pytest suite
-├── plugins/shelf/                   # the Claude Code / Codex plugin and its skill
+├── plugins/shelf/                   # the Claude Code / Codex plugin; skills/ is the skills' master copy
 ├── .claude-plugin/marketplace.json  # Claude Code marketplace catalog
 ├── .agents/plugins/marketplace.json # Codex marketplace catalog
 ├── SHELF-PRD.md                     # product requirements and design rationale
@@ -848,10 +849,32 @@ shelf/                               # monorepo: CLI + plugin + marketplace
 ```
 
 ```bash
-make check     # check the toolchain: uv, just, git, Python ≥ 3.12
-just all       # format, lint (ruff), type-check (ty), and test (pytest)
-just test      # tests only
+make check             # check the toolchain: uv, just, git, lefthook, Python ≥ 3.12
+just install-hooks     # install the git hooks in lefthook.yml (once per clone)
+just all               # format, lint (ruff), type-check (ty), and test (pytest)
+just test              # tests only
+just sync-agent-skills # regenerate src/shelf/agent_skills from plugins/shelf/skills
 ```
+
+**The skills have one master copy.** Edit skills only in
+`plugins/shelf/skills/`, which the plugin marketplace installs.
+`src/shelf/agent_skills/` is a generated copy that the Python package ships for
+`shelf agent install`; its `GENERATED.md` says so.
+
+| Copy | Role | Edit it? |
+|---|---|---|
+| `plugins/shelf/skills/` | **Master.** Installed by the plugin marketplace. | Yes |
+| `src/shelf/agent_skills/` | **Generated** from the master. Installed by `shelf agent install`. | No |
+
+The pre-commit hook (`scripts/sync_agent_skills.py --staged`) regenerates and
+stages the copy whenever a commit changes the master. It uses the staged master,
+so unstaged edits never leak into the commit. It refuses a commit that edits
+only the generated copy. A test also fails whenever the two differ.
+
+Both copies are needed because a single symlinked copy does not survive
+packaging and installation: uv_build cannot package a symlinked folder, and
+Codex installs a plugin whose `skills/` is a symlink without its skills
+(tested 2026-11-07).
 
 Contribution notes:
 

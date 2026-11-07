@@ -14,7 +14,10 @@ typecheck:
 test:
     uv run pytest -q
 
-# Copy plugins/shelf/skills into the package after editing a skill (tests fail until they match)
+# Regenerate src/shelf/agent_skills from its master, plugins/shelf/skills (the pre-commit hook does this too)
 sync-agent-skills:
-    rm -rf src/shelf/agent_skills
-    cp -R plugins/shelf/skills src/shelf/agent_skills
+    uv run --quiet python scripts/sync_agent_skills.py
+
+# Install the repo's git hooks (lefthook.yml)
+install-hooks:
+    lefthook install
