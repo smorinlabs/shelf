@@ -449,3 +449,26 @@ def test_commit_options_accepts_no_commit_flag():
     result = CliRunner().invoke(cmd, ["--no-commit"])
     assert result.exit_code == 0, result.output
     assert "commit=False" in result.output
+
+
+# --- Codex review of 67362cf (PR #17 follow-up) -------------------------------
+
+
+def test_git_commit_all_works_in_a_repo_with_no_commits_yet(tmp_path):
+    """Codex: the HEAD-only lookup must not fail when HEAD does not exist yet."""
+    init_repo_with_identity(tmp_path)
+    (tmp_path / "catalog.json").write_text("{}\n")
+    (tmp_path / "staged.txt").write_text("staged by the user\n")
+    _git(tmp_path, "add", "staged.txt")
+
+    git_commit_all(tmp_path, "shelf: doc move x", paths=["catalog.json", "docs/gone"])
+
+    assert _committed(tmp_path) == {"catalog.json"}
+    assert "A  staged.txt" in _git(tmp_path, "status", "--porcelain").splitlines()
+
+
+def test_a_branch_named_merge_head_is_not_a_merge_in_progress(tmp_path):
+    """Codex: `rev-parse --verify MERGE_HEAD` also resolves a branch of that name."""
+    _baseline(tmp_path)
+    _git(tmp_path, "branch", "MERGE_HEAD")
+    assert git_core.merge_in_progress(tmp_path) is False
