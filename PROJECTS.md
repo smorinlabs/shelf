@@ -114,7 +114,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [ ] Project P10: Taxonomy maintenance (version TBD — v0.9.0 reassigned to P20 on 2026-11-05)
+## [ ] Project P10: Taxonomy maintenance (version TBD — next free when it ships)
 **Goal**: Add the deferred taxonomy-maintenance commands (PRD §14.5): `topic rename` (folder moves under `docs/topics/` + catalog `category` updates + regen), `topic remove`, `kind remove`. Follows the existing mutation pipeline (advisory lock, atomic commit-point, audit-detectable), with in-use guards.
 
 ### Tests & Tasks
@@ -263,7 +263,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [ ] Project P20: Project-scoped libraries (v0.9.0, plugin v0.2.0)
+## [ ] Project P20: Project-scoped libraries (v0.10.0, plugin v0.2.0)
 **Goal/Requirement**: Give shelf a **project** scope beside the existing **user** scope, like Claude Code skills. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 1). Approved 2026-11-05.
 - Discovery per CLI Design Standard R5.2: search the current directory and its parents for `.shelf/shelf_config.toml`, stopping at `.git`; its `library` is a relative path (default `shelf`)
 - Precedence: `--library` → `SHELF_LIBRARY` → project scope → user config → error
@@ -292,7 +292,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [ ] [P20-T06] Deterministic sorted document order in `catalog.json` to reduce merge conflicts
 - [ ] [P20-T07] Skill updates (`find`, `add`, `init` references) and plugin README; bump plugin to 0.2.0
 - [ ] [P20-T08] PRD: rewrite §4 precedence, remove the R5.1/R5.2 waiver in §5, close §14.3; README configuration section
-- [ ] [P20-T09] Bump to v0.9.0; `make check` and `just all` green; PR merged; tag `v0.9.0` pushed
+- [ ] [P20-T09] Bump to v0.10.0; `make check` and `just all` green; PR merged; tag `v0.10.0` pushed
 - [ ] Regression Test Status
 
 ### Deliverable
@@ -314,7 +314,7 @@ $ shelf doc list --scope all
 
 ---
 
-## [ ] Project P21: Publishing and GitHub Pages (v0.10.0, plugin v0.3.0)
+## [ ] Project P21: Publishing and GitHub Pages (v0.11.0, plugin v0.3.0)
 **Goal/Requirement**: Publish a library (user or project scope) as a filtered static site, deployable to GitHub Pages, without leaking private documents. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 2). Approved 2026-11-05.
 - `shelf publish` never creates a repo or pushes; it builds `_site/` from the library in whichever repo holds it. Locally it is a preview; deploys happen only through the Action (artifact deploy, never a `gh-pages` branch)
 - Per-document `publish: true|false` catalog field (schema v1 → v2 via `shelf migrate`), set with `doc add --publish` and `doc update --publish|--no-publish`
@@ -329,7 +329,7 @@ $ shelf doc list --scope all
 - Flags: `--yes` is consent; `--force` is only the private-repo guard override; `--no-input` prints commands instead of asking or running them
 - One-line next-step hints (suppressed by `-q`) after `doc add|update --publish` and local `shelf publish` when deploy is not set up
 - `shelf init --pages [--force] [--shelf-version X.Y.Z]` generates an Actions workflow (`configure-pages` → install shelf → `shelf publish` → `upload-pages-artifact` → `deploy-pages`), then offers `pages enable`; on "no" it prints the command
-- The Action installs the `shelf_version` recorded in `catalog.json` (written on every library write) unless `SHELF_VERSION` pins one in the workflow file; versions below v0.10.0 or a missing value stop the run
+- The Action installs the `shelf_version` recorded in `catalog.json` (written on every library write) unless `SHELF_VERSION` pins one in the workflow file; versions below v0.11.0 or a missing value stop the run
 - On failure, the Action's job summary and an `::error::` annotation name the fix (Pages off, private-repo guard, version resolution)
 - `shelf init --readme` adds a link-only README block
 
@@ -344,7 +344,7 @@ $ shelf doc list --scope all
 - [ ] [P21-TS04] `--dry-run` output lists documents, visibility, the not-published count, and the publish-everything footer (with the `--force` note for private repos)
 - [ ] [P21-TS05] `_site` contains `.nojekyll`; base-URL precedence `--base-url` > config > detected (`--detected-base-url` in CI, `gh` locally) > none; Copy path yields URLs when one resolves
 - [ ] [P21-TS06] `init --pages` writes the workflow; for a private repo it refuses without `--force` and writes `--force` into the workflow with it; `--shelf-version` writes the `SHELF_VERSION` pin; it never writes `base-url`; `init --readme` inserts and updates the marked block idempotently
-- [ ] [P21-TS07] `shelf_version` is written on every library write; the workflow's version step uses the pin when set, else the catalog value, and fails with a named fix when the value is missing or below v0.10.0
+- [ ] [P21-TS07] `shelf_version` is written on every library write; the workflow's version step uses the pin when set, else the catalog value, and fails with a named fix when the value is missing or below v0.11.0
 - [ ] [P21-TS08] `pages status` exit codes (0 ready, 1 not ready); `pages enable` chooses POST vs PUT by state, asks before running, `--yes` skips, `--print` runs nothing; `init --pages` offers enable and prints the command on "no"
 - [ ] [P21-TS10] Readiness checklist: steps evaluate in order and later steps report `skipped` after a failure; `--json` carries `status` and `fix`; hints appear after `doc add|update --publish` and local `publish` only when deploy is not set up, and `-q` suppresses them
 - [ ] [P21-TS11] `github create`: initializes Git when missing, runs `gh repo create … --private --source --push` (`--public` honored), `--dry-run` runs nothing, refuses for a project library with exit 2
@@ -361,7 +361,7 @@ $ shelf doc list --scope all
 - [ ] [P21-T12] Next-step hints in `doc add`, `doc update`, and `publish`
 - [ ] [P21-T06] Skill: publish routing, mode and visibility reporting; bump plugin to 0.3.0
 - [ ] [P21-T07] PRD (§2 non-goal, §4, §5, §10, §11) and README "Publishing" section
-- [ ] [P21-T08] Bump to v0.10.0; `make check` and `just all` green; PR merged; tag `v0.10.0` pushed
+- [ ] [P21-T08] Bump to v0.11.0; `make check` and `just all` green; PR merged; tag `v0.11.0` pushed
 - [ ] Regression Test Status
 
 ### Deliverable
@@ -384,7 +384,8 @@ error: smorin/shelf-library is private; publishing 3 documents requires --force 
 
 ---
 
-## [~] Project P22: Install agent skills from the CLI — `shelf agent` (version TBD; plugin unchanged)
+## [~] Project P22: Install agent skills from the CLI — `shelf agent` (v0.9.0; plugin unchanged)
+**Release order (2026-11-07)**: P22 ships first as v0.9.0; P20 moves to v0.10.0 and P21 to v0.11.0.
 **Goal/Requirement**: Let the CLI install its own skills (`shelf`, `shelf-reference`) for Claude Code and Codex/Cursor at user or project scope, as copies matched to the CLI version or as dev-mode symlinks into a checkout, never replacing a placement shelf did not install unless forced. Modeled on `baml agent install`. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 3). Approved 2026-11-06; `shelf skill` is an alias for `shelf agent`; default scope `user`, asking about project scope inside a repo with a project shelf.
 - `shelf agent install [--scope user|project] [--dev [--source PATH]] [--force] [--dry-run]`, `shelf agent status [--json]`, `shelf agent uninstall`; `shelf skill …` is an alias
 - Writes both `.claude/skills/<name>` and `.agents/skills/<name>`; user scope under `~`, project scope at the `.shelf/` directory or Git repo root (refused for no repo, `$HOME` repos, and non-ancestor repo roots)
@@ -396,25 +397,25 @@ error: smorin/shelf-library is private; publishing 3 documents requires --force 
 - Downloading skills from GitHub (`--source` URL/archive); prefixing skill names; agents beyond Claude Code and the `.agents/skills` readers (Codex, Cursor, OpenCode)
 
 ### Tests & Tasks
-- [ ] [P22-TS01] Scope roots: user → `~/.claude/skills` and `~/.agents/skills`; project → `.shelf/` dir or repo root; refused outside a repo, for a `$HOME` repo root, and for a non-ancestor repo root
-- [ ] [P22-TS02] Copy mode: installs bundled skills with stamp; re-run reports `unchanged`; newer CLI reports `updated`; unrelated skills untouched
-- [ ] [P22-TS03] Dev mode: `--source` and auto-detected checkout; invalid source exits 2; user scope writes absolute links; project scope writes relative links only for an in-repo source, else exits 2; no stamp written through a link
-- [ ] [P22-TS04] Classification matrix: each destination state from the spec table produces the right action with and without `--force`; skipped placements give exit 1 and name the flag
-- [ ] [P22-TS05] Safety: replacing or uninstalling a symlink never modifies its target; backup slot holds exactly the previous placement; an injected failure mid-swap restores it
-- [ ] [P22-TS06] `--dry-run` writes nothing and prints `would …` lines; `agent status --json` reports kind, target, version, stale
-- [ ] [P22-TS07] Packaging: the wheel contains the skills; the packaged copy matches `plugins/shelf/skills/` byte for byte
+- [x] [P22-TS01] Scope roots: user → `~/.claude/skills` and `~/.agents/skills`; project → `.shelf/` dir or repo root; refused outside a repo, for a `$HOME` repo root, and for a non-ancestor repo root
+- [x] [P22-TS02] Copy mode: installs bundled skills with stamp; re-run reports `unchanged`; newer CLI reports `updated`; unrelated skills untouched
+- [x] [P22-TS03] Dev mode: `--source` and auto-detected checkout; invalid source exits 2; user scope writes absolute links; project scope writes relative links only for an in-repo source, else exits 2; no stamp written through a link
+- [x] [P22-TS04] Classification matrix: each destination state from the spec table produces the right action with and without `--force`; skipped placements give exit 1 and name the flag
+- [x] [P22-TS05] Safety: replacing or uninstalling a symlink never modifies its target; backup slot holds exactly the previous placement; an injected failure mid-swap restores it
+- [x] [P22-TS06] `--dry-run` writes nothing and prints `would …` lines; `agent status --json` reports kind, target, version, stale
+- [x] [P22-TS07] Packaging: the wheel contains the skills; the packaged copy matches `plugins/shelf/skills/` byte for byte
 - [ ] [P22-TS10] (moved to P20: needs project-shelf discovery) Scope question: without `--scope` inside a repo with a project shelf, a TTY asks (yes → project, no/Enter → user); `--no-input`/no TTY installs at user scope and prints the project-scope command; `--scope` and `--yes` behave as specified (no question, `--yes` does not answer it); no project shelf → no question
-- [ ] [P22-TS09] Alias: `shelf skill install|status|uninstall` behaves identically to `shelf agent …` and appears in `--help`; `agent status` notes a missing project-scope skill in a repo with a project library
-- [ ] [P22-TS08] Adoption: on a machine whose placements are symlinks to the same checkout (the current dev setup), `install --dev --source <checkout>` reports `unchanged` and changes nothing
-- [ ] [P22-T01] Bundle the skills as package data with the sync test
-- [ ] [P22-T02] Scope-root resolution
-- [ ] [P22-T03] Destination classification, backup slot, atomic swap, symlink-safe removal
-- [ ] [P22-T04] `agent install` (copy and dev modes) with status output and `--dry-run`
-- [ ] [P22-T05] `agent status` and `agent uninstall`
-- [ ] [P22-T06] Stale-copy note in `shelf audit`; `init --scope project` offer (after P20)
-- [ ] [P22-T07] README and plugin README: the two install paths (plugin, `shelf agent install`) and when to use each; PRD §5, §11, §12
-- [ ] [P22-T08] Bump version; `make check` and `just all` green; PR merged; tag pushed
-- [ ] Regression Test Status
+- [x] [P22-TS09] Alias: `shelf skill install|status|uninstall` behaves identically to `shelf agent …` and appears in `--help`; `agent status` notes a missing project-scope skill in a repo with a project library
+- [x] [P22-TS08] Adoption: on a machine whose placements are symlinks to the same checkout (the current dev setup), `install --dev --source <checkout>` reports `unchanged` and changes nothing
+- [x] [P22-T01] Bundle the skills as package data with the sync test
+- [x] [P22-T02] Scope-root resolution
+- [x] [P22-T03] Destination classification, backup slot, atomic swap, symlink-safe removal
+- [x] [P22-T04] `agent install` (copy and dev modes) with status output and `--dry-run`
+- [x] [P22-T05] `agent status` and `agent uninstall`
+- [~] [P22-T06] Stale-copy note in `shelf audit` (done); `init --scope project` offer moves to P20 with the scope question
+- [x] [P22-T07] README and plugin README: the two install paths (plugin, `shelf agent install`) and when to use each; PRD §5, §11, §12
+- [ ] [P22-T08] Bump to v0.9.0; `make check` and `just all` green; PR merged; tag pushed
+- [x] Regression Test Status — 383 passing at v0.9.0 (30 new in `tests/test_agent.py`); `make check` and `just all` green; dry runs against this machine's real skill folders: `--dev --source ~/c/shelf` reports all four dev links `unchanged`, copy mode skips all four with `--force` named, nothing written
 
 ### Deliverable
 ```bash

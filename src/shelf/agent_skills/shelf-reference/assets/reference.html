@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <title>{{NAME}} — Shelf reference</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f5f4ef; color: #203331; font: 17px/1.6 system-ui, sans-serif; }
+    main { max-width: 960px; margin: auto; padding: clamp(16px, 4vw, 48px); overflow-wrap: anywhere; }
+    header { border-bottom: 3px solid #36736a; padding-bottom: 24px; }
+    h1 { font-size: clamp(28px, 5vw, 46px); line-height: 1.2; }
+    h2 { font-size: 22px; margin-top: 0; } h3 { font-size: 18px; }
+    section { margin: 20px 0; padding: clamp(16px, 3vw, 28px); background: white; border: 1px solid #d8dfda; border-radius: 12px; }
+    a { color: #155d54; text-underline-offset: 3px; }
+    a:focus-visible { outline: 3px solid #ad671e; outline-offset: 4px; }
+    dt { font-weight: 650; } dd { margin: 0 0 12px; }
+    p, .preserve { white-space: pre-wrap; } ul, ol { padding-left: 24px; }
+    .muted { color: #52625f; } .notes { border-left: 4px solid #ad671e; }
+    @media (min-width: 700px) { dl { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 10px; } }
+    @media print { body { background: white; } section { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+<main>
+  <!-- Author outside the library. Escape all values; remove unused optional sections.
+       URL placeholders require validation as well as HTML escaping. Replace unknown
+       link anchors with plain Unknown text. Do not save unresolved placeholders. -->
+  <header>
+    <span class="muted">Resource reference</span>
+    <h1>{{NAME}}</h1>
+    <p>{{DESCRIPTION}}</p>
+    <a href="{{CANONICAL_URL}}" rel="noopener noreferrer">Original resource</a>
+    <dl>
+      <dt>Researched</dt><dd>{{RESEARCH_DATE}}</dd>
+      <dt>Original saved date</dt><dd id="original-saved-date">{{ORIGINAL_SAVED_DATE_OR_UNKNOWN}}</dd>
+    </dl>
+  </header>
+  <section id="overview">
+    <h2>What it is and when useful</h2>
+    <p>{{WHAT_IT_IS}}</p>
+    <p>{{PRACTICAL_USES}}</p>
+    <p class="muted">Subjects and project connections: {{SUBJECTS_AND_PROJECTS}}</p>
+  </section>
+  <section id="capabilities"><h2>Capabilities</h2><ul><li>{{CAPABILITY_WITH_CITATION}}</li></ul></section>
+  <section id="requirements"><h2>Prerequisites</h2><p>{{PREREQUISITES}}</p></section>
+  <section id="limitations"><h2>Limitations and unknowns</h2><p>{{LIMITATIONS}}</p></section>
+  <section id="official-links">
+    <h2>Official links</h2>
+    <dl>
+      <dt>Homepage</dt><dd><a href="{{HOMEPAGE_URL}}" rel="noopener noreferrer">Homepage</a></dd>
+      <dt>Repository</dt><dd><a href="{{REPOSITORY_URL}}" rel="noopener noreferrer">Repository</a></dd>
+      <dt>Documentation</dt><dd><a href="{{DOCS_URL}}" rel="noopener noreferrer">Documentation</a></dd>
+      <dt>Pricing</dt><dd><a href="{{PRICING_URL}}" rel="noopener noreferrer">Pricing</a></dd>
+    </dl>
+  </section>
+  <section id="cost-license">
+    <h2>Cost and license</h2>
+    <h3>Cost</h3><p>{{COST_OR_UNKNOWN}}</p><p class="muted">Evidence and checked date: {{COST_EVIDENCE}}</p>
+    <h3>License and source availability</h3><p>{{LICENSE_OR_UNKNOWN}}</p><p class="muted">Evidence and checked date: {{LICENSE_EVIDENCE}}</p>
+  </section>
+  <!-- Optional profiles: retain only relevant sections, with verified facts or Unknown.
+       Cite each researched claim using links to entries in Sources. -->
+  <section id="model"><h2>AI model</h2><p>{{MODEL_MODALITIES_WEIGHTS_DEPLOYMENT_REQUIREMENTS}}</p></section>
+  <section id="speech-to-text"><h2>Speech-to-text</h2><p>{{STT_LANGUAGES_STREAMING_TIMESTAMPS_DIARIZATION_REQUIREMENTS}}</p></section>
+  <section id="agent-tool"><h2>Agent tool</h2><p>{{AGENT_INTEGRATIONS_EXECUTION_PERMISSIONS}}</p></section>
+  <section id="skill"><h2>Skill</h2><p>{{SKILL_HOST_TRIGGERS_PERMISSIONS_INSTALLATION}}</p></section>
+  <section id="example-project"><h2>Example project</h2><p>{{PROJECT_PURPOSE_STACK_SETUP_REUSE}}</p></section>
+  <section id="hardware"><h2>Hardware</h2><p>{{HARDWARE_BOARD_PROCESSOR_VOLTAGE_INTERFACES_REQUIREMENTS}}</p></section>
+  <section id="electronics"><h2>Learning electronics</h2><p>{{LEARNING_LEVEL_EQUIPMENT_OUTCOMES_SAFETY}}</p></section>
+  <section id="library"><h2>Library</h2><p>{{LIBRARY_LANGUAGE_API_INSTALLATION_COMPATIBILITY}}</p></section>
+  <section id="product"><h2>Product</h2><p>{{PRODUCT_PLATFORM_USE_CASES_REQUIREMENTS}}</p></section>
+  <section id="related"><h2>Related resources</h2><p>{{RELATED_OR_UNKNOWN}}</p></section>
+  <!-- USER NOTES: preserve user text and existing hand edits during refresh. -->
+  <section id="user-notes" class="notes"><h2>User notes</h2><div class="preserve">{{USER_NOTES}}</div></section>
+  <section id="sources">
+    <h2>Sources</h2>
+    <p class="muted">Unknown facts remain unknown. Source access dates are separate from original saved dates.</p>
+    <ol><li id="source-1"><a href="{{SOURCE_URL}}" rel="noopener noreferrer">{{SOURCE_LABEL}}</a> — accessed {{SOURCE_ACCESS_DATE}}. {{SOURCE_SUPPORTS}}</li></ol>
+  </section>
+</main>
+</body>
+</html>

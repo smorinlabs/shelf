@@ -181,6 +181,21 @@ codex plugin marketplace add https://github.com/smorinlabs/shelf
 codex plugin add shelf@shelf
 ```
 
+**Without the plugin: `shelf agent install`.** The CLI carries its own copy of
+both skills, matched to its version, and can install them for Claude Code
+(`.claude/skills/`) and for Codex and Cursor (`.agents/skills/`). Use one
+install path, not both: with the plugin enabled, `shelf agent install` skips the
+Claude Code folder so the skill does not load twice.
+
+```bash
+shelf agent install                    # copies into ~/.claude/skills and ~/.agents/skills
+shelf agent install --scope project    # into this repo, so teammates get the skills
+shelf agent install --dev --source ~/c/shelf   # symlinks into a checkout, for skill development
+shelf agent status                     # what is installed, and whether a copy is stale
+```
+
+See [`shelf agent`](#shelf-agent-alias-skill) for every option.
+
 After installing, talk to the agent in plain language. The skill matches your
 request to one operation and loads only that operation's instructions:
 
@@ -361,7 +376,11 @@ shelf
 ├── regen                        regenerate index.html
 ├── migrate                      upgrade catalog.json's schema
 ├── open                         open the library UI
-└── path [config|index]          print resolved locations
+├── path [config|index]          print resolved locations
+└── agent (skill)                install the agent skills
+    ├── install                  copy or link the skills into skill folders
+    ├── status                   list installed skills and stale copies
+    └── uninstall                remove skills that shelf installed
 ```
 
 Running `shelf` alone prints help and exits `0`. Running a group alone, such
@@ -630,6 +649,52 @@ shelf open [--static]
 Opens the library UI. See [The library UI](#the-library-ui).
 
 ---
+
+### `shelf agent` (alias `skill`)
+
+Installs the `shelf` and `shelf-reference` skills into both skill folders of a
+scope: `.claude/skills/` for Claude Code, and `.agents/skills/` for Codex,
+Cursor, and OpenCode.
+
+```bash
+shelf agent install [--scope user|project] [--dev [--source PATH]] [--force] [--dry-run]
+shelf agent status [--scope user|project|all] [--json]
+shelf agent uninstall [--scope user|project] [--force] [--dry-run]
+```
+
+| Scope | Skill folders |
+|---|---|
+| `user` (default) | `~/.claude/skills/` and `~/.agents/skills/` |
+| `project` | The Git repo root's `.claude/skills/` and `.agents/skills/`, for committing. Refused outside a repo and for a repo rooted at your home directory. |
+
+| Mode | What is placed |
+|---|---|
+| Copy (default) | The skills bundled with this CLI, plus a `.shelf-agent.json` stamp recording the version. Re-running refreshes copies that shelf installed. |
+| `--dev` | A symlink into a shelf checkout (`--source`, or the checkout this `shelf` runs from), so skill edits take effect immediately. At project scope the checkout must be inside the repo, and the link is relative. |
+
+**shelf never replaces a placement it did not install** unless you pass
+`--force`. It skips a hand-made copy, a symlink pointing elsewhere, a switch
+between copy and dev mode, and the Claude Code folder when the `shelf@shelf`
+plugin is enabled there. Each skip is reported with its reason, and the command
+exits `1`. With `--force`, the old placement is moved to
+`shelf-old_skills/<name>` in the same folder, and a symlink is only unlinked;
+its target is never touched. `--dry-run` reports the same lines without
+writing anything.
+
+```text
+$ shelf agent install --dev --source ~/c/shelf
+Installed shelf agent skills (scope: user, mode: dev → ~/c/shelf, v0.9.0)
+  Claude Code (~/.claude/skills)
+    shelf             unchanged (dev link)
+    shelf-reference   unchanged (dev link)
+  Codex / Cursor (~/.agents/skills)
+    shelf             unchanged (dev link)
+    shelf-reference   unchanged (dev link)
+```
+
+When a user-scope copy is older than the CLI, `shelf agent status` marks it
+stale and `shelf audit` prints a one-line note (hidden by `-q`). Restart running
+agent sessions after an install so they load the new skills.
 
 ## Exit codes
 

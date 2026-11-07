@@ -168,6 +168,7 @@ Detailed in §11.
 - `shelf doc adopt <folder>` — register an existing in-library folder (orphan adoption).
 - `shelf orphan list` / `shelf orphan delete <path>` — manage uncataloged files.
 - `shelf audit` — run the library consistency check.
+- `shelf agent install | status | uninstall` (alias `shelf skill`) — install the bundled agent skills (§11.16).
 - `shelf open` — open the UI (§13).
 - `shelf path [config|index]` — print resolved locations.
 - `shelf regen` — regenerate `index.html` from the current catalog.
@@ -532,11 +533,21 @@ shelf orphan delete <path> [--yes]
 
 `shelf doc adopt` registers an existing per-document folder already under `docs/` without copying: anchoring is derived from the folder's location, the slug from the folder name; classification flags are required as for `shelf doc add`. This is the orphan-adoption repair (§11.6). `shelf orphan list` enumerates files under `docs/` with no catalog entry — the same detection as audit check 1. `shelf orphan delete` deletes such a file or folder and errors if the path is referenced by the catalog. Both `doc adopt` and `orphan delete` are mutating commands with the usual conventions; `orphan delete` prompts on a TTY.
 
+### 11.16 `shelf agent` (alias `shelf skill`)
+
+```
+shelf agent install [--scope user|project] [--dev [--source PATH]] [--force] [--dry-run]
+shelf agent status [--scope user|project|all] [--json]
+shelf agent uninstall [--scope user|project] [--force] [--dry-run]
+```
+
+Installs the `shelf` and `shelf-reference` skills into `.claude/skills/` and `.agents/skills/` under the home directory (`user`, the default) or the Git repo root (`project`). The skills ship inside the package (`src/shelf/agent_skills/`, kept identical to `plugins/shelf/skills/` by a test), so a copy matches the CLI version; `--dev` places symlinks into a checkout instead. A placement shelf did not install, a mode switch, or the Claude Code folder with the `shelf@shelf` plugin enabled is skipped (exit `1`) unless `--force`, which first moves the old placement to `shelf-old_skills/<name>`; symlinks are unlinked, never followed. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md`, Part 3.
+
 ---
 
 ## 12. Skills
 
-The `shelf` repo ships a **single `shelf` skill** (progressive disclosure) — a lean `SKILL.md` (one always-on trigger) that routes to a per-operation reference loaded on demand. It lives in the repo's plugin (§3), shells out to the `shelf` CLI, and packages for **both Claude Code and Codex**, verified against both. The skill classifies intent and confirms; it never mutates library state itself (§5). *(Through P08 this was seven separate `shelf-*` skills; P09 consolidated them into one skill, and P14 rewrote this section to match.)*
+The `shelf` repo ships a **single `shelf` skill** (progressive disclosure) — a lean `SKILL.md` (one always-on trigger) that routes to a per-operation reference loaded on demand. It lives in the repo's plugin (§3), shells out to the `shelf` CLI, and packages for **both Claude Code and Codex**, verified against both. It installs through the plugin marketplace or through `shelf agent install` (§11.16). The skill classifies intent and confirms; it never mutates library state itself (§5). *(Through P08 this was seven separate `shelf-*` skills; P09 consolidated them into one skill, and P14 rewrote this section to match.)*
 
 The reference↔CLI ownership table is normative — every CLI capability is owned by exactly one reference, or is deliberately direct-CLI:
 

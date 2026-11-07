@@ -4,8 +4,8 @@ from importlib.metadata import version
 
 import click
 
+from shelf.cli import agent_cmd, taxonomy
 from shelf.cli import docs as doc_cmds
-from shelf.cli import taxonomy
 from shelf.cli.audit_cmd import audit_cmd
 from shelf.cli.doc_add import doc_add
 from shelf.cli.doc_adopt import doc_adopt
@@ -68,6 +68,7 @@ doc_format = _group(doc, "format", "Manage a document's format variants.")
 orphan = _group(cli, "orphan", "Manage uncataloged files.")
 topic = _group(cli, "topic", "Manage topic buckets.")
 kind = _group(cli, "kind", "Manage kinds.")
+agent_group = _group(cli, "agent", "Install shelf's agent skills (alias: skill).")
 
 topic.add_command(taxonomy.topic_add)
 topic.add_command(taxonomy.topic_list)
@@ -86,6 +87,11 @@ doc_format.add_command(format_add)
 doc_format.add_command(format_delete)
 orphan.add_command(orphan_list)
 orphan.add_command(orphan_delete)
+
+agent_group.add_command(agent_cmd.install_cmd)
+agent_group.add_command(agent_cmd.status_cmd)
+agent_group.add_command(agent_cmd.uninstall_cmd)
+cli.add_command(agent_group, "skill")
 
 cli.add_command(open_cmd)
 
