@@ -121,7 +121,8 @@ def status_cmd(scope, output, json_):
         return
     for r in rows:
         detail = r["target"] or (f"v{r['version']}" if r["version"] else "")
-        stale = " (stale: shelf agent install)" if r["stale"] else ""
+        fix = "shelf agent install" + (" --scope project" if r["scope"] == "project" else "")
+        stale = f" (stale: {fix})" if r["stale"] else ""
         click.echo(f"{r['scope']}\t{r['folder']}\t{r['skill']}\t{r['kind']}\t{detail}{stale}")
 
 
@@ -142,10 +143,10 @@ def uninstall_cmd(scope, force, dry_run):
 def stale_note() -> str | None:
     """One-line note when a user-scope copy is older than this CLI, else None."""
     rows = agent.status_rows(Path.home().resolve(), "user")
-    stale = sorted({r["version"] for r in rows if r["stale"]})
+    stale = sorted({r["version"] or "unknown" for r in rows if r["stale"]})
     if not stale:
         return None
-    return (
-        f"note: installed shelf skill is v{stale[0]}, CLI is v{agent.cli_version()}: "
-        "shelf agent install"
-    )
+    known = [v for v in stale if v != "unknown"]
+    installed = f"is v{known[0]}" if known else "has no recorded version"
+    cli = agent.cli_version()
+    return f"note: installed shelf skill {installed}, CLI is v{cli}: shelf agent install"

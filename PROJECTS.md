@@ -441,5 +441,10 @@ Restart any running agent session to pick up changes.
 ---
 
 ## Backlog — minor
+- [ ] **Skill-text fixes from the PR #18 review** (CodeRabbit, found when the skills were copied into the package; the text predates P22). Edit `plugins/shelf/skills/shelf/references/`, then `just sync-agent-skills` and bump the plugin version:
+      - `add.md`: when the agent fetches a URL to a temp file, pass the URL as `--source` so the catalog keeps it
+      - `init.md`: `shelf path` errors when no library exists; state the default path (`${XDG_DATA_HOME:-~/.local/share}/shelf`) directly
+      - `open.md`: `shelf open` serves in the foreground; say how the agent keeps it running and reads the bound URL, or use `--static`
+      - `remove.md`: `doc view` lists variants but not assets; list the folder's contents before asking to delete it
 - [x] **UI favicon 404** (found in the P08 browser smoke): FIXED — `index.html.tmpl` now declares `<link rel="icon" href="data:,">`, so browsers no longer request `/favicon.ico` (no 404) in either core `file://` or enhanced mode. Regression-tested (`test_index_declares_a_favicon_to_avoid_a_404`).
 - [x] Live browser smoke of the P08 UI hardening (C1 XSS / C3 copy-text / C4 search) — DONE; all three verified live with screenshots.

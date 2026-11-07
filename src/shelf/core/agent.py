@@ -137,7 +137,7 @@ def _is_dev_link(dest: Path) -> bool:
     return (
         dest.is_symlink()
         and target.name == dest.name
-        and target.parent.as_posix().endswith(CHECKOUT_SKILLS.as_posix())
+        and target.parent.parts[-len(CHECKOUT_SKILLS.parts) :] == CHECKOUT_SKILLS.parts
         and (target / "SKILL.md").is_file()
     )
 
@@ -198,13 +198,24 @@ def _move_into_place(src: Path, dest: Path) -> None:
     os.replace(src, dest)
 
 
+def _backup_slot(p: Placement) -> Path:
+    """The one-placement backup slot; refuses a symlinked backup folder."""
+    folder = p.skills_dir / BACKUP_DIR
+    if folder.is_symlink():
+        raise click.ClickException(
+            f"{folder} is a symlink; shelf will not move or delete files through it. "
+            "Replace it with a plain folder and re-run."
+        )
+    return folder / p.skill
+
+
 def _swap(p: Placement, build) -> None:
     """Build the new placement beside *p.dest*, back up the old one, then swap it in."""
     tmp_parent = p.skills_dir / f".shelf-agent-tmp-{os.getpid()}"
     _remove(tmp_parent)
     tmp_parent.mkdir(parents=True)
     staged = tmp_parent / p.skill
-    backup = p.skills_dir / BACKUP_DIR / p.skill
+    backup = _backup_slot(p)
     backed_up = False
     try:
         build(staged)
@@ -261,10 +272,10 @@ def install(
         info = inspect(p.dest)
         kind = info["kind"]
         target = dev / p.skill if dev is not None else None
-        verb, reason = _decide(p, info, target, has_plugin, force)
+        text = _link_text(p, target, relative_links) if target is not None else None
+        verb, reason = _decide(p, info, target, text, has_plugin, force)
         if verb in ("created", "updated", "replaced") and not dry_run:
             if target is not None:
-                text = _link_text(p, target, relative_links)
                 _swap(p, lambda staged, text=text: staged.symlink_to(text))
             else:
                 _swap(p, lambda staged, skill=p.skill: _build_copy(staged, skill))
@@ -274,7 +285,14 @@ def install(
     return results
 
 
-def _decide(p: Placement, info: dict, target: Path | None, has_plugin: bool, force: bool):
+def _decide(
+    p: Placement,
+    info: dict,
+    target: Path | None,
+    text: str | None,
+    has_plugin: bool,
+    force: bool,
+):
     kind = info["kind"]
     guard = None
     if has_plugin and p.folder == ".claude/skills":
@@ -283,7 +301,9 @@ def _decide(p: Placement, info: dict, target: Path | None, has_plugin: bool, for
         if kind == "missing":
             return "created", ""
         if kind in ("dev-link", "link") and Path(os.path.realpath(p.dest)) == target.resolve():
-            return "unchanged", "dev link"
+            if info["target"] == text:
+                return "unchanged", "dev link"
+            return "updated", f"link rewritten to {text}"
         guard = {
             "copy": "a copy is installed here; switching to a dev link",
             "dev-link": f"linked to another checkout ({info['target']})",
@@ -329,7 +349,7 @@ def uninstall(root: Path, *, force: bool, dry_run: bool) -> list[Outcome]:
             results.append(Outcome(p, "skipped", reason))
             continue
         if not dry_run:
-            backup = p.skills_dir / BACKUP_DIR / p.skill
+            backup = _backup_slot(p)
             _remove(backup)
             backup.parent.mkdir(parents=True, exist_ok=True)
             os.replace(p.dest, backup)

@@ -402,3 +402,78 @@ def test_audit_notes_a_stale_user_copy(home):
     assert r.exit_code == 0, r.output
     assert "shelf agent install" in r.output
     assert "shelf agent install" not in run(["-q", "audit"]).output
+
+
+# --- PR #18 review findings -------------------------------------------------
+
+
+def test_audit_survives_a_stamp_without_a_version(home):
+    """CodeRabbit: a versionless stamp next to a versioned stale one crashed `audit`."""
+    assert run(["init"]).exit_code == 0
+    assert run(["agent", "install"]).exit_code == 0
+    (home / ".claude/skills/shelf" / agent.STAMP).write_text(json.dumps({"mode": "copy"}))
+    stamp = home / ".agents/skills/shelf" / agent.STAMP
+    stamp.write_text(json.dumps({"mode": "copy", "version": "0.0.1"}))
+    r = run(["audit"])
+    assert r.exit_code == 0, r.output
+    assert "shelf agent install" in r.output
+    assert "vNone" not in r.output
+
+
+def test_force_refuses_a_symlinked_backup_folder(home, tmp_path):
+    """Copilot: a symlinked shelf-old_skills/ must not redirect deletes outside the folder."""
+    outside = tmp_path / "outside"
+    (outside / "shelf").mkdir(parents=True)
+    (outside / "shelf" / "precious.txt").write_text("keep")
+    skills = home / ".claude/skills"
+    (skills / "shelf").mkdir(parents=True)
+    (skills / "shelf" / "SKILL.md").write_text("hand made")
+    (skills / agent.BACKUP_DIR).symlink_to(outside)
+    r = run(["agent", "install", "--force"])
+    assert r.exit_code != 0
+    assert "symlink" in r.output
+    assert (outside / "shelf" / "precious.txt").read_text() == "keep"
+    assert (skills / "shelf" / "SKILL.md").read_text() == "hand made"
+
+
+def test_a_link_into_a_lookalike_path_is_not_a_dev_link(home, tmp_path):
+    """Copilot: `notplugins/shelf/skills/shelf` must not count as a checkout link."""
+    lookalike = tmp_path / "notplugins" / "shelf" / "skills" / "shelf"
+    lookalike.mkdir(parents=True)
+    (lookalike / "SKILL.md").write_text("name: shelf\n")
+    link = home / ".claude/skills/shelf"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(lookalike)
+    assert agent.inspect(link)["kind"] == "link"
+    r = run(["agent", "uninstall"])
+    assert r.exit_code == 1
+    assert link.is_symlink()
+
+
+def test_project_dev_install_rewrites_an_absolute_link_as_relative(home, tmp_path, monkeypatch):
+    """Copilot: an absolute link to the right checkout is machine-specific in a repo."""
+    repo = git_repo(tmp_path / "repo")
+    shutil.copytree(PLUGIN_SKILLS, repo / "plugins" / "shelf" / "skills")
+    monkeypatch.chdir(repo)
+    for d in dests(repo):
+        d.parent.mkdir(parents=True, exist_ok=True)
+        d.symlink_to(repo / "plugins/shelf/skills/shelf")
+    r = run(["agent", "install", "--scope", "project", "--dev", "--source", str(repo)])
+    assert r.exit_code == 0, r.output
+    for d in dests(repo):
+        assert not Path(os.readlink(d)).is_absolute()
+    assert "updated" in r.output
+
+
+def test_status_advice_for_a_stale_project_copy_names_the_project_scope(
+    home, tmp_path, monkeypatch
+):
+    """Copilot: the remediation must refresh the stale placement's own scope."""
+    repo = git_repo(tmp_path / "repo")
+    monkeypatch.chdir(repo)
+    assert run(["agent", "install", "--scope", "project"]).exit_code == 0
+    stamp = repo / ".claude/skills/shelf" / agent.STAMP
+    stamp.write_text(json.dumps({"mode": "copy", "version": "0.0.1"}))
+    r = run(["agent", "status", "--scope", "project"])
+    assert r.exit_code == 0, r.output
+    assert "shelf agent install --scope project" in r.output
