@@ -5,6 +5,7 @@ from dataclasses import asdict
 
 import click
 
+from shelf.cli.agent_cmd import stale_note
 from shelf.cli.output import output_options, resolve_format
 from shelf.cli.runtime import active_config_path, get_library
 from shelf.core.audit import run_audit
@@ -32,5 +33,8 @@ def audit_cmd(ctx, pre_commit, output, json_):
         for f in findings:
             click.echo(f"check {f.check} [{f.code}]: {f.detail}")
             click.echo(f"  fix: {f.remediation}")
+    note = None if ctx.obj.get("quiet") else stale_note()
+    if note:
+        click.echo(note, err=True)
     if findings:
         ctx.exit(1)

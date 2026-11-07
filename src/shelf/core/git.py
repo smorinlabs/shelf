@@ -49,15 +49,10 @@ def _git(root: Path, args: list[str], literal: bool = False) -> str:
 
 def merge_in_progress(root: Path) -> bool:
     """Return whether *root* has an unfinished merge (Git refuses partial commits then)."""
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "-q", "--verify", "MERGE_HEAD"],
-            capture_output=True,
-            text=True,
-        )
-    except FileNotFoundError as exc:
-        raise click.ClickException("git is not installed or not on PATH") from exc
-    return result.returncode == 0
+    # Check Git's merge-state file, not the revision: `rev-parse --verify MERGE_HEAD`
+    # also resolves a branch or tag that happens to be named MERGE_HEAD.
+    state_file = _git(root, ["rev-parse", "--git-path", "MERGE_HEAD"]).strip()
+    return (root / state_file).is_file()
 
 
 def git_commit_all(root: Path, message: str, paths: list[str] | None = None) -> None:
@@ -84,10 +79,18 @@ def git_commit_all(root: Path, message: str, paths: list[str] | None = None) -> 
         if (root / p).exists()
         or _git(root, ["ls-files", "--cached", "--", p], literal=True).strip()
     ]
+    has_head = (
+        subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "-q", "--verify", "HEAD^{commit}"],
+            capture_output=True,
+        ).returncode
+        == 0
+    )
     head_only = [
         p
         for p in paths
-        if p not in staged
+        if has_head
+        and p not in staged
         and _git(root, ["ls-tree", "-r", "--name-only", "HEAD", "--", p], literal=True).strip()
     ]
     usable = staged + head_only

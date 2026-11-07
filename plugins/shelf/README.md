@@ -72,6 +72,15 @@ codex plugin marketplace add https://github.com/smorinlabs/shelf   # or a local 
 codex plugin add shelf@shelf
 ```
 
+**Without the marketplace:** the `shelf` CLI (v0.9.0 and later) bundles these
+skills and installs them itself, as version-matched copies or as dev symlinks:
+```bash
+shelf agent install                            # copies, user scope
+shelf agent install --dev --source <checkout>  # symlinks into a checkout
+```
+After editing a skill here, run `just sync-agent-skills` so the packaged copy in
+`src/shelf/agent_skills/` matches; a test fails until it does.
+
 **Local development (dev-symlink, no marketplace):** for iterating on the skill,
 symlink it so edits are live in every session:
 ```bash

@@ -303,7 +303,7 @@ uv tool install "git+https://github.com/smorinlabs/shelf@v$v"
 
 - **Default:** `SHELF_VERSION` is empty in the generated workflow, so the site is built by the version that last wrote the catalog. Upgrading shelf locally and changing the library moves CI forward.
 - **Override:** `shelf init --pages --shelf-version X.Y.Z` writes `SHELF_VERSION: "X.Y.Z"` into the workflow's `env`. The pin lives in the workflow file because the Action can read only the repo, and the user library's config sits outside it (`~/.config`).
-- **Minimum version:** a version below v0.10.0 (no publishing support), or a missing `shelf_version` with no pin, stops the run with a message naming the fix.
+- **Minimum version:** a version below v0.11.0 (no publishing support), or a missing `shelf_version` with no pin, stops the run with a message naming the fix.
 
 ### `shelf init --pages`
 
