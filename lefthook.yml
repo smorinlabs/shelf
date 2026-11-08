@@ -1,0 +1,14 @@
+# Git hooks for this repo, run by lefthook (https://lefthook.dev/configuration/).
+# Install once per clone or worktree: `just install-hooks` (runs `lefthook install`).
+
+min_version: 1.13.0
+
+pre-commit:
+  commands:
+    # P23 — plugins/shelf/skills/ is the master copy of the agent skills, and
+    # src/shelf/agent_skills/ is generated from it for `shelf agent install`.
+    # A staged master change regenerates and stages the copy; a staged edit to
+    # the copy alone fails with guidance. The script is a no-op when neither
+    # folder is staged, so no glob is needed.
+    sync-agent-skills:
+      run: uv run --quiet python scripts/sync_agent_skills.py --staged

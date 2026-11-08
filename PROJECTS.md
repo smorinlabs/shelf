@@ -440,6 +440,29 @@ Restart any running agent session to pick up changes.
 
 ---
 
+## [~] Project P23: One master copy of the skills, synced by a pre-commit hook (v0.9.1)
+**Goal/Requirement**: The skills exist twice since P22: `plugins/shelf/skills/` for the marketplace and `src/shelf/agent_skills/` inside the Python package for `shelf agent install`. Make `plugins/shelf/skills/` the single master and keep the package copy generated from it automatically. Decided 2026-11-07.
+- `scripts/sync_agent_skills.py` rebuilds the package copy from the master; `--check` reports drift; `--staged` rebuilds from the staged master so unstaged edits never enter a commit
+- `lefthook.yml` pre-commit hook runs `--staged`: a staged master change syncs and stages the copy; a staged edit to the copy alone fails with guidance to edit the master
+- A `GENERATED.md` marker in the package copy names the master
+- README Development section and plugin README document which copy is the master
+
+**Out of Scope**
+- A single physical copy. Tested 2026-11-07 on branch `exp/single-copy-skills`: a package-side symlink breaks `uv build` ("Is a directory"); a plugin-side symlink works for Claude Code, but Codex 0.166.0 installs the plugin silently **without** its skills (control install from real files: 10/10 files). Switching to hatchling was rejected (abandons uv_build; editable installs miss mapped files).
+
+### Tests & Tasks
+- [x] [P23-TS01] Sync rebuilds the copy from the master and writes `GENERATED.md`; `--check` exits 0 in sync and 1 with the master named after a drift
+- [x] [P23-TS02] `--staged`: a staged master edit is copied and the copy staged; an unstaged master edit is not copied
+- [x] [P23-TS03] `--staged`: an edit to the copy alone fails (exit 1) naming the master and leaves the edit in place; nothing staged in either folder is a no-op
+- [x] [P23-TS04] `lefthook.yml` wires the pre-commit command to `scripts/sync_agent_skills.py --staged`
+- [x] [P23-T01] `scripts/sync_agent_skills.py`; `just sync-agent-skills` calls it; `just install-hooks` runs `lefthook install`
+- [x] [P23-T02] `lefthook.yml` pre-commit hook
+- [x] [P23-T03] Docs: README Development section, plugin README
+- [ ] [P23-T04] Bump to v0.9.1; `make check` and `just all` green; PR merged; tag `v0.9.1` pushed
+- [x] Regression Test Status — 398 passing at v0.9.1 (8 new in `tests/test_skill_sync.py`); `make check` and `just all` green; live lefthook v2.2.2 smoke in a scratch clone: a master edit committed both copies, an edit to the copy alone was refused
+
+---
+
 ## Backlog — minor
 - [ ] **Skill-text fixes from the PR #18 review** (CodeRabbit, found when the skills were copied into the package; the text predates P22). Edit `plugins/shelf/skills/shelf/references/`, then `just sync-agent-skills` and bump the plugin version:
       - `add.md`: when the agent fetches a URL to a temp file, pass the URL as `--source` so the catalog keeps it
