@@ -554,3 +554,11 @@ def test_status_notes_a_project_shelf_without_project_skills(project_shelf, home
     assert "This repo has a project shelf but no project-scope skills" in r.output
     assert run(["agent", "install", "--scope", "project"]).exit_code == 0
     assert "no project-scope skills" not in run(["agent", "status"]).output
+
+
+def test_a_dry_run_hint_does_not_claim_an_install(project_shelf, home, monkeypatch):
+    _tty(monkeypatch, False)
+    r = run(["agent", "install", "--dry-run"])
+    assert r.exit_code == 0, r.output
+    assert "Installed at user scope" not in r.output
+    assert "Would install at user scope. This repo has a project shelf" in r.output

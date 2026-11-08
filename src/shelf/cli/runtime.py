@@ -17,6 +17,7 @@ from shelf.core.config import ShelfConfig, config_from, default_config_path, rea
 from shelf.core.paths import ENV_LIBRARY, ProjectScope, discover_project, resolve_library
 
 _UNSET = object()
+USER_ONLY_KEYS = frozenset({"library", "browser"})
 
 
 @dataclass(frozen=True)
@@ -96,7 +97,8 @@ def _target_scope(ctx: click.Context) -> str:
 
 
 def _project_target(ctx: click.Context, proj: ProjectScope) -> Target:
-    layered = {k: v for k, v in proj.data.items() if k != "library"}
+    # A project file arrives with a clone: it may not pick the command 'shelf open' runs.
+    layered = {k: v for k, v in proj.data.items() if k not in USER_ONLY_KEYS}
     cfg = config_from(read_config_data(active_config_path(ctx)), layered)
     return Target("project", proj.library, cfg, proj.config_path)
 

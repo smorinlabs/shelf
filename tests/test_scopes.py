@@ -446,3 +446,49 @@ def test_move_to_scope_holds_the_source_lock_while_copying(seeded, monkeypatch):
     r = run(["doc", "move", "2026-01-01-in-project", "--to-scope", "user"])
     assert r.exit_code == 0, r.output
     assert locked == [True]
+
+
+# --- PR #20 review, round 2 ------------------------------------------------------
+
+
+def test_a_project_file_never_sets_the_browser(both, tmp_path):
+    """A cloned repo must not choose a command for 'shelf open' to run."""
+    _, proj = both
+    path = default_config_path()
+    cfg = load_config(path)
+    cfg.browser = "Firefox"
+    save_config(path, cfg)
+    marker = proj.parent / ".shelf" / "shelf_config.toml"
+    marker.write_text(marker.read_text() + 'browser = "evil-cmd %s"\n')
+    ctx = click.Context(cli, obj={"library": None, "config": None})
+    assert target_config(ctx).browser == "Firefox"
+
+
+def test_a_malformed_user_config_is_reported_not_skipped(both):
+    default_config_path().write_text("library = [")
+    r = run(["doc", "list"])
+    assert r.exit_code != 0
+    assert "malformed" in r.output
+
+
+def test_a_non_object_other_catalog_keeps_the_audit_report(seeded):
+    user, _ = seeded
+    (user / "catalog.json").write_text("[]")
+    r = run(["audit", "--scope", "project", "--json"])
+    assert r.exception is None or isinstance(r.exception, SystemExit), r.output
+    json.loads(r.output)
+
+
+def test_a_user_library_inside_an_unrelated_repo_is_not_a_git_library(
+    tmp_path, monkeypatch, isolated_git_identity
+):
+    import subprocess
+
+    home = (tmp_path / "home").resolve()
+    home.mkdir()
+    subprocess.run(["git", "-C", str(home), "init", "-q"], check=True)  # e.g. a dotfiles repo
+    monkeypatch.chdir(tmp_path)
+    assert run(["init", "--library", str(home / "lib")]).exit_code == 0
+    codes = {f["code"] for f in json.loads(run(["audit", "--json"]).output)}
+    assert "git-dirty" not in codes
+    assert run(["regen", "--commit"]).exit_code != 0

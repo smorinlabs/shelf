@@ -134,7 +134,7 @@ Highest precedence first, for commands that act on one library:
 
 `doc list` and `doc view` read **both** libraries by default and label each result with its scope; `--scope user|project|all` narrows (§11.11). With `--library` or `SHELF_LIBRARY` and no `--scope`, a read covers only that library.
 
-**Settings follow the target library.** For the project library, keys in the project file override the user file, key by key (R5.1); for the user library, only the user file applies. So a project's `remove-source = false` never changes a `doc add --scope user`. `library` itself is never inherited between files.
+**Settings follow the target library.** For the project library, keys in the project file override the user file, key by key (R5.1), except `browser`: only the user file sets it, because a cloned repo must not choose the command `shelf open` runs. For the user library, only the user file applies. So a project's `remove-source = false` never changes a `doc add --scope user`. `library` itself is never inherited between files.
 
 This provides a **direct** override (`--library` / `SHELF_LIBRARY`) and an **indirect** one — `XDG_CONFIG_HOME` relocates the config directory, and the config file carries the library path. Named libraries beyond the two scopes remain possible later without breaking this scheme (§14.3).
 

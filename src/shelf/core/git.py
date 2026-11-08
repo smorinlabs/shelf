@@ -6,6 +6,8 @@ from pathlib import Path
 
 import click
 
+from shelf.core.config import CONFIG_FILENAME, PROJECT_DIR
+
 
 def toplevel(path: Path) -> Path | None:
     """The work-tree root of the Git repository containing *path*, or None."""
@@ -36,8 +38,15 @@ def append_gitignore(repo: Path, entries: list[str]) -> None:
 
 
 def is_git_repo(root: Path) -> bool:
-    """Return whether *root* is inside a Git work tree (a project library is a subfolder)."""
-    return root.is_dir() and toplevel(root) is not None
+    """Return whether *root* is a Git library: the work-tree root itself, or a folder
+    of a repo that holds a project scope. A user library that merely sits inside some
+    other repo (a dotfiles home, say) is not one."""
+    if not root.is_dir():
+        return False
+    top = toplevel(root)
+    if top is None:
+        return False
+    return top == root.resolve() or (top / PROJECT_DIR / CONFIG_FILENAME).is_file()
 
 
 def git_init(root: Path) -> None:

@@ -33,7 +33,8 @@ When the user says "set up shelf in this repo" or "give this project a shelf":
 3. It then offers to install the shelf skills at project scope
    (`shelf agent install --scope project`), so teammates get them too. Relay
    the offer; pass `--yes` only when the user already said yes.
-4. Suggest committing `.shelf/`, the library folder, and `.gitignore`.
+4. Suggest committing `.shelf/`, the library folder, and `.gitignore` — plus
+   `.claude/skills/` and `.agents/skills/` if the skills were installed in step 3.
    Teammates who clone the repo get the library; `shelf open` or
    `shelf regen` rebuilds the gitignored `index.html`.
 

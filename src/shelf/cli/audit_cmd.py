@@ -22,7 +22,7 @@ def _cross_scope(ctx: click.Context, target: Target) -> list[Finding]:
             return []
         here = {d.id for d in load_catalog(target.root).documents}
         there = {d.id for d in load_catalog(other.root).documents}
-    except (click.ClickException, OSError, ValueError, KeyError, TypeError):
+    except (click.ClickException, OSError, ValueError, KeyError, TypeError, AttributeError):
         return []  # no other scope, or an unreadable catalog the other checks report
     return [
         Finding(

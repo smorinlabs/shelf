@@ -128,7 +128,7 @@ def install_cmd(ctx, scope, dev, source, force, dry_run):
     if not dry_run and any(o.verb in ("created", "updated", "replaced") for o in outcomes):
         click.echo("Restart any running agent session to pick up changes.")
     if hint:
-        click.echo(f"Installed at user scope. This repo has a project shelf: {PROJECT_HINT}")
+        click.echo(f"{action} at user scope. This repo has a project shelf: {PROJECT_HINT}")
     if any(o.skipped for o in outcomes):
         raise SystemExit(1)
 
