@@ -7,6 +7,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
+import shelf.cli.doc_move as doc_move_mod
 from shelf.cli.main import cli
 from shelf.cli.runtime import target_config
 from shelf.core.catalog import SEED_KINDS, Catalog, commit_library
@@ -277,3 +278,108 @@ def test_list_outside_a_project_labels_user(isolated_env, tmp_path):
     _add(tmp_path, "2026-01-01-solo")
     r = run(["doc", "list"])
     assert r.output.strip().split("\t")[-1] == "user"
+
+
+# --- TS05: doc move --to-scope, and audit across scopes ------------------------
+
+
+def _ids(root: Path) -> list[str]:
+    return [d["id"] for d in json.loads((root / "catalog.json").read_text())["documents"]]
+
+
+def test_move_to_user_scope(seeded):
+    user, proj = seeded
+    r = run(["doc", "move", "2026-01-01-in-project", "--to-scope", "user"])
+    assert r.exit_code == 0, r.output
+    assert "2026-01-01-in-project" in _ids(user)
+    assert "2026-01-01-in-project" not in _ids(proj)
+    rel = "docs/topics/dev-tooling/2026-01-01-in-project/2026-01-01-in-project.md"
+    assert (user / rel).is_file()
+    assert not (proj / rel).exists()
+
+
+def test_move_to_project_scope_from_user(seeded):
+    user, proj = seeded
+    r = run(["doc", "move", "2026-02-01-in-user", "--scope", "user", "--to-scope", "project"])
+    assert r.exit_code == 0, r.output
+    assert "2026-02-01-in-user" in _ids(proj)
+    assert "2026-02-01-in-user" not in _ids(user)
+
+
+def test_move_to_the_same_scope_is_a_usage_error(seeded):
+    assert run(["doc", "move", "2026-01-01-in-project", "--to-scope", "project"]).exit_code == 2
+
+
+def test_to_scope_excludes_anchor_changes(seeded):
+    r = run(["doc", "move", "2026-01-01-in-project", "--to-scope", "user", "--topic", "x"])
+    assert r.exit_code == 2
+
+
+def test_move_needs_the_kind_in_the_target(seeded):
+    user, proj = seeded
+    assert run(["kind", "add", "memo"]).exit_code == 0  # project only
+    src = proj / "m.md"
+    src.write_text("# m")
+    args = ["--kind", "memo", "--title", "M", "--description", "d", "--slug", "2026-03-01-m"]
+    assert run(["doc", "add", str(src), "--topic", "dev-tooling", *args]).exit_code == 0
+    r = run(["doc", "move", "2026-03-01-m", "--to-scope", "user"])
+    assert r.exit_code == 1
+    assert "shelf kind add memo --scope user" in r.output
+    assert "2026-03-01-m" in _ids(proj)
+
+
+def test_move_needs_the_topic_in_the_target_unless_created(seeded):
+    user, proj = seeded
+    assert run(["topic", "add", "api"]).exit_code == 0  # project only
+    src = proj / "a.md"
+    src.write_text("# a")
+    assert (
+        run(["doc", "add", str(src), "--topic", "api", *BASE, "--slug", "2026-03-02-a"]).exit_code
+        == 0
+    )
+    r = run(["doc", "move", "2026-03-02-a", "--to-scope", "user"])
+    assert r.exit_code == 1
+    assert "--create-topic" in r.output
+    r = run(["doc", "move", "2026-03-02-a", "--to-scope", "user", "--create-topic"])
+    assert r.exit_code == 0, r.output
+    assert "api" in json.loads((user / "catalog.json").read_text())["topics"]
+
+
+def test_move_refuses_an_id_already_in_the_target(seeded, tmp_path):
+    _add(tmp_path, "2026-02-01-in-user")  # also in the project now
+    r = run(["doc", "move", "2026-02-01-in-user", "--to-scope", "user"])
+    assert r.exit_code == 5
+
+
+def test_a_failed_source_delete_leaves_an_audit_detectable_duplicate(seeded, monkeypatch):
+    user, proj = seeded
+
+    def boom(*_a, **_k):
+        raise OSError("disk went away")
+
+    real = doc_move_mod._delete_from_source
+    monkeypatch.setattr(doc_move_mod, "_delete_from_source", boom)
+    r = run(["doc", "move", "2026-01-01-in-project", "--to-scope", "user"])
+    assert r.exit_code != 0
+    assert "2026-01-01-in-project" in _ids(user)
+    assert "2026-01-01-in-project" in _ids(proj)
+    monkeypatch.setattr(doc_move_mod, "_delete_from_source", real)  # not undo(): keeps the chdir
+    for scope in ("project", "user"):
+        r = run(["audit", "--scope", scope, "--json"])
+        codes = {(f["check"], f["code"]) for f in json.loads(r.output)}
+        assert (6, "cross-scope-duplicate") in codes, (scope, r.output)
+
+
+def test_audit_reports_dirty_git_state_at_project_scope(
+    tmp_path, monkeypatch, isolated_git_identity
+):
+    import subprocess
+
+    repo = (tmp_path / "repo").resolve()
+    repo.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    monkeypatch.chdir(repo)
+    assert run(["init", "--scope", "project"]).exit_code == 0
+    r = run(["audit", "--json"])
+    codes = {f["code"] for f in json.loads(r.output)}
+    assert "git-dirty" in codes

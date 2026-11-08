@@ -103,6 +103,18 @@ def resolve_target(ctx: click.Context) -> Target:
     return _user_target(ctx)
 
 
+def scope_target(ctx: click.Context, scope: str) -> Target:
+    """The library of one named scope, regardless of `--scope`."""
+    if scope == "project":
+        proj = project_scope(ctx)
+        if proj is None:
+            raise click.UsageError(
+                "no project scope here — create one with 'shelf init --scope project'"
+            )
+        return _project_target(ctx, proj)
+    return _user_target(ctx)
+
+
 def resolve_targets(ctx: click.Context) -> list[Target]:
     """Every library a read covers: project then user, narrowed by `--scope`."""
     requested = ctx.obj.get("scope")
