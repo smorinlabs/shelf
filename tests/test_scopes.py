@@ -63,6 +63,7 @@ def test_nearest_marker_wins(tmp_path):
     (sub / ".shelf" / "shelf_config.toml").write_text('library = "lib"\n')
     (sub / "x").mkdir()
     found = discover_project(sub / "x")
+    assert found is not None
     assert found.library == (sub / "lib").resolve()
 
 
@@ -87,7 +88,9 @@ def test_a_worktree_git_file_is_a_boundary_too(tmp_path):
 
 def test_library_defaults_to_shelf(tmp_path):
     repo = project(tmp_path / "repo", text="remove-source = false\n")
-    assert discover_project(repo).library == (repo / "shelf").resolve()
+    found = discover_project(repo)
+    assert found is not None
+    assert found.library == (repo / "shelf").resolve()
 
 
 @pytest.mark.parametrize("value", ["/abs/lib", "../outside"])
