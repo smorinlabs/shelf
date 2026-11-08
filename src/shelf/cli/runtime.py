@@ -135,11 +135,19 @@ def resolve_targets(ctx: click.Context) -> list[Target]:
     proj = project_scope(ctx)
     targets = [_project_target(ctx, proj)] if proj is not None else []
     try:
-        targets.append(_user_target(ctx))
+        user = _user_target(ctx)
     except click.ClickException:
         if not targets:
             raise
+        return targets
+    if not any(same_library(t, user) for t in targets):
+        targets.append(user)
     return targets
+
+
+def same_library(a: Target, b: Target) -> bool:
+    """Both scopes can name one directory, e.g. after 'shelf init --adopt <project lib>'."""
+    return a.root.resolve() == b.root.resolve()
 
 
 def target_config(ctx: click.Context) -> ShelfConfig:

@@ -1,9 +1,11 @@
 """Library-level commands: path (this task); init/adopt and migrate follow."""
 
 import json
+import re
 from pathlib import Path, PurePath
 
 import click
+import tomli_w
 
 from shelf.cli.commit import (
     auto_message,
@@ -168,17 +170,19 @@ def _init_project(ctx: click.Context, library_: str | None, force: bool, yes: bo
     for existing in (cfg_path, root / CATALOG_FILENAME):
         if existing.exists() and not force:
             raise ConflictError(f"{existing} already exists — pass --force to re-initialize")
-    (root / "docs" / "repos").mkdir(parents=True, exist_ok=True)
-    (root / "docs" / "topics").mkdir(parents=True, exist_ok=True)
+    for bucket in ("repos", "topics"):  # .gitkeep: a fresh clone still has both buckets
+        (root / "docs" / bucket).mkdir(parents=True, exist_ok=True)
+        (root / "docs" / bucket / ".gitkeep").touch()
     with library_lock(root):
         commit_library(root, Catalog(kinds=list(SEED_KINDS)))
     if root != top and not (root / "README.md").is_file():
         (root / "README.md").write_text(README_TEXT, encoding="utf-8")
     rel_posix = root.relative_to(top).as_posix()
-    index_entry = "/index.html" if rel_posix == "." else f"/{rel_posix}/index.html"
+    literal = re.sub(r"([\\*?\[\]])", r"\\\1", rel_posix)  # gitignore treats these as globs
+    index_entry = "/index.html" if rel_posix == "." else f"/{literal}/index.html"
     git_core.append_gitignore(top, [".shelf.lock", index_entry])
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_text(cfg_path, f'library = "{rel_posix}"\nremove-source = false\n')
+    atomic_write_text(cfg_path, tomli_w.dumps({"library": rel_posix, "remove-source": False}))
     click.echo(f"initialized project library at {root}")
     _offer_agent_install(ctx, yes)
 

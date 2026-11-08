@@ -150,3 +150,29 @@ def test_audit_reports_a_missing_index_as_a_regen_finding(repo):
     findings = json.loads(r.output)
     assert {(f["check"], f["code"]) for f in findings} == {(4, "index-missing")}
     assert "shelf regen" in findings[0]["remediation"]
+
+
+def test_buckets_carry_gitkeep_so_a_clone_has_them(repo):
+    assert run(["init", "--scope", "project"]).exit_code == 0
+    for bucket in ("repos", "topics"):
+        assert (repo / "shelf" / "docs" / bucket / ".gitkeep").is_file()
+
+
+def test_a_library_name_with_glob_characters_is_ignored_literally(repo):
+    assert run(["init", "--scope", "project", "--library", "lib[team]"]).exit_code == 0
+    status = subprocess.run(
+        ["git", "-C", str(repo), "status", "--porcelain", "--untracked-files=all"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "catalog.json" in status
+    assert "index.html" not in status
+
+
+def test_a_library_name_with_a_quote_round_trips_through_the_config(repo):
+    r = run(["init", "--scope", "project", "--library", 'it"s\\lib'])
+    assert r.exit_code == 0, r.output
+    cfg = tomllib.loads((repo / ".shelf" / "shelf_config.toml").read_text())
+    assert cfg["library"] == 'it"s\\lib'
+    assert run(["path"]).output.strip() == str(repo / 'it"s\\lib')

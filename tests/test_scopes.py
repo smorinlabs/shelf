@@ -386,3 +386,63 @@ def test_audit_reports_dirty_git_state_at_project_scope(
     r = run(["audit", "--json"])
     codes = {f["code"] for f in json.loads(r.output)}
     assert "git-dirty" in codes
+
+
+# --- PR #20 review: one library behind both scopes, malformed catalogs, locking ----
+
+
+@pytest.fixture
+def shared(both, tmp_path):
+    """The user config registers the project library itself (e.g. 'init --adopt')."""
+    _, proj = both
+    cfg = load_config(default_config_path())
+    cfg.library = str(proj)
+    save_config(default_config_path(), cfg)
+    _add(tmp_path, "2026-01-01-shared")
+    return proj
+
+
+def test_one_library_behind_both_scopes_is_read_once(shared):
+    r = run(["doc", "list", "--json"])
+    assert [d["id"] for d in json.loads(r.output)] == ["2026-01-01-shared"]
+    assert run(["doc", "view", "2026-01-01-shared"]).exit_code == 0
+
+
+def test_one_library_behind_both_scopes_is_no_cross_scope_duplicate(shared):
+    r = run(["audit", "--json"])
+    assert all(f["check"] != 6 for f in json.loads(r.output)), r.output
+
+
+def test_move_between_scopes_sharing_one_library_is_a_usage_error(shared):
+    r = run(["doc", "move", "2026-01-01-shared", "--to-scope", "user"])
+    assert r.exit_code == 2, r.output
+
+
+def test_a_malformed_other_catalog_keeps_the_audit_report(seeded):
+    user, _ = seeded
+    (user / "catalog.json").write_text('{"documents": [{"id": "x"}]}')
+    r = run(["audit", "--scope", "project", "--json"])
+    assert r.exception is None or isinstance(r.exception, SystemExit), r.output
+    json.loads(r.output)
+
+
+def test_move_to_scope_holds_the_source_lock_while_copying(seeded, monkeypatch):
+    from shelf.core.atomic import library_lock
+    from shelf.core.errors import ConflictError
+
+    _, proj = seeded
+    real_copy = doc_move_mod.shutil.copytree
+    locked = []
+
+    def copy(src, dst, **kw):
+        try:
+            with library_lock(proj, timeout=0):
+                locked.append(False)
+        except ConflictError:
+            locked.append(True)
+        return real_copy(src, dst, **kw)
+
+    monkeypatch.setattr(doc_move_mod.shutil, "copytree", copy)
+    r = run(["doc", "move", "2026-01-01-in-project", "--to-scope", "user"])
+    assert r.exit_code == 0, r.output
+    assert locked == [True]

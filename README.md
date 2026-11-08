@@ -854,7 +854,7 @@ the uncommitted changes being committed.
 | 2 | **Dead references**: catalog files that do not exist | `shelf doc format delete <id> <fmt> --force` |
 | 3 | **Malformed entries**: missing fields, unknown kind or topic, folder not matching the anchor, `added` not matching the slug date, old schema | `shelf doc update …`; for the schema, `shelf migrate` |
 | 4 | **Missing, unparseable, or stale files**: config, catalog, or an `index.html` that no longer matches the catalog or template | config: `shelf init --adopt <path>`; index: `shelf regen` |
-| 5 | **Uncommitted changes** to `catalog.json`, `index.html`, or `docs/` (libraries in a Git repo only; skipped with `--pre-commit`) | `git -C "$(shelf path)" add -A && git -C "$(shelf path)" commit` |
+| 5 | **Uncommitted changes** to `catalog.json`, `index.html`, or `docs/` (libraries in a Git repo only; skipped with `--pre-commit`) | `git -C "$(shelf path)" add -A . && git -C "$(shelf path)" commit .` (the `.` keeps both to the library folder, so a project library never sweeps in the rest of the repo) |
 | 6 | **The same id in both libraries**, such as the leftover of an interrupted `doc move --to-scope` | keep one: `shelf doc delete <id> --scope user` or `--scope project` |
 
 Each finding prints the fix next to it:

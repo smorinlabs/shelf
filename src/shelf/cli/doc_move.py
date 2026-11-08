@@ -1,6 +1,7 @@
 """shelf doc move — relocate a document (PRD §11.5)."""
 
 import shutil
+from contextlib import ExitStack
 
 import click
 
@@ -11,7 +12,13 @@ from shelf.cli.commit import (
     require_git_if_commit,
 )
 from shelf.cli.doc_variants import find_doc
-from shelf.cli.runtime import get_library, resolve_target, scope_option, scope_target
+from shelf.cli.runtime import (
+    get_library,
+    resolve_target,
+    same_library,
+    scope_option,
+    scope_target,
+)
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import CATALOG_FILENAME, RepoRef, commit_library, load_catalog
 from shelf.core.errors import ConflictError
@@ -122,21 +129,30 @@ def doc_move(
 
 
 def _move_to_scope(ctx, doc_id, to_scope, create_topic, dry_run, commit, commit_message):
-    """Add to the target library, then delete from the source; each under its own lock.
+    """Add to the target library, then delete from the source, holding both locks.
 
-    A failure between the two steps leaves the document in both libraries, which
-    `shelf audit` reports as a cross-scope duplicate (check 6).
+    Holding the source lock across the copy keeps a concurrent edit of the source
+    from being deleted unseen. The locks are taken in path order, so two opposite
+    moves cannot deadlock. A failure between the two steps leaves the document in
+    both libraries, which `shelf audit` reports as a cross-scope duplicate (check 6).
     """
     source = resolve_target(ctx)
     if source.scope == to_scope:
         raise click.UsageError(f"'{doc_id}' is already in the {to_scope} library")
     target = scope_target(ctx, to_scope)
+    if same_library(source, target):
+        raise click.UsageError(
+            f"the {source.scope} and {to_scope} scopes are the same library ({source.root})"
+        )
     require_git_if_commit(source.root, commit)
     require_git_if_commit(target.root, commit)
-    with library_lock(source.root):
+    rel = None
+    leftover = None
+    with ExitStack() as locks:
+        for root in sorted((source.root, target.root), key=lambda p: str(p.resolve())):
+            locks.enter_context(library_lock(root))
         doc = find_doc(load_catalog(source.root), doc_id)
-    rel = doc_rel_dir(doc)
-    with library_lock(target.root):
+        rel = doc_rel_dir(doc)
         catalog = load_catalog(target.root, for_write=True)
         if any(d.id == doc_id for d in catalog.documents):
             raise ConflictError(f"'{doc_id}' is already in the {to_scope} library")
@@ -174,20 +190,22 @@ def _move_to_scope(ctx, doc_id, to_scope, create_topic, dry_run, commit, commit_
             if not committed:
                 shutil.rmtree(dest, ignore_errors=True)
             raise
+        try:
+            _delete_from_source(source.root, doc_id, rel)
+        except OSError as exc:
+            leftover = exc
     if commit:
         git_commit_all(
             target.root,
             commit_message or auto_message("doc", "move", doc_id, "from", source.scope),
             library_paths(rel),
         )
-    try:
-        _delete_from_source(source.root, doc_id, rel)
-    except OSError as exc:
+    if leftover is not None:
         raise click.ClickException(
             f"'{doc_id}' was added to the {to_scope} library but not removed from the "
-            f"{source.scope} library ({exc}) — remove the leftover with "
+            f"{source.scope} library ({leftover}) — remove the leftover with "
             f"'shelf doc delete {doc_id} --scope {source.scope}'"
-        ) from exc
+        ) from leftover
     if commit:
         git_commit_all(
             source.root,
@@ -198,8 +216,8 @@ def _move_to_scope(ctx, doc_id, to_scope, create_topic, dry_run, commit, commit_
 
 
 def _delete_from_source(root, doc_id, rel):
-    with library_lock(root):
-        catalog = load_catalog(root, for_write=True)
-        catalog.documents = [d for d in catalog.documents if d.id != doc_id]
-        commit_library(root, catalog)
-        shutil.rmtree(root / rel, ignore_errors=True)
+    """Caller holds the source library lock."""
+    catalog = load_catalog(root, for_write=True)
+    catalog.documents = [d for d in catalog.documents if d.id != doc_id]
+    commit_library(root, catalog)
+    shutil.rmtree(root / rel, ignore_errors=True)

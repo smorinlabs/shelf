@@ -7,7 +7,7 @@ import click
 
 from shelf.cli.agent_cmd import stale_note
 from shelf.cli.output import output_options, resolve_format
-from shelf.cli.runtime import Target, resolve_target, scope_option, scope_target
+from shelf.cli.runtime import Target, resolve_target, same_library, scope_option, scope_target
 from shelf.core.audit import Finding, run_audit
 from shelf.core.catalog import load_catalog
 
@@ -18,10 +18,12 @@ def _cross_scope(ctx: click.Context, target: Target) -> list[Finding]:
     other_scope = "user" if target.scope == "project" else "project"
     try:
         other = scope_target(ctx, other_scope)
+        if same_library(target, other):
+            return []
         here = {d.id for d in load_catalog(target.root).documents}
         there = {d.id for d in load_catalog(other.root).documents}
-    except (click.ClickException, OSError):
-        return []  # no other scope, or one the other checks already report
+    except (click.ClickException, OSError, ValueError, KeyError, TypeError):
+        return []  # no other scope, or an unreadable catalog the other checks report
     return [
         Finding(
             6,
