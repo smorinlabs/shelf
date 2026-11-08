@@ -1,5 +1,6 @@
 """P20 — project-scoped libraries: discovery, precedence, settings per target."""
 
+import json
 from pathlib import Path
 
 import click
@@ -210,3 +211,69 @@ def test_project_settings_layer_over_user_settings(both):
     ctx = click.Context(cli, obj={"library": None, "config": None})
     assert target_config(ctx).server_port == 9100
     assert target_config(ctx).remove_source is False
+
+
+# --- TS03: combined reads -----------------------------------------------------
+
+
+def _add(src_dir: Path, slug: str, *scope: str) -> None:
+    f = src_dir / f"{slug}.md"
+    f.write_text(f"# {slug}")
+    r = run(["doc", "add", str(f), *scope, "--topic", "dev-tooling", *BASE, "--slug", slug])
+    assert r.exit_code == 0, r.output
+
+
+@pytest.fixture
+def seeded(both, tmp_path):
+    _add(tmp_path, "2026-01-01-in-project")
+    _add(tmp_path, "2026-02-01-in-user", "--scope", "user")
+    return both
+
+
+def test_list_spans_both_scopes_and_labels_each(seeded):
+    r = run(["doc", "list"])
+    assert r.exit_code == 0, r.output
+    rows = [line.split("\t") for line in r.output.splitlines()]
+    assert [(row[0], row[-1]) for row in rows] == [
+        ("2026-02-01-in-user", "user"),
+        ("2026-01-01-in-project", "project"),
+    ]
+
+
+def test_list_json_carries_scope(seeded):
+    r = run(["doc", "list", "--json"])
+    assert {(d["id"], d["scope"]) for d in json.loads(r.output)} == {
+        ("2026-02-01-in-user", "user"),
+        ("2026-01-01-in-project", "project"),
+    }
+
+
+@pytest.mark.parametrize(
+    ("scope", "only"), [("user", "2026-02-01-in-user"), ("project", "2026-01-01-in-project")]
+)
+def test_list_scope_narrows(seeded, scope, only):
+    r = run(["doc", "list", "--scope", scope])
+    assert [line.split("\t")[0] for line in r.output.splitlines()] == [only]
+
+
+def test_view_finds_a_user_document_from_inside_the_project(seeded):
+    r = run(["doc", "view", "2026-02-01-in-user", "--json"])
+    assert r.exit_code == 0, r.output
+    data = json.loads(r.output)
+    assert data["scope"] == "user"
+
+
+def test_view_of_an_id_in_both_scopes_is_a_conflict(seeded, tmp_path):
+    _add(tmp_path, "2026-02-01-in-user")  # same id, now also in the project
+    r = run(["doc", "view", "2026-02-01-in-user"])
+    assert r.exit_code == 5
+    assert "--scope" in r.output
+    r = run(["doc", "view", "2026-02-01-in-user", "--scope", "project", "--json"])
+    assert json.loads(r.output)["scope"] == "project"
+
+
+def test_list_outside_a_project_labels_user(isolated_env, tmp_path):
+    user_library()
+    _add(tmp_path, "2026-01-01-solo")
+    r = run(["doc", "list"])
+    assert r.output.strip().split("\t")[-1] == "user"
