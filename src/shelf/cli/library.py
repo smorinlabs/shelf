@@ -1,7 +1,6 @@
 """Library-level commands: path (this task); init/adopt and migrate follow."""
 
 import json
-import sys
 from pathlib import Path, PurePath
 
 import click
@@ -15,6 +14,7 @@ from shelf.cli.commit import (
 from shelf.cli.runtime import (
     active_config_path,
     get_library,
+    interactive,
     resolve_target,
     resolve_targets,
     scope_option,
@@ -186,9 +186,8 @@ def _init_project(ctx: click.Context, library_: str | None, force: bool, yes: bo
 def _offer_agent_install(ctx: click.Context, yes: bool) -> None:
     from shelf.cli.agent_cmd import install_cmd
 
-    interactive = not ctx.obj.get("no_input") and sys.stdin.isatty()
     question = "Install shelf's agent skills at project scope, committed for everyone?"
-    if yes or (interactive and click.confirm(question, default=False)):
+    if yes or (interactive(ctx) and click.confirm(question, default=False)):
         ctx.invoke(install_cmd, scope="project")
         return
     click.echo(f"to give everyone in this repo the shelf skills: {AGENT_INSTALL_PROJECT}")

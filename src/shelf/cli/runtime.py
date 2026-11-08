@@ -7,6 +7,7 @@ project file over the user file; a user target reads the user file only.
 """
 
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -43,6 +44,15 @@ def scope_option(*, allow_all: bool = False):
         + (", or all" if allow_all else "")
         + " (default: the project library when one is found).",
     )
+
+
+def stdin_is_tty() -> bool:
+    return sys.stdin.isatty()
+
+
+def interactive(ctx: click.Context) -> bool:
+    """Whether a question may be asked: a terminal on stdin and no --no-input."""
+    return not ctx.obj.get("no_input") and stdin_is_tty()
 
 
 def active_config_path(ctx: click.Context) -> Path:

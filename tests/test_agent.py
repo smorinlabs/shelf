@@ -477,3 +477,80 @@ def test_status_advice_for_a_stale_project_copy_names_the_project_scope(
     r = run(["agent", "status", "--scope", "project"])
     assert r.exit_code == 0, r.output
     assert "shelf agent install --scope project" in r.output
+
+
+# --- P22-TS10 (shipped in P20): the project-scope question ----------------------
+
+
+@pytest.fixture
+def project_shelf(home):
+    """cwd inside a repo with a project shelf (.shelf/shelf_config.toml)."""
+    repo = git_repo(home / "work" / "repo")
+    (repo / ".shelf").mkdir()
+    (repo / ".shelf" / "shelf_config.toml").write_text('library = "shelf"\n')
+    (repo / "src").mkdir()
+    os.chdir(repo / "src")
+    return repo.resolve()
+
+
+def _tty(monkeypatch, value=True):
+    monkeypatch.setattr("shelf.cli.runtime.stdin_is_tty", lambda: value)
+
+
+def test_tty_yes_installs_at_project_scope(project_shelf, home, monkeypatch):
+    _tty(monkeypatch)
+    r = run(["agent", "install"], input="y\n")
+    assert r.exit_code == 0, r.output
+    assert "This repo has a project shelf" in r.output
+    assert all(d.is_dir() for d in dests(project_shelf))
+    assert not any(d.exists() for d in dests(home))
+
+
+@pytest.mark.parametrize("answer", ["n\n", "\n"])
+def test_tty_no_or_enter_installs_at_user_scope(project_shelf, home, monkeypatch, answer):
+    _tty(monkeypatch)
+    r = run(["agent", "install"], input=answer)
+    assert r.exit_code == 0, r.output
+    assert all(d.is_dir() for d in dests(home))
+    assert not any(d.exists() for d in dests(project_shelf))
+
+
+def test_no_tty_installs_at_user_scope_and_prints_the_command(project_shelf, home):
+    r = run(["agent", "install"])
+    assert r.exit_code == 0, r.output
+    assert all(d.is_dir() for d in dests(home))
+    assert (
+        "Installed at user scope. This repo has a project shelf: "
+        "shelf agent install --scope project"
+    ) in r.output
+
+
+def test_no_input_never_asks(project_shelf, home, monkeypatch):
+    _tty(monkeypatch)
+    r = run(["--no-input", "agent", "install"])
+    assert r.exit_code == 0, r.output
+    assert "[y/N]" not in r.output
+    assert all(d.is_dir() for d in dests(home))
+
+
+def test_an_explicit_scope_asks_nothing(project_shelf, home, monkeypatch):
+    _tty(monkeypatch)
+    r = run(["agent", "install", "--scope", "user"])
+    assert r.exit_code == 0, r.output
+    assert "project shelf" not in r.output
+
+
+def test_no_project_shelf_asks_nothing(home, monkeypatch):
+    _tty(monkeypatch)
+    git_repo(home / "plain")
+    os.chdir(home / "plain")
+    r = run(["agent", "install"])
+    assert r.exit_code == 0, r.output
+    assert "project shelf" not in r.output
+
+
+def test_status_notes_a_project_shelf_without_project_skills(project_shelf, home):
+    r = run(["agent", "status"])
+    assert "This repo has a project shelf but no project-scope skills" in r.output
+    assert run(["agent", "install", "--scope", "project"]).exit_code == 0
+    assert "no project-scope skills" not in run(["agent", "status"]).output
