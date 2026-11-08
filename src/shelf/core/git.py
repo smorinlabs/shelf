@@ -36,8 +36,8 @@ def append_gitignore(repo: Path, entries: list[str]) -> None:
 
 
 def is_git_repo(root: Path) -> bool:
-    """Return whether *root* has Git repository metadata."""
-    return (root / ".git").exists()
+    """Return whether *root* is inside a Git work tree (a project library is a subfolder)."""
+    return root.is_dir() and toplevel(root) is not None
 
 
 def git_init(root: Path) -> None:
@@ -99,13 +99,15 @@ def git_commit_all(root: Path, message: str, paths: list[str] | None = None) -> 
         _git(root, ["add", "-A"])
         _git(root, ["commit", "--allow-empty", "-m", message])
         return
-    # On disk or in the index: stage, then commit. Only in HEAD (a deletion the user
-    # already staged): `git add` rejects the path, but `commit --only` records it.
+    # Tracked, or on disk and not ignored: stage, then commit. An ignored untracked path
+    # (index.html in a project library) is left out; `git add` refuses one by name.
+    # Only in HEAD (a deletion the user already staged): `git add` rejects the path,
+    # but `commit --only` records it.
     staged = [
         p
         for p in paths
-        if (root / p).exists()
-        or _git(root, ["ls-files", "--cached", "--", p], literal=True).strip()
+        if _git(root, ["ls-files", "--cached", "--", p], literal=True).strip()
+        or ((root / p).exists() and not _ignored(root, p))
     ]
     has_head = (
         subprocess.run(
@@ -130,6 +132,12 @@ def git_commit_all(root: Path, message: str, paths: list[str] | None = None) -> 
     if staged:
         _git(root, ["add", "-A", "--", *staged], literal=True)
     _git(root, ["commit", "--only", "--allow-empty", "-m", message, "--", *usable], literal=True)
+
+
+def _ignored(root: Path, path: str) -> bool:
+    # check-ignore takes path names, not pathspecs (it rejects GIT_LITERAL_PATHSPECS).
+    out = subprocess.run(["git", "-C", str(root), "check-ignore", "-q", "--", path])
+    return out.returncode == 0
 
 
 def _gh(args: list[str]) -> str:
