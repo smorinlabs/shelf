@@ -263,7 +263,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [ ] Project P20: Project-scoped libraries (v0.10.0, plugin v0.2.0)
+## [~] Project P20: Project-scoped libraries (v0.10.0, plugin v0.2.0)
 **Goal/Requirement**: Give shelf a **project** scope beside the existing **user** scope, like Claude Code skills. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 1). Approved 2026-11-05.
 - Discovery per CLI Design Standard R5.2: search the current directory and its parents for `.shelf/shelf_config.toml`, stopping at `.git`; its `library` is a relative path (default `shelf`)
 - Precedence: `--library` → `SHELF_LIBRARY` → project scope → user config → error
@@ -414,7 +414,7 @@ error: smorin/shelf-library is private; publishing 3 documents requires --force 
 - [x] [P22-T05] `agent status` and `agent uninstall`
 - [~] [P22-T06] Stale-copy note in `shelf audit` (done); `init --scope project` offer moves to P20 with the scope question
 - [x] [P22-T07] README and plugin README: the two install paths (plugin, `shelf agent install`) and when to use each; PRD §5, §11, §12
-- [ ] [P22-T08] Bump to v0.9.0; `make check` and `just all` green; PR merged; tag pushed
+- [x] [P22-T08] Bump to v0.9.0; `make check` and `just all` green; PR merged; tag pushed
 - [x] Regression Test Status — 383 passing at v0.9.0 (30 new in `tests/test_agent.py`); `make check` and `just all` green; dry runs against this machine's real skill folders: `--dev --source ~/c/shelf` reports all four dev links `unchanged`, copy mode skips all four with `--force` named, nothing written
 
 ### Deliverable
@@ -458,7 +458,7 @@ Restart any running agent session to pick up changes.
 - [x] [P23-T01] `scripts/sync_agent_skills.py`; `just sync-agent-skills` calls it; `just install-hooks` runs `lefthook install`
 - [x] [P23-T02] `lefthook.yml` pre-commit hook
 - [x] [P23-T03] Docs: README Development section, plugin README
-- [ ] [P23-T04] Bump to v0.9.1; `make check` and `just all` green; PR merged; tag `v0.9.1` pushed
+- [x] [P23-T04] Bump to v0.9.1; `make check` and `just all` green; PR merged; tag `v0.9.1` pushed
 - [x] Regression Test Status — 398 passing at v0.9.1 (8 new in `tests/test_skill_sync.py`); `make check` and `just all` green; live lefthook v2.2.2 smoke in a scratch clone: a master edit committed both copies, an edit to the copy alone was refused
 
 ---
