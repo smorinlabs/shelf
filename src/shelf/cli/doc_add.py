@@ -12,7 +12,7 @@ from shelf.cli.commit import (
     library_paths,
     require_git_if_commit,
 )
-from shelf.cli.runtime import get_config, get_library
+from shelf.cli.runtime import get_config, get_library, scope_option
 from shelf.core import handoff
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import (
@@ -72,6 +72,7 @@ from shelf.core.slugs import derive_slug
 @click.option("--remove-source/--no-remove-source", "remove_source_", default=None)
 @click.option("--dry-run", is_flag=True)
 @commit_options
+@scope_option()
 @click.pass_context
 def doc_add(
     ctx,

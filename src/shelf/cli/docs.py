@@ -5,9 +5,9 @@ import json
 import click
 
 from shelf.cli.output import output_options, resolve_format
-from shelf.cli.runtime import get_library
+from shelf.cli.runtime import resolve_targets, scope_option
 from shelf.core.catalog import Document, load_catalog
-from shelf.core.errors import NotFoundError
+from shelf.core.errors import ConflictError, NotFoundError
 
 
 def _anchor(doc: Document) -> str:
@@ -35,10 +35,13 @@ def _matches(doc: Document, query: str) -> bool:
     "--sort-by", type=click.Choice(["added", "title"]), default="added", show_default=True
 )
 @output_options
+@scope_option(allow_all=True)
 @click.pass_context
 def doc_list(ctx, repo_, topic_, kind_, tags_, query, limit, sort_by, output, json_):
-    """Filter and query documents."""
-    docs = load_catalog(get_library(ctx)).documents
+    """Filter and query documents across the project and user libraries."""
+    scoped = [(t.scope, d) for t in resolve_targets(ctx) for d in load_catalog(t.root).documents]
+    scope_of = {id(d): scope for scope, d in scoped}
+    docs = [d for _, d in scoped]
     if repo_:
         docs = [d for d in docs if d.repo and d.repo.name == repo_]
     if topic_:
@@ -56,26 +59,39 @@ def doc_list(ctx, repo_, topic_, kind_, tags_, query, limit, sort_by, output, js
     if limit is not None:
         docs = docs[:limit]
     if resolve_format(output, json_) == "json":
-        click.echo(json.dumps([d.to_dict() for d in docs], indent=2, ensure_ascii=False))
+        rows = [{**d.to_dict(), "scope": scope_of[id(d)]} for d in docs]
+        click.echo(json.dumps(rows, indent=2, ensure_ascii=False))
     else:
         for d in docs:
-            click.echo(f"{d.id}\t{d.title}\t{d.kind}\t{_anchor(d)}")
+            click.echo(f"{d.id}\t{d.title}\t{d.kind}\t{_anchor(d)}\t{scope_of[id(d)]}")
 
 
 @click.command("view")
 @click.argument("doc_id")
 @output_options
+@scope_option(allow_all=True)
 @click.pass_context
 def doc_view(ctx, doc_id, output, json_):
-    """Print one document in full."""
-    root = get_library(ctx)
-    catalog = load_catalog(root)
-    doc = next((d for d in catalog.documents if d.id == doc_id), None)
-    if doc is None:
+    """Print one document in full (searches the project and user libraries)."""
+    hits = [
+        (t, d)
+        for t in resolve_targets(ctx)
+        for d in load_catalog(t.root).documents
+        if d.id == doc_id
+    ]
+    if not hits:
         raise NotFoundError(
             f"document '{doc_id}' not found — try 'shelf doc list --query {doc_id}'"
         )
+    if len(hits) > 1:
+        raise ConflictError(
+            f"document '{doc_id}' is in both the project and user libraries "
+            "— pick one with --scope project or --scope user"
+        )
+    target, doc = hits[0]
+    root = target.root
     data = doc.to_dict()
+    data["scope"] = target.scope
     for entry in data["files"]:
         entry["abs_path"] = str(root / entry["path"])
     if resolve_format(output, json_) == "json":

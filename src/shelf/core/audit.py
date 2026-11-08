@@ -8,6 +8,7 @@ from pathlib import Path
 import click
 
 import shelf.core.index as index_mod
+from shelf.core import git as git_core
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import CURRENT_SCHEMA_VERSION
 from shelf.core.index import _sha256, parse_fingerprint
@@ -385,7 +386,7 @@ def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False
                 )
             )
 
-    if not pre_commit and (root / ".git").exists():
+    if not pre_commit and git_core.is_git_repo(root):
         try:
             out = subprocess.run(
                 [

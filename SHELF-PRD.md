@@ -119,16 +119,24 @@ handoff-agent = "claude"      # agent launched by the `doc add` handoff: claude 
 
 ### Library path resolution
 
-Highest precedence first:
+Shelf has two **scopes**, like Claude Code skills: the **user** library (personal, configured per machine) and an optional **project** library committed inside a Git repository and shared with everyone who works in it.
 
-1. `--library <path>` — CLI flag.
-2. `SHELF_LIBRARY` — environment variable.
-3. The `library` key in the **active config file**, where the active config file is `--config <path>` if given, otherwise `${XDG_CONFIG_HOME:-~/.config}/shelf/shelf_config.toml`.
-4. None of the above → the library is unconfigured. The CLI exits with guidance to run `shelf init`; the `shelf` skill triggers first-run setup automatically (§12).
+**Project scope discovery (R5.2).** Shelf looks for `.shelf/shelf_config.toml` in the current directory, then each parent, and stops after the first directory where `.git` exists (a directory, or the file a git worktree has). The file is the scope marker. Its `library` key must be a relative path inside the repo, resolved against the directory that holds `.shelf/` (default `shelf`); an absolute or escaping path is an error. `--config <path>` replaces discovery: with it, no project scope is found.
 
-This provides a **direct** override (`--library` / `SHELF_LIBRARY`) and an **indirect** one — `XDG_CONFIG_HOME` relocates the config directory, and the config file carries the library path.
+Highest precedence first, for commands that act on one library:
 
-The design assumes a single library. Multiple named libraries could be added later without breaking this scheme. *(Planned, P20: a project scope discovered from `.shelf/shelf_config.toml`, inserted between `SHELF_LIBRARY` and the user config — see `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md`.)*
+1. `--scope project` — the discovered project library (exit 2 if there is none, or with `--library`).
+2. `--library <path>` — CLI flag.
+3. `SHELF_LIBRARY` — environment variable.
+4. **Project scope** — the discovered `.shelf/shelf_config.toml`.
+5. The `library` key in the **user config file**: `--config <path>` if given, otherwise `${XDG_CONFIG_HOME:-~/.config}/shelf/shelf_config.toml`. `--scope user` starts the chain here, after `--library` and `SHELF_LIBRARY`.
+6. None of the above → the library is unconfigured. The CLI exits with guidance to run `shelf init`; the `shelf` skill triggers first-run setup automatically (§12).
+
+`doc list` and `doc view` read **both** libraries by default and label each result with its scope; `--scope user|project|all` narrows (§11.11). With `--library` or `SHELF_LIBRARY` and no `--scope`, a read covers only that library.
+
+**Settings follow the target library.** For the project library, keys in the project file override the user file, key by key (R5.1), except `browser`: only the user file sets it, because a cloned repo must not choose the command `shelf open` runs. For the user library, only the user file applies. So a project's `remove-source = false` never changes a `doc add --scope user`. `library` itself is never inherited between files.
+
+This provides a **direct** override (`--library` / `SHELF_LIBRARY`) and an **indirect** one — `XDG_CONFIG_HOME` relocates the config directory, and the config file carries the library path. Named libraries beyond the two scopes remain possible later without breaking this scheme (§14.3).
 
 ### Default library location
 
@@ -136,7 +144,7 @@ The design assumes a single library. Multiple named libraries could be added lat
 
 ### `shelf path`
 
-Because the library lives in a non-obvious location, the CLI reveals it: `shelf path` prints the resolved library root; `shelf path config` prints the config file path; `shelf path index` prints the generated `index.html` path.
+Because the library lives in a non-obvious location, the CLI reveals it: `shelf path` prints the resolved library root; `shelf path config` prints the config file path (the project file for a project target); `shelf path index` prints the generated `index.html` path. `shelf path --scope all` prints one `<scope>\t<path>` line per library in reach.
 
 ### Machine portability
 
@@ -156,12 +164,12 @@ Atomicity is achieved by ordering, with the catalog write as the **commit point*
 
 Detailed in §11.
 
-- `shelf init` — create, adopt, and register a library.
+- `shelf init` — create, adopt, and register a library; `--scope project` sets one up inside a Git repo.
 - `shelf doc add <file>...` — add a new document (one or more format files → one entry).
 - `shelf doc format add <id> <file>...` — add a format variant to an existing document.
 - `shelf doc format delete <id> <format>` — remove a format variant from a document.
 - `shelf doc update <id>` — change a document's metadata (pure catalog changes).
-- `shelf doc move <id>` — relocate a document (topic, repo, or anchoring change).
+- `shelf doc move <id>` — relocate a document (topic, repo, or anchoring change), or move it between scopes (`--to-scope`).
 - `shelf doc delete <id>` — delete a document (entry + folder); alias `rm`.
 - `shelf doc list` — filter and query documents; alias `ls`.
 - `shelf doc view <id>` — print one document in full.
@@ -190,7 +198,7 @@ The CLI conforms to the org **CLI Design Standard** (cli-standards repo, v1.4.14
 
 - **R2.1 — `add` instead of `create`** for `doc add`, `topic add`, `kind add`. Shelf ingests existing artifacts rather than creating them, and "add to shelf" is the product's language; one waiver covers all three for consistency.
 - **R2.2 — `regen` abbreviation.** Rare, mostly skill-invoked maintenance command; the abbreviation is well understood in context.
-- **R5.1/R5.2 — no project or system config scopes.** Shelf is a per-user library tool; only the user scope (`$XDG_CONFIG_HOME/shelf/shelf_config.toml`) and the `--config` override exist. *(Planned, P20: project scope lifts this waiver; system scope stays waived — see `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md`.)*
+- **R5.1/R5.2 — no system config scope.** The user and project scopes follow R5.1/R5.2 (§4); `$XDG_CONFIG_DIRS` is not searched, because a machine-wide shelf library has no use case. (Narrowed in P20, v0.10.0; it previously waived the project scope too.)
 
 ---
 
@@ -348,6 +356,7 @@ Creates a library and registers it in the config file.
 
 ```
 shelf init [--library <path>] [--adopt <path>] [--git] [--github] [--owner <gh-owner>] [--force]
+shelf init --scope project [--library <relative-path>] [--force] [--yes]
 ```
 
 - `--library <path>` — where to create the library; defaults to `${XDG_DATA_HOME:-~/.local/share}/shelf`.
@@ -356,7 +365,9 @@ shelf init [--library <path>] [--adopt <path>] [--git] [--github] [--owner <gh-o
 - `--owner <gh-owner>` — GitHub owner for `--github`; defaults to the authenticated `gh` user.
 - `--adopt <path>` — register an **existing** library instead of scaffolding one: validate it (parseable `catalog.json`, supported `schema_version`, `docs/repos/` and `docs/topics/` present), then write `shelf_config.toml` pointing at it. Touches nothing inside the library. Mutually exclusive with `--git`, `--github`, and `--force`. This is the new-machine flow: clone `shelf-library`, then `shelf init --adopt <path>`.
 
-Behavior: scaffolds `catalog.json` (empty `topics`, `kinds` seeded with the six default kinds, empty `documents`), `docs/repos/`, `docs/topics/`, the generated `index.html`, and a README; then writes `${XDG_CONFIG_HOME:-~/.config}/shelf/shelf_config.toml` with `library` pointing at the new library. With `--git`, the scaffolded files are recorded as the library's initial commit. Refuses to overwrite an existing configured library unless `--force`.
+Behavior: scaffolds `catalog.json` (empty `topics`, `kinds` seeded with the six default kinds, empty `documents`), `docs/repos/`, `docs/topics/`, the generated `index.html`, and a README; then writes `${XDG_CONFIG_HOME:-~/.config}/shelf/shelf_config.toml` with `library` pointing at the new library. With `--git`, the scaffolded files are recorded as the library's initial commit, and `.shelf.lock` is appended to `.gitignore` (existing lines are kept). Refuses to overwrite an existing configured library unless `--force`.
+
+**`--scope project`** sets up a library inside the Git repository that contains the current directory (exit 1 outside one). It writes `<repo>/.shelf/shelf_config.toml` with `library = "shelf"` (or the relative `--library`) and `remove-source = false`, scaffolds that folder, and appends `.shelf.lock` and `/<library>/index.html` to the repo's `.gitignore`: two branches that each add a document would always conflict on a committed `index.html`, so `regen` and `open` rebuild it instead. It never runs `git init`, never commits, never touches the user config, and writes no README when the library is the repo root. `--adopt`, `--git`, `--github`, and `--owner` exit 2. It then offers to run `shelf agent install --scope project` (a terminal asks; `--yes` accepts; otherwise it prints the command).
 
 ### 11.2 `shelf doc add`
 
@@ -439,6 +450,7 @@ Relocates a document — the changes `shelf doc update` excludes because they mo
 
 ```
 shelf doc move <id> (--topic <name> [--create-topic] | --repo <name> [--repo-url <url>] [--subject <label>])
+shelf doc move <id> --to-scope user|project [--create-topic]
 ```
 
 Handles the three relocation operations: change a document's topic; change its repo; switch its anchoring (passing `--topic` for a currently repo-anchored document converts it to topical and drops the `repo` object; passing `--repo` for a topical document does the reverse).
@@ -448,6 +460,8 @@ Handles the three relocation operations: change a document's topic; change its r
 ```
 shelf doc move 2026-05-22-cli-extension-prd --topic dev-tooling --create-topic --commit
 ```
+
+**`--to-scope`** moves a document between the user and project libraries, keeping its anchor and paths. It adds the document to the target library, then deletes it from the source, each under that library's lock. The target must already have the document's kind (`shelf kind add <kind> --scope <target>`); a missing topic needs `--create-topic`; an id already in the target exits 5. If the delete fails, the error names the leftover, and `shelf audit` reports it (check 6). With `--commit`, each library gets its own commit.
 
 ### 11.6 `shelf audit`
 
@@ -459,7 +473,8 @@ It flags:
 2. Catalog entries whose `files[]` point at files that do not exist (dead references).
 3. Entries that are malformed or uncategorized — missing required fields, a `kind` not in the kind list, a `category` not in the topic list, a per-document folder that does not match its anchoring, an `added` date that does not match the slug's date prefix, or a `schema_version` older than current.
 4. Missing or unparseable `shelf_config.toml`, `catalog.json`, or `index.html`, and an `index.html` whose embedded catalog fingerprint does not match the current `catalog.json` — stale; fixed by `shelf regen` (§11.12).
-5. When the library is a git repository, uncommitted (dirty) changes to `catalog.json`, `index.html`, or `docs/`. This check is skipped in pre-commit mode (`--pre-commit`) — as a hook, the staged changes are precisely what is being committed, so flagging them would make every commit fail.
+5. When the library is in a git repository (its own, or a host repo for a project library), uncommitted (dirty) changes to `catalog.json`, `index.html`, or `docs/`. This check is skipped in pre-commit mode (`--pre-commit`) — as a hook, the staged changes are precisely what is being committed, so flagging them would make every commit fail.
+6. A document id present in both the project and user libraries — the leftover of an interrupted `doc move --to-scope` (§11.5). Reported from either scope.
 
 Each finding has a legal remediation, so the `audit` reference can offer fixes without ever mutating the library itself:
 
@@ -470,6 +485,7 @@ Each finding has a legal remediation, so the `audit` reference can offer fixes w
 | 3. Malformed or uncategorized entries | `shelf doc update`; an old `schema_version` → `shelf migrate` (§11.14) |
 | 4. Missing, unparseable, or stale files | config → `shelf init --adopt`; index → `shelf regen` (§11.12) |
 | 5. Dirty git state | the `audit` reference offers `git add` / `git commit` run in the library — recording history is not library mutation |
+| 6. Id in both scopes | keep one copy: `shelf doc delete <id> --scope user` or `--scope project` |
 
 `--json` emits a structured report.
 
@@ -485,7 +501,7 @@ By default `shelf open` starts the local server (part of the shelf package, on t
 
 ### 11.8 `shelf path`
 
-Prints resolved locations: `shelf path` → library root; `shelf path config` → config file; `shelf path index` → generated `index.html`.
+Prints resolved locations: `shelf path` → library root; `shelf path config` → config file; `shelf path index` → generated `index.html`. `--scope user|project|all` picks the library; `all` prints one `<scope>\t<path>` line per library (§4).
 
 ### 11.9 `shelf topic` and `shelf kind`
 
@@ -503,7 +519,10 @@ Read-only; neither touches the library.
 shelf doc list [--repo <name>] [--topic <name>] [--kind <kind>] [--tag <tag>]
                [--query <text>] [--limit <n>] [--sort-by added|title] [--json]
 shelf doc view <id> [--json]
+# both take --scope user|project|all (default: every library in reach)
 ```
+
+Both read the project and user libraries (§4). Each row ends with its scope, and each JSON object carries `scope`. An id present in both libraries makes `doc view` exit 5 and name `--scope`.
 
 `shelf doc list` (alias `ls`) prints matching documents (id, title, kind, anchor). Filters AND together; `--query` substring-matches over id, title, description, tags, and repo `subject`; `--limit <n>` caps results and `--sort-by added|title` orders them (default `added`, newest first). `shelf doc view` prints a single entry in full, including `files[]` with both library-relative and resolved absolute paths. These are the intended way for skills to resolve ids and inspect state — a skill should never need to open `catalog.json` itself.
 
@@ -636,7 +655,7 @@ The split exists because browsers block a `file://` page from fetching neighbori
 
 1. **Plugin manifests — resolved (P09).** The dual manifests live in the `shelf` repo (monorepo, §3): `.claude-plugin/plugin.json` (skills auto-discovered from `skills/`) and `.codex-plugin/plugin.json` (`"skills": "./skills/"` + an `interface` block). Both verified via `skillsmith verify --deep` — claude-code and codex both pass, no findings. (PATH placement: the CLI installs via `uv tool install`, §5.)
 2. **Local server port.** Default `8765` from config, with fallback to a free port chosen by the operating system when occupied. Confirm whether a fixed port with an error is preferred over automatic fallback.
-3. **Multiple libraries.** The design assumes a single library. Named multi-library support is deferred; the resolution scheme in §4 can accommodate it later without breaking changes. *(2026-11-05: user + project scopes approved as P20 — see `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md`.)*
+3. **Multiple libraries — resolved as two scopes (P20, v0.10.0).** The user and project scopes in §4 cover the real need. Fully named libraries remain a possible later generalization (P12); the §4 chain can take them without breaking changes.
 4. **AI-session detection for the handoff.** The exact mechanism by which `shelf doc add` detects it is already running inside a Claude Code or Codex session (environment variable vs. parent-process inspection) is verified at build time, so the CLI never nests an interactive session (§11.2). Claude Code sets `CLAUDECODE=1` in its sessions — the candidate mechanism; the Codex equivalent is identified at build time.
 5. **Taxonomy maintenance.** `topic rename`, `topic remove`, and `kind remove` do not exist; a topic rename implies folder moves under `docs/topics/`. Deferred deliberately.
 6. **Scaffolding sequencing.** The `shelf` repo starts with py-launch-blueprint's core conventions only (src layout, click, pytest/ruff/ty, just + make check). The remaining scaffolding — CI, release automation, hooks, docs — is layered on by template-press when it is ready; those files are additive and do not disturb the package.

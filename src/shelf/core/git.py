@@ -6,10 +6,53 @@ from pathlib import Path
 
 import click
 
+from shelf.core.paths import discover_project
+
+
+def toplevel(path: Path) -> Path | None:
+    """The work-tree root of the Git repository containing *path*, or None."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=path,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return None
+    if out.returncode != 0 or not out.stdout.strip():
+        return None
+    return Path(out.stdout.strip()).resolve()
+
+
+def append_gitignore(repo: Path, entries: list[str]) -> None:
+    """Add each missing *entry* to `<repo>/.gitignore`, keeping every existing line."""
+    path = repo / ".gitignore"
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    missing = [e for e in entries if e not in text.splitlines()]
+    if not missing:
+        return
+    if text and not text.endswith("\n"):
+        text += "\n"
+    path.write_text(text + "".join(f"{e}\n" for e in missing), encoding="utf-8")
+
 
 def is_git_repo(root: Path) -> bool:
-    """Return whether *root* has Git repository metadata."""
-    return (root / ".git").exists()
+    """Return whether *root* is a Git library: the work-tree root itself, or the project
+    library of the repo it sits in. Any other library that merely sits inside a repo
+    (a dotfiles home, a personal folder beside a project shelf) is not one."""
+    if not root.is_dir():
+        return False
+    top = toplevel(root)
+    if top is None:
+        return False
+    if top == root.resolve():
+        return True
+    try:
+        project = discover_project(top)
+    except click.ClickException:
+        return False
+    return project is not None and project.library == root.resolve()
 
 
 def git_init(root: Path) -> None:
@@ -71,13 +114,15 @@ def git_commit_all(root: Path, message: str, paths: list[str] | None = None) -> 
         _git(root, ["add", "-A"])
         _git(root, ["commit", "--allow-empty", "-m", message])
         return
-    # On disk or in the index: stage, then commit. Only in HEAD (a deletion the user
-    # already staged): `git add` rejects the path, but `commit --only` records it.
+    # Tracked, or on disk and not ignored: stage, then commit. An ignored untracked path
+    # (index.html in a project library) is left out; `git add` refuses one by name.
+    # Only in HEAD (a deletion the user already staged): `git add` rejects the path,
+    # but `commit --only` records it.
     staged = [
         p
         for p in paths
-        if (root / p).exists()
-        or _git(root, ["ls-files", "--cached", "--", p], literal=True).strip()
+        if _git(root, ["ls-files", "--cached", "--", p], literal=True).strip()
+        or ((root / p).exists() and not _ignored(root, p))
     ]
     has_head = (
         subprocess.run(
@@ -102,6 +147,12 @@ def git_commit_all(root: Path, message: str, paths: list[str] | None = None) -> 
     if staged:
         _git(root, ["add", "-A", "--", *staged], literal=True)
     _git(root, ["commit", "--only", "--allow-empty", "-m", message, "--", *usable], literal=True)
+
+
+def _ignored(root: Path, path: str) -> bool:
+    # check-ignore takes path names, not pathspecs (it rejects GIT_LITERAL_PATHSPECS).
+    out = subprocess.run(["git", "-C", str(root), "check-ignore", "-q", "--", path])
+    return out.returncode == 0
 
 
 def _gh(args: list[str]) -> str:

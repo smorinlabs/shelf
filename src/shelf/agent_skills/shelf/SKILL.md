@@ -32,6 +32,11 @@ remains authoritative for every library operation and mutation.
   plural-match resolution get an explicit confirmation first.
 - **Commit when the library is a git repo.** Pass `--commit` on mutating
   commands when the library is version-controlled; omit it otherwise.
+- **Two scopes.** A repo can hold a **project** library (found through
+  `.shelf/shelf_config.toml`; committed with the repo) beside the user's
+  **user** library. `shelf path --scope all` lists the libraries in reach. Reads
+  span both; every write goes to one, so name it with `--scope project|user`
+  whenever a project library exists.
 - **First run:** if no library is configured (`shelf path` errors, no catalog),
   route through `references/init.md` before the requested operation.
 
@@ -43,11 +48,11 @@ Match the user's intent to one row, load **only** that reference, then follow it
 |---|---|---|
 | add a document, a new format, a topic, or a kind | `references/add.md` | `doc add`, `doc format add`, `topic add`, `kind add` |
 | find / retrieve / use a shelf doc as context | `references/find.md` | `doc list`, `doc view` (read-only) |
-| edit metadata, reclassify, retitle, or relocate | `references/edit.md` | `doc update`, `doc move`, `doc format delete` |
+| edit metadata, reclassify, retitle, or relocate (also between scopes) | `references/edit.md` | `doc update`, `doc move`, `doc move --to-scope`, `doc format delete` |
 | remove / delete a document | `references/remove.md` | `doc delete --yes` |
 | audit, repair, regen, migrate, or adopt orphans | `references/audit.md` | `audit`, `regen`, `migrate`, `doc adopt`, `orphan …` |
 | open the library UI | `references/open.md` | `open` |
-| create, adopt, or register a library | `references/init.md` | `init`, `init --adopt` |
+| create, adopt, or register a library, or set up shelf in this repo | `references/init.md` | `init`, `init --adopt`, `init --scope project` |
 
 When intent is ambiguous, ask one question to disambiguate, then route. When a
 request spans operations (e.g. "add this and then show me what I have"), handle

@@ -327,13 +327,52 @@ handoff-agent = "claude"                    # claude | codex, for the doc add ha
 | `browser` | unset | Browser that `shelf open` uses; unset means the system default browser. On macOS, give an application name such as `"Firefox"` (opened with `open -a`). Elsewhere, give a Python `webbrowser` name such as `"firefox"`. If shelf cannot find that browser, `shelf open` exits `1`. `shelf init` does not write this key. The value `"Google Chrome"`, which `shelf init` wrote up to v0.8.0, is treated as unset. |
 | `handoff-agent` | `"claude"` | Agent started by the `doc add` handoff. |
 
+### User and project libraries
+
+Like Claude Code skills, shelf has two scopes:
+
+| Scope | Where the library lives | Who sees it | Set up with |
+|---|---|---|---|
+| **user** | `~/.local/share/shelf` (or wherever `init` put it) | you, on this machine | `shelf init` |
+| **project** | a `shelf/` folder inside a Git repo, committed | everyone who clones the repo | `shelf init --scope project` |
+
+A project library is marked by `.shelf/shelf_config.toml` at the repo top:
+
+```text
+my-repo/
+├── .shelf/shelf_config.toml   # library = "shelf", remove-source = false
+├── shelf/                     # the project library
+│   ├── catalog.json
+│   ├── index.html             # gitignored; `shelf open` and `shelf regen` rebuild it
+│   └── docs/topics/…
+└── .gitignore                 # init appends .shelf.lock and /shelf/index.html
+```
+
+Shelf finds it by looking in the current directory and each parent, stopping at
+the repo root (the first directory with `.git`). Its `library` value must be a
+relative path inside the repo.
+
+- **Reads** (`doc list`, `doc view`) cover both libraries and label each result
+  with its scope. `--scope user|project` narrows them.
+- **Everything else** acts on one library: the project library when one is found,
+  otherwise the user library. Pass `--scope user` or `--scope project` to choose.
+- **Settings follow the library.** A project's keys override your user file only
+  for that project library, so its `remove-source = false` never affects
+  `doc add --scope user`.
+- `shelf doc move <id> --to-scope user|project` moves a document between them.
+- `--commit` in a project library commits only shelf's own paths into the host
+  repo, leaving your other changes alone.
+
 **Where shelf looks for the library**, highest precedence first:
 
-1. `--library <path>`
-2. the `SHELF_LIBRARY` environment variable
-3. `library` in the active config file. The active file is `--config <path>`
-   if given, otherwise the default path above.
-4. If none of these is set, the command fails and tells you to run `shelf init`.
+1. `--scope project` — the project library (an error if there is none)
+2. `--library <path>`
+3. the `SHELF_LIBRARY` environment variable
+4. the project library, when the current directory is inside one
+5. `library` in the user config file. That file is `--config <path>` if given
+   (which also turns off project discovery), otherwise the default path above.
+   `--scope user` starts here, after `--library` and `SHELF_LIBRARY`.
+6. If none of these is set, the command fails and tells you to run `shelf init`.
 
 | Environment variable | Effect |
 |---|---|
@@ -344,9 +383,10 @@ handoff-agent = "claude"                    # claude | codex, for the doc add ha
 Print the resolved locations with:
 
 ```bash
-shelf path            # library root
-shelf path config     # config file
-shelf path index      # generated index.html
+shelf path               # library root
+shelf path config        # config file
+shelf path index         # generated index.html
+shelf path --scope all   # every library in reach, one "<scope>\t<path>" line each
 ```
 
 ---
@@ -420,6 +460,7 @@ Creates a library and registers it in the config file.
 ```bash
 shelf init [--library PATH] [--git] [--github] [--owner OWNER] [--force]
 shelf init --adopt PATH
+shelf init --scope project [--library RELATIVE-PATH] [--force] [--yes]
 ```
 
 - The new library contains `catalog.json` (no topics, six seeded kinds, no
@@ -437,6 +478,13 @@ shelf init --adopt PATH
 - `--adopt PATH` registers an **existing** library, such as a clone, and
   creates nothing. It first checks that `catalog.json` parses, that its schema
   version is supported, and that `docs/repos/` and `docs/topics/` exist.
+- `--scope project` sets up a library inside the Git repo you are in (see
+  [User and project libraries](#user-and-project-libraries)). It writes
+  `.shelf/shelf_config.toml` at the repo top, creates `shelf/` (or the relative
+  `--library`), and appends `.shelf.lock` and the library's `index.html` to
+  `.gitignore`. It runs no `git init`, makes no commit, and leaves your user
+  config alone; commit the new files yourself. It then offers
+  `shelf agent install --scope project` (`--yes` accepts).
 
 If `--github` fails after GitHub has created the repository, delete that
 repository by hand. shelf does not roll back external effects.
@@ -524,6 +572,7 @@ Relocates a document folder and rewrites its file paths.
 
 ```bash
 shelf doc move ID (--topic NAME [--create-topic] | --repo NAME [--repo-url URL] [--subject LABEL]) [--dry-run]
+shelf doc move ID --to-scope user|project [--create-topic] [--dry-run]
 ```
 
 `doc move` handles three cases:
@@ -535,6 +584,12 @@ shelf doc move ID (--topic NAME [--create-topic] | --repo NAME [--repo-url URL] 
 
 The slug stays the same. Absolute paths that were copied from the UI for this
 document stop working after the move.
+
+`--to-scope` moves the document to the other library instead, keeping its
+anchor. The target library needs the document's kind (`shelf kind add KIND
+--scope TARGET`) and topic (`--create-topic`). If shelf adds the copy but cannot
+remove the original, it says so and `shelf audit` reports the id in both
+libraries.
 
 ### `shelf doc delete` (alias `rm`)
 
@@ -554,6 +609,7 @@ Both are read-only.
 shelf doc list [--repo NAME] [--topic NAME] [--kind KIND] [--tag TAG]… \
                [--query TEXT] [--limit N] [--sort-by added|title] [--json]
 shelf doc view ID [--json]
+# both: --scope user|project|all (default: every library in reach)
 ```
 
 - Filters are combined with AND.
@@ -561,15 +617,18 @@ shelf doc view ID [--json]
   repo subject.
 - The default sort is `added`, newest first.
 
-The table output prints one line per document, with tab-separated id, title,
-kind, and anchor:
+Both read the project and user libraries. The table output prints one line per
+document, with tab-separated id, title, kind, anchor, and scope; JSON objects
+carry a `scope` field:
 
 ```text
-2026-10-24-uv-inline-scripts	uv Inline Scripts	explainer	topic:dev-tooling
+2026-11-05-api-guide	API Guide	explainer	topic:api	project
+2026-10-24-uv-inline-scripts	uv Inline Scripts	explainer	topic:dev-tooling	user
 ```
 
 `doc view` prints the whole entry. Each item in `files` includes `abs_path`,
 the resolved absolute path, so a script or agent can read the file directly.
+An id in both libraries exits `5`; pass `--scope` to pick one.
 Scripts should read documents with `doc list` / `doc view --json` rather than
 parsing `catalog.json`.
 
@@ -787,7 +846,7 @@ the uncommitted changes being committed.
 
 ## Auditing and repair
 
-`shelf audit` runs five checks:
+`shelf audit` runs six checks:
 
 | # | Finds | Fix |
 |---|---|---|
@@ -795,7 +854,8 @@ the uncommitted changes being committed.
 | 2 | **Dead references**: catalog files that do not exist | `shelf doc format delete <id> <fmt> --force` |
 | 3 | **Malformed entries**: missing fields, unknown kind or topic, folder not matching the anchor, `added` not matching the slug date, old schema | `shelf doc update …`; for the schema, `shelf migrate` |
 | 4 | **Missing, unparseable, or stale files**: config, catalog, or an `index.html` that no longer matches the catalog or template | config: `shelf init --adopt <path>`; index: `shelf regen` |
-| 5 | **Uncommitted changes** to `catalog.json`, `index.html`, or `docs/` (Git libraries only; skipped with `--pre-commit`) | `git -C "$(shelf path)" add -A && git -C "$(shelf path)" commit` |
+| 5 | **Uncommitted changes** to `catalog.json`, `index.html`, or `docs/` (libraries in a Git repo only; skipped with `--pre-commit`) | `git -C "$(shelf path)" add -A . && git -C "$(shelf path)" commit .` (the `.` keeps both to the library folder, so a project library never sweeps in the rest of the repo) |
+| 6 | **The same id in both libraries**, such as the leftover of an interrupted `doc move --to-scope` | keep one: `shelf doc delete <id> --scope user` or `--scope project` |
 
 Each finding prints the fix next to it:
 

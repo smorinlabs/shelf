@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 
 from shelf.cli.output import output_options, resolve_format
+from shelf.cli.runtime import interactive, project_scope
 from shelf.core import agent
 
 SCOPE = click.Choice(["user", "project"])
@@ -50,8 +51,34 @@ def _run_guarded(fn):
         raise click.ClickException(f"could not update the skill folders: {exc}") from exc
 
 
+PROJECT_HINT = "shelf agent install --scope project"
+
+
+def _choose_scope(ctx: click.Context) -> tuple[str, bool]:
+    """User scope unless the user picks project for a repo with a project shelf.
+
+    Returns (scope, hint): *hint* means print the project-scope command afterwards.
+    The question is a choice, not consent, so nothing answers it but a person.
+    """
+    proj = project_scope(ctx)
+    if proj is None:
+        return "user", False
+    if not interactive(ctx):
+        return "user", True
+    question = (
+        f"This repo has a project shelf ({proj.root}). Install the skills at project "
+        "scope, so they are committed for everyone?"
+    )
+    return ("project" if click.confirm(question, default=False) else "user"), False
+
+
 @click.command("install")
-@click.option("--scope", type=SCOPE, default="user", show_default=True, help="Where to install.")
+@click.option(
+    "--scope",
+    type=SCOPE,
+    default=None,
+    help="Where to install (default: user; in a repo with a project shelf, asks).",
+)
 @click.option("--dev", is_flag=True, help="Install symlinks into a shelf checkout, not copies.")
 @click.option(
     "--source",
@@ -61,7 +88,8 @@ def _run_guarded(fn):
 )
 @click.option("-f", "--force", is_flag=True, help="Replace placements shelf did not install.")
 @click.option("--dry-run", is_flag=True, help="Show what would change; write nothing.")
-def install_cmd(scope, dev, source, force, dry_run):
+@click.pass_context
+def install_cmd(ctx, scope, dev, source, force, dry_run):
     """Install the shelf skills for Claude Code and Codex/Cursor.
 
     \b
@@ -72,6 +100,9 @@ def install_cmd(scope, dev, source, force, dry_run):
     """
     if source is not None and not dev:
         raise click.UsageError("--source requires --dev")
+    hint = False
+    if scope is None:
+        scope, hint = _choose_scope(ctx)
     root = agent.scope_root(scope)
     skills = agent.dev_source(source) if dev else None
     relative = False
@@ -96,6 +127,8 @@ def install_cmd(scope, dev, source, force, dry_run):
     )
     if not dry_run and any(o.verb in ("created", "updated", "replaced") for o in outcomes):
         click.echo("Restart any running agent session to pick up changes.")
+    if hint:
+        click.echo(f"{action} at user scope. This repo has a project shelf: {PROJECT_HINT}")
     if any(o.skipped for o in outcomes):
         raise SystemExit(1)
 
@@ -105,7 +138,8 @@ def install_cmd(scope, dev, source, force, dry_run):
     "--scope", type=click.Choice(["user", "project", "all"]), default="all", show_default=True
 )
 @output_options
-def status_cmd(scope, output, json_):
+@click.pass_context
+def status_cmd(ctx, scope, output, json_):
     """List installed shelf skills, their kind, and whether copies are stale."""
     rows = []
     for name in ("user", "project") if scope == "all" else (scope,):
@@ -124,6 +158,9 @@ def status_cmd(scope, output, json_):
         fix = "shelf agent install" + (" --scope project" if r["scope"] == "project" else "")
         stale = f" (stale: {fix})" if r["stale"] else ""
         click.echo(f"{r['scope']}\t{r['folder']}\t{r['skill']}\t{r['kind']}\t{detail}{stale}")
+    has_project_skills = any(r["scope"] == "project" and r["kind"] != "missing" for r in rows)
+    if scope != "user" and project_scope(ctx) is not None and not has_project_skills:
+        click.echo(f"This repo has a project shelf but no project-scope skills: {PROJECT_HINT}")
 
 
 @click.command("uninstall")

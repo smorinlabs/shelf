@@ -14,6 +14,8 @@ def isolated_env(tmp_path, monkeypatch):
     monkeypatch.delenv("SHELF_LIBRARY", raising=False)
     monkeypatch.delenv("CLAUDECODE", raising=False)
     monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    # Project-scope discovery walks up from the working directory; never let it see the checkout.
+    monkeypatch.chdir(tmp_path)
     return tmp_path
 
 

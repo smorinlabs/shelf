@@ -11,7 +11,13 @@ add `<path>` to shelf. Walk me through classification."
 1. **First run.** If no library is configured (`shelf path` errors, or there is
    no catalog), stop and run `references/init.md` first — set the library up,
    then continue the add.
-2. **URL input.** If the input is a URL, not a file, fetch it to a temp file
+2. **Which scope.** Run `shelf path --scope all`. If it lists a `project`
+   library, **always ask** which library gets the document — never pick
+   silently. Suggest **project** when the document concerns the current repo
+   (it is committed and shared with everyone who works in it), **user**
+   otherwise. Pass the answer as `--scope project` or `--scope user` on every
+   command below, including `topic list`/`kind list` (each library has its own).
+3. **URL input.** If the input is a URL, not a file, fetch it to a temp file
    yourself (WebFetch), show the user what you retrieved (title, size, format),
    and continue with that file on confirmation. The CLI never fetches.
 
@@ -26,13 +32,15 @@ add `<path>` to shelf. Walk me through classification."
 3. **Read the taxonomy:** `shelf topic list` and `shelf kind list`.
 4. **Classify** and confirm with the user:
    - **Anchoring** — repo-anchored (`--repo`, optionally `--repo-url`,
-     `--subject`) vs. topical (`--topic`). An unknown topic needs
+     `--subject`) vs. topical (`--topic`). In a project library, prefer a
+     topic: the repo anchor would just name the repo the library lives in. An unknown topic needs
      `--create-topic` to authorize creating it (governed growth — confirm).
    - **`--kind`** (must already exist; if a new kind is warranted, add it first
      with `shelf kind add`).
    - **`--tag`** (repeatable), `--title`, `--description`.
    - **Source disposition** — ask whether to keep or remove the original;
-     pass the explicit `--remove-source` or `--no-remove-source`.
+     pass the explicit `--remove-source` or `--no-remove-source`. (A project
+     library defaults to keeping it: the source is usually a tracked file.)
 5. **Preview:** run the add with `--dry-run` (`doc add` has no `--json`) and show the user the
    planned destination and catalog entry.
 6. **Commit for real** on confirmation with the chosen flags. Add `--commit`
@@ -55,6 +63,6 @@ add `<path>` to shelf. Walk me through classification."
 `--kind` · `--tag` (repeatable) · `--title` · `--description` · `--slug` ·
 `--primary` · `--assets` · `--source` · `--doc-date` ·
 `--remove-source` / `--no-remove-source` · `--dry-run` ·
-`--commit` / `--no-commit` · `--handoff-agent` · `--no-handoff`.
+`--commit` / `--no-commit` · `--scope` · `--handoff-agent` · `--no-handoff`.
 
 Run `shelf doc add --help` for the authoritative list.

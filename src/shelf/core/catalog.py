@@ -97,7 +97,9 @@ class Catalog:
             "schema_version": self.schema_version,
             "topics": self.topics,
             "kinds": self.kinds,
-            "documents": [d.to_dict() for d in self.documents],
+            # Sorted by id (P20-T06): branches that each add a document touch different
+            # lines, so catalog.json merges stay small; date-prefixed ids keep it chronological.
+            "documents": [d.to_dict() for d in sorted(self.documents, key=lambda d: d.id)],
         }
 
     @classmethod

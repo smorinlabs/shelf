@@ -11,7 +11,7 @@ from shelf.cli.commit import (
     require_git_if_commit,
 )
 from shelf.cli.output import output_options, resolve_format
-from shelf.cli.runtime import get_library
+from shelf.cli.runtime import get_library, scope_option
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import commit_library, load_catalog
 from shelf.core.errors import ConflictError
@@ -42,6 +42,7 @@ def _list(ctx: click.Context, list_name: str, output: str, json_: bool) -> None:
 @click.command("add")
 @click.argument("name")
 @commit_options
+@scope_option()
 @click.pass_context
 def topic_add(ctx, name, commit, commit_message):
     """Add a topic bucket."""
@@ -55,6 +56,7 @@ def topic_add(ctx, name, commit, commit_message):
 
 @click.command("list")
 @output_options
+@scope_option()
 @click.pass_context
 def topic_list(ctx, output, json_):
     """List topic buckets."""
@@ -64,6 +66,7 @@ def topic_list(ctx, output, json_):
 @click.command("add")
 @click.argument("name")
 @commit_options
+@scope_option()
 @click.pass_context
 def kind_add(ctx, name, commit, commit_message):
     """Add a kind."""
@@ -77,6 +80,7 @@ def kind_add(ctx, name, commit, commit_message):
 
 @click.command("list")
 @output_options
+@scope_option()
 @click.pass_context
 def kind_list(ctx, output, json_):
     """List kinds."""
