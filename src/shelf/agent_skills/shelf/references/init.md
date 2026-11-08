@@ -20,6 +20,23 @@ Owns `shelf init` and `shelf init --adopt`. Two entry points:
 4. If this was reached mid-add, return to `references/add.md` and finish the
    add.
 
+## Shelf in this repo → `shelf init --scope project`
+
+When the user says "set up shelf in this repo" or "give this project a shelf":
+
+1. Confirm you are inside the right Git repository (`git rev-parse
+   --show-toplevel`). The command refuses outside one.
+2. Run `shelf init --scope project` (optionally `--library <relative path>`;
+   default `shelf`). It writes `.shelf/shelf_config.toml` at the repo top,
+   scaffolds the library folder, and appends `.shelf.lock` and the library's
+   `index.html` to `.gitignore`. It never runs `git init` and never commits.
+3. It then offers to install the shelf skills at project scope
+   (`shelf agent install --scope project`), so teammates get them too. Relay
+   the offer; pass `--yes` only when the user already said yes.
+4. Suggest committing `.shelf/`, the library folder, and `.gitignore`.
+   Teammates who clone the repo get the library; `shelf open` or
+   `shelf regen` rebuilds the gitignored `index.html`.
+
 ## Existing library on a new machine → `shelf init --adopt`
 
 When the library content already exists (e.g. cloned from a private

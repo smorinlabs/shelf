@@ -25,6 +25,16 @@ request is really a relocation:
 2. Run `shelf doc move <id>` with the new anchoring on confirmation
    (`--commit` for a git library).
 
+## Between scopes → `shelf doc move --to-scope`
+
+Moving a document from the user library into the repo's project library (or
+back) is `shelf doc move <id> --to-scope project|user`, run with `--scope` set
+to the library it is in now when the id exists in both. It keeps the anchor;
+the target needs the document's kind (`shelf kind add <kind> --scope <target>`)
+and its topic (pass `--create-topic` after confirming). Preview with
+`--dry-run`. If it reports that the source copy was not removed, run the
+`shelf doc delete` it names.
+
 ## Variant maintenance → `shelf doc format delete`
 
 Removing an obsolete format variant (e.g. drop a stale PDF, keep the Markdown)

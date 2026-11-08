@@ -72,6 +72,20 @@ codex plugin marketplace add https://github.com/smorinlabs/shelf   # or a local 
 codex plugin add shelf@shelf
 ```
 
+**For everyone in a repo (project scope):** commit the marketplace and the
+plugin in the repo's `.claude/settings.json`, so each teammate's Claude Code
+offers to install the skill along with the repo's project library:
+```json
+{
+  "extraKnownMarketplaces": {
+    "shelf": { "source": { "source": "github", "repo": "smorinlabs/shelf" } }
+  },
+  "enabledPlugins": { "shelf@shelf": true }
+}
+```
+Or commit the skill folders themselves: `shelf agent install --scope project`
+writes `.claude/skills/` and `.agents/skills/` in the repo.
+
 **Without the marketplace:** the `shelf` CLI (v0.9.0 and later) bundles these
 skills and installs them itself, as version-matched copies or as dev symlinks:
 ```bash
