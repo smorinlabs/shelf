@@ -17,6 +17,8 @@ def run(args, **kw):
 
 @pytest.fixture
 def repo(tmp_path, monkeypatch, isolated_git_identity):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))  # agent installs never see the real ~
+    (tmp_path / "home").mkdir()
     root = tmp_path / "repo"
     (root / "src").mkdir(parents=True)
     subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
@@ -136,3 +138,15 @@ def test_open_rebuilds_a_missing_index(repo, monkeypatch):
     assert r.exit_code == 0, r.output
     assert index.is_file()
     assert launched == [index.resolve().as_uri()]
+
+
+def test_audit_reports_a_missing_index_as_a_regen_finding(repo):
+    import json
+
+    assert run(["init", "--scope", "project"]).exit_code == 0
+    (repo / "shelf" / "index.html").unlink()
+    r = run(["audit", "--pre-commit", "--json"])
+    assert r.exit_code == 1
+    findings = json.loads(r.output)
+    assert {(f["check"], f["code"]) for f in findings} == {(4, "index-missing")}
+    assert "shelf regen" in findings[0]["remediation"]

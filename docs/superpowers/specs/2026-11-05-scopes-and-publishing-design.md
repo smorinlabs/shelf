@@ -2,7 +2,7 @@
 
 **Goal:** Give shelf the same **user** and **project** scopes that Claude Code skills have, let either scope's library be published to GitHub Pages without leaking private content, and let the CLI install its own agent skills at either scope. Fulfills **P20** (project scope), **P21** (publishing), and **P22** (`shelf agent`), with **P13-T02** (path-scoped commits) as a prerequisite of P20.
 
-**Status:** Approved design (2026-11-05). Not implemented. Until P20 and P21 ship, `SHELF-PRD.md` §4 and §5 describe current behavior.
+**Status:** Approved design (2026-11-05). Part 1 (P20) shipped in v0.10.0 and Part 3 (P22) in v0.9.0; `SHELF-PRD.md` §4, §5, and §11 now describe them. Part 2 (P21, publishing) is not implemented. Open choices Part 1 left to implementation are recorded in `docs/superpowers/plans/2026-11-07-p20-project-scope.md`.
 
 **Non-goals:** named multi-library support beyond the two scopes (the P12 generalization, left for later); system scope (`$XDG_CONFIG_DIRS`); hosting outside GitHub Pages (the built `_site/` folder can be deployed anywhere, but shelf does not automate that); a `publish-formats` filter (published documents ship every variant).
 
