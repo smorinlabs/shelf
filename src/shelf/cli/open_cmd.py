@@ -8,6 +8,7 @@ from socketserver import BaseServer
 
 import click
 
+from shelf.cli.library import regen_cmd
 from shelf.cli.runtime import get_config, get_library, scope_option
 from shelf.server.serve import serve
 
@@ -57,6 +58,8 @@ def open_cmd(ctx: click.Context, static_: bool) -> None:
     """Open the library UI."""
     root = get_library(ctx)
     cfg = get_config(ctx)
+    if not (root / "index.html").is_file():  # gitignored in project scope; a fresh clone lacks it
+        ctx.invoke(regen_cmd)
     if static_:
         _launch((root / "index.html").resolve().as_uri(), cfg.browser)
         return

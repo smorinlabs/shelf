@@ -7,6 +7,34 @@ from pathlib import Path
 import click
 
 
+def toplevel(path: Path) -> Path | None:
+    """The work-tree root of the Git repository containing *path*, or None."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=path,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return None
+    if out.returncode != 0 or not out.stdout.strip():
+        return None
+    return Path(out.stdout.strip()).resolve()
+
+
+def append_gitignore(repo: Path, entries: list[str]) -> None:
+    """Add each missing *entry* to `<repo>/.gitignore`, keeping every existing line."""
+    path = repo / ".gitignore"
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    missing = [e for e in entries if e not in text.splitlines()]
+    if not missing:
+        return
+    if text and not text.endswith("\n"):
+        text += "\n"
+    path.write_text(text + "".join(f"{e}\n" for e in missing), encoding="utf-8")
+
+
 def is_git_repo(root: Path) -> bool:
     """Return whether *root* has Git repository metadata."""
     return (root / ".git").exists()

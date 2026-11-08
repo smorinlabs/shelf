@@ -8,7 +8,6 @@ a checkout, and a guard against replacing any placement shelf did not install.
 import json
 import os
 import shutil
-import subprocess
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
@@ -16,6 +15,8 @@ from pathlib import Path
 import click
 
 import shelf
+from shelf.core import git as git_core
+from shelf.core.paths import discover_project
 
 SKILL_NAMES = ("shelf", "shelf-reference")
 FOLDERS = ((".claude/skills", "Claude Code"), (".agents/skills", "Codex / Cursor"))
@@ -36,28 +37,14 @@ def bundled_dir() -> Path:
 # --- scope roots -------------------------------------------------------------
 
 
-def _git_toplevel(cwd: Path) -> Path | None:
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-        )
-    except FileNotFoundError:
-        return None
-    if out.returncode != 0 or not out.stdout.strip():
-        return None
-    return Path(out.stdout.strip()).resolve()
-
-
 def scope_root(scope: str, cwd: Path | None = None) -> Path:
     """Directory under which `.claude/skills` and `.agents/skills` live for *scope*."""
     home = Path.home().resolve()
     if scope == "user":
         return home
     cwd = (cwd or Path.cwd()).resolve()
-    top = _git_toplevel(cwd)
+    proj = discover_project(cwd)
+    top = proj.root if proj is not None else git_core.toplevel(cwd)
     if top is None:
         raise click.UsageError(f"--scope project needs a Git repository; none contains {cwd}")
     if top != cwd and top not in cwd.parents:

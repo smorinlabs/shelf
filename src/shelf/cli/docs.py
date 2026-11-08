@@ -90,7 +90,8 @@ def doc_view(ctx, doc_id, output, json_):
         )
     target, doc = hits[0]
     root = target.root
-    data = {**doc.to_dict(), "scope": target.scope}
+    data = doc.to_dict()
+    data["scope"] = target.scope
     for entry in data["files"]:
         entry["abs_path"] = str(root / entry["path"])
     if resolve_format(output, json_) == "json":

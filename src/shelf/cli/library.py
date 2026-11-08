@@ -1,7 +1,8 @@
 """Library-level commands: path (this task); init/adopt and migrate follow."""
 
 import json
-from pathlib import Path
+import sys
+from pathlib import Path, PurePath
 
 import click
 
@@ -30,12 +31,12 @@ from shelf.core.catalog import (
     commit_library,
     load_catalog,
 )
-from shelf.core.config import save_config
+from shelf.core.config import CONFIG_FILENAME, PROJECT_DIR, save_config
 from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
 from shelf.core.index import render_index
 from shelf.core.migrations import MIGRATIONS
-from shelf.core.paths import default_library_path
+from shelf.core.paths import DEFAULT_PROJECT_LIBRARY, default_library_path
 from shelf.core.preview import build_snippets
 
 README_TEXT = "# shelf library\n\nManaged by the `shelf` CLI — do not edit catalog.json by hand.\n"
@@ -67,6 +68,14 @@ def validate_library(root: Path) -> None:
     "--github", is_flag=True, help="Create and link a private GitHub repository (implies --git)."
 )
 @click.option("--owner", metavar="<gh-owner>", help="GitHub owner for --github.")
+@click.option(
+    "--scope",
+    type=click.Choice(["user", "project"]),
+    default="user",
+    show_default=True,
+    help="user: your personal library. project: a library committed in this Git repo.",
+)
+@click.option("-y", "--yes", is_flag=True, help="Accept offers (installing the agent skills).")
 @click.pass_context
 def init_cmd(
     ctx: click.Context,
@@ -76,8 +85,24 @@ def init_cmd(
     git_: bool,
     github: bool,
     owner: str | None,
+    scope: str,
+    yes: bool,
 ) -> None:
-    """Create, adopt, and register a library."""
+    """Create, adopt, and register a library.
+
+    \b
+    Examples:
+      shelf init                    # your personal (user) library
+      shelf init --scope project    # a library committed in the current Git repo
+    """
+    if scope == "project":
+        if adopt_ or git_ or github or owner:
+            raise click.UsageError(
+                "--scope project uses the Git repo you are in; "
+                "it does not take --adopt, --git, --github, or --owner"
+            )
+        _init_project(ctx, library_, force, yes)
+        return
     if owner and not github:
         raise click.UsageError("--owner requires --github")
     if adopt_ and (force or git_ or github):
@@ -114,7 +139,7 @@ def init_cmd(
     if git_ or github:
         (root / "docs" / "repos" / ".gitkeep").write_text("", encoding="utf-8")
         (root / "docs" / "topics" / ".gitkeep").write_text("", encoding="utf-8")
-        (root / ".gitignore").write_text(".shelf.lock\n", encoding="utf-8")
+        git_core.append_gitignore(root, [".shelf.lock"])
         git_core.git_init(root)
         git_core.git_commit_all(root, "shelf: init")
     if github:
@@ -123,6 +148,50 @@ def init_cmd(
     cfg.library = str(root)
     save_config(cfg_path, cfg)
     click.echo(f"initialized library at {root}")
+
+
+AGENT_INSTALL_PROJECT = "shelf agent install --scope project"
+
+
+def _init_project(ctx: click.Context, library_: str | None, force: bool, yes: bool) -> None:
+    """Scaffold `<repo>/.shelf/shelf_config.toml` and the library folder it names."""
+    top = git_core.toplevel(Path.cwd())
+    if top is None:
+        raise click.ClickException(
+            "--scope project needs a Git repository — run it inside one, or 'git init' first"
+        )
+    rel = library_ or DEFAULT_PROJECT_LIBRARY
+    root = (top / rel).resolve()
+    if PurePath(rel).is_absolute() or not root.is_relative_to(top):
+        raise click.UsageError(f"--library must be a relative path inside {top}, not '{rel}'")
+    cfg_path = top / PROJECT_DIR / CONFIG_FILENAME
+    for existing in (cfg_path, root / CATALOG_FILENAME):
+        if existing.exists() and not force:
+            raise ConflictError(f"{existing} already exists — pass --force to re-initialize")
+    (root / "docs" / "repos").mkdir(parents=True, exist_ok=True)
+    (root / "docs" / "topics").mkdir(parents=True, exist_ok=True)
+    with library_lock(root):
+        commit_library(root, Catalog(kinds=list(SEED_KINDS)))
+    if root != top and not (root / "README.md").is_file():
+        (root / "README.md").write_text(README_TEXT, encoding="utf-8")
+    rel_posix = root.relative_to(top).as_posix()
+    index_entry = "/index.html" if rel_posix == "." else f"/{rel_posix}/index.html"
+    git_core.append_gitignore(top, [".shelf.lock", index_entry])
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(cfg_path, f'library = "{rel_posix}"\nremove-source = false\n')
+    click.echo(f"initialized project library at {root}")
+    _offer_agent_install(ctx, yes)
+
+
+def _offer_agent_install(ctx: click.Context, yes: bool) -> None:
+    from shelf.cli.agent_cmd import install_cmd
+
+    interactive = not ctx.obj.get("no_input") and sys.stdin.isatty()
+    question = "Install shelf's agent skills at project scope, committed for everyone?"
+    if yes or (interactive and click.confirm(question, default=False)):
+        ctx.invoke(install_cmd, scope="project")
+        return
+    click.echo(f"to give everyone in this repo the shelf skills: {AGENT_INSTALL_PROJECT}")
 
 
 @click.command("path")
