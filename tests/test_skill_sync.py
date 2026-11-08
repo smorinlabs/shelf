@@ -14,6 +14,14 @@ MASTER = "plugins/shelf/skills"
 COPY = "src/shelf/agent_skills"
 
 
+@pytest.fixture(autouse=True)
+def no_inherited_git_repo(monkeypatch):
+    """Run from inside a git hook, GIT_DIR and friends would point git at the real repo."""
+    out = subprocess.run(["git", "rev-parse", "--local-env-vars"], capture_output=True, text=True)
+    for name in out.stdout.split():
+        monkeypatch.delenv(name, raising=False)
+
+
 @pytest.fixture
 def repo(tmp_path, monkeypatch):
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
@@ -101,7 +109,29 @@ def test_an_edit_to_the_copy_alone_fails_and_is_kept(repo):
     r = sync(repo, "--staged")
     assert r.returncode == 1
     assert MASTER in r.stderr
+    assert f"git restore --staged -- {COPY}/" in r.stderr
     assert copy_md.read_text() == "name: shelf\nedited the wrong copy\n"
+
+
+def test_non_ascii_master_paths_are_synced(repo):
+    (repo / MASTER / "shelf" / "café.md").write_text("accent")
+    git(repo, "add", MASTER)
+    r = sync(repo, "--staged")
+    assert r.returncode == 0, r.stderr
+    assert git(repo, "show", f":{COPY}/shelf/café.md") == "accent"
+
+
+def test_non_ascii_copy_only_edit_is_refused(repo):
+    (repo / COPY / "shelf" / "café.md").write_text("wrong copy")
+    git(repo, "add", COPY)
+    assert sync(repo, "--staged").returncode == 1
+
+
+def test_deleting_every_master_file_leaves_a_marker_only_copy(repo):
+    git(repo, "rm", "-rq", MASTER)
+    r = sync(repo, "--staged")
+    assert r.returncode == 0, r.stderr
+    assert git(repo, "ls-files", "--", COPY).split() == [f"{COPY}/GENERATED.md"]
 
 
 def test_nothing_staged_in_either_folder_is_a_no_op(repo):

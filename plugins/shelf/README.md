@@ -81,8 +81,9 @@ shelf agent install --dev --source <checkout>  # symlinks into a checkout
 **This folder is the master copy of the skills.** The package carries a
 generated copy in `src/shelf/agent_skills/` for `shelf agent install`. Edit
 skills only here; the pre-commit hook regenerates and stages the copy (install
-it once with `just install-hooks`), and `just sync-agent-skills` does the same
-by hand. A commit that edits only the generated copy is refused.
+it once with `just install-hooks`). Without the hook, `just sync-agent-skills`
+regenerates the copy from the working-tree master but does not stage it; stage
+it yourself. A commit that edits only the generated copy is refused.
 
 **Local development (dev-symlink, no marketplace):** for iterating on the skill,
 symlink it so edits are live in every session:

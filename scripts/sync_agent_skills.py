@@ -68,11 +68,12 @@ def _export_index(root: Path, folder: str, dest: Path) -> Path:
             check=True,
             capture_output=True,
         )
+    (dest / folder).mkdir(parents=True, exist_ok=True)  # an emptied master is still a tree
     return dest / folder
 
 
 def _staged(root: Path) -> int:
-    changed = _git(root, "diff", "--cached", "--name-only", "--", MASTER, COPY).split()
+    changed = _git(root, "diff", "--cached", "--name-only", "-z", "--", MASTER, COPY).split("\0")
     master_changed = any(f.startswith(MASTER + "/") for f in changed)
     copy_changed = any(f.startswith(COPY + "/") for f in changed)
     if not (master_changed or copy_changed):
@@ -86,7 +87,8 @@ def _staged(root: Path) -> int:
             print(
                 f"error: {COPY}/ is generated; this commit edits it without changing the "
                 f"master. Make the edit in {MASTER}/ instead (the hook then regenerates "
-                f"{COPY}/), or run `just sync-agent-skills` to discard the copy's edit.",
+                f"{COPY}/), or discard the copy's edit with `git restore --staged -- {COPY}/` "
+                f"followed by `just sync-agent-skills`.",
                 file=sys.stderr,
             )
             return 1

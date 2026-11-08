@@ -871,6 +871,10 @@ stages the copy whenever a commit changes the master. It uses the staged master,
 so unstaged edits never leak into the commit. It refuses a commit that edits
 only the generated copy. A test also fails whenever the two differ.
 
+`just sync-agent-skills` is the manual alternative. It copies the *working-tree*
+master and does not stage anything, so stage `src/shelf/agent_skills/` yourself,
+and only after staging every master edit you mean to ship.
+
 Both copies are needed because a single symlinked copy does not survive
 packaging and installation: uv_build cannot package a symlinked folder, and
 Codex installs a plugin whose `skills/` is a symlink without its skills
