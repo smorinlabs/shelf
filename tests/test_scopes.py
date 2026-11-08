@@ -492,3 +492,20 @@ def test_a_user_library_inside_an_unrelated_repo_is_not_a_git_library(
     codes = {f["code"] for f in json.loads(run(["audit", "--json"]).output)}
     assert "git-dirty" not in codes
     assert run(["regen", "--commit"]).exit_code != 0
+
+
+def test_a_user_library_beside_the_project_library_is_not_a_git_library(
+    tmp_path, monkeypatch, isolated_git_identity
+):
+    import subprocess
+
+    repo = (tmp_path / "repo").resolve()
+    repo.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    monkeypatch.chdir(repo)
+    assert run(["init", "--scope", "project"]).exit_code == 0
+    assert run(["init", "--library", str(repo / "personal")]).exit_code == 0
+    r = run(["audit", "--scope", "user", "--json"])
+    assert "git-dirty" not in {f["code"] for f in json.loads(r.output)}, r.output
+    assert run(["regen", "--scope", "user", "--commit"]).exit_code != 0
+    assert run(["regen", "--scope", "project", "--commit"]).exit_code == 0

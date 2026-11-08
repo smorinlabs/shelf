@@ -6,7 +6,7 @@ from pathlib import Path
 
 import click
 
-from shelf.core.config import CONFIG_FILENAME, PROJECT_DIR
+from shelf.core.paths import discover_project
 
 
 def toplevel(path: Path) -> Path | None:
@@ -38,15 +38,21 @@ def append_gitignore(repo: Path, entries: list[str]) -> None:
 
 
 def is_git_repo(root: Path) -> bool:
-    """Return whether *root* is a Git library: the work-tree root itself, or a folder
-    of a repo that holds a project scope. A user library that merely sits inside some
-    other repo (a dotfiles home, say) is not one."""
+    """Return whether *root* is a Git library: the work-tree root itself, or the project
+    library of the repo it sits in. Any other library that merely sits inside a repo
+    (a dotfiles home, a personal folder beside a project shelf) is not one."""
     if not root.is_dir():
         return False
     top = toplevel(root)
     if top is None:
         return False
-    return top == root.resolve() or (top / PROJECT_DIR / CONFIG_FILENAME).is_file()
+    if top == root.resolve():
+        return True
+    try:
+        project = discover_project(top)
+    except click.ClickException:
+        return False
+    return project is not None and project.library == root.resolve()
 
 
 def git_init(root: Path) -> None:
