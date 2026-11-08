@@ -147,3 +147,16 @@ def test_commit_point_ordering(tmp_path, monkeypatch):
     with pytest.raises(OSError):
         commit_library(tmp_path, newer)
     assert "extra" in load_catalog(tmp_path).topics  # catalog committed first
+
+
+def test_documents_are_written_sorted_by_id():
+    """P20-T06: a deterministic order keeps concurrent-branch merges small."""
+    from shelf.core.catalog import Catalog, Document, dumps_catalog
+
+    def doc(i):
+        return Document(id=i, title=i, description="d", kind="reference", category="t")
+
+    text = dumps_catalog(
+        Catalog(topics=["t"], documents=[doc("2026-02-01-b"), doc("2026-01-01-a")])
+    )
+    assert [d["id"] for d in json.loads(text)["documents"]] == ["2026-01-01-a", "2026-02-01-b"]
