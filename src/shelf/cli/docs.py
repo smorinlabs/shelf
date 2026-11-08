@@ -5,7 +5,7 @@ import json
 import click
 
 from shelf.cli.output import output_options, resolve_format
-from shelf.cli.runtime import get_library
+from shelf.cli.runtime import get_library, scope_option
 from shelf.core.catalog import Document, load_catalog
 from shelf.core.errors import NotFoundError
 
@@ -35,6 +35,7 @@ def _matches(doc: Document, query: str) -> bool:
     "--sort-by", type=click.Choice(["added", "title"]), default="added", show_default=True
 )
 @output_options
+@scope_option(allow_all=True)
 @click.pass_context
 def doc_list(ctx, repo_, topic_, kind_, tags_, query, limit, sort_by, output, json_):
     """Filter and query documents."""
@@ -65,6 +66,7 @@ def doc_list(ctx, repo_, topic_, kind_, tags_, query, limit, sort_by, output, js
 @click.command("view")
 @click.argument("doc_id")
 @output_options
+@scope_option(allow_all=True)
 @click.pass_context
 def doc_view(ctx, doc_id, output, json_):
     """Print one document in full."""

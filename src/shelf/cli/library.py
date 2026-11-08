@@ -11,7 +11,15 @@ from shelf.cli.commit import (
     library_paths,
     require_git_if_commit,
 )
-from shelf.cli.runtime import active_config_path, get_config, get_library
+from shelf.cli.runtime import (
+    active_config_path,
+    get_library,
+    resolve_target,
+    resolve_targets,
+    scope_option,
+    target_config_path,
+    user_config,
+)
 from shelf.core import git as git_core
 from shelf.core.atomic import atomic_write_text, library_lock
 from shelf.core.catalog import (
@@ -75,7 +83,7 @@ def init_cmd(
     if adopt_ and (force or git_ or github):
         raise click.UsageError("--adopt is mutually exclusive with --force, --git, and --github")
     cfg_path = active_config_path(ctx)
-    cfg = get_config(ctx)
+    cfg = user_config(ctx)
 
     if adopt_:
         root = Path(adopt_)
@@ -119,20 +127,31 @@ def init_cmd(
 
 @click.command("path")
 @click.argument("which", required=False, type=click.Choice(["config", "index"]))
+@scope_option(allow_all=True)
 @click.pass_context
 def path_cmd(ctx: click.Context, which: str | None) -> None:
-    """Print resolved locations."""
-    if which == "config":
-        click.echo(active_config_path(ctx))
+    """Print resolved locations (`--scope all`: one `<scope>\t<path>` line per scope)."""
+
+    def location(target):
+        if which == "config":
+            return target.config_path
+        return target.root / "index.html" if which == "index" else target.root
+
+    if ctx.obj.get("scope") == "all":
+        for target in resolve_targets(ctx):
+            click.echo(f"{target.scope}\t{location(target)}")
         return
-    root = get_library(ctx)
-    click.echo(root / "index.html" if which == "index" else root)
+    if which == "config":  # needs no library: printable before 'shelf init'
+        click.echo(target_config_path(ctx))
+        return
+    click.echo(location(resolve_target(ctx)))
 
 
 @click.command("regen")
 @click.option("--dry-run", is_flag=True)
 @click.option("--json", "json_", is_flag=True, help="Machine-readable report.")
 @commit_options
+@scope_option()
 @click.pass_context
 def regen_cmd(
     ctx: click.Context,
@@ -166,6 +185,7 @@ def regen_cmd(
 @click.option("--dry-run", is_flag=True, help="Report the migration without applying it.")
 @click.option("--json", "json_", is_flag=True, help="Machine-readable report.")
 @commit_options
+@scope_option()
 @click.pass_context
 def migrate_cmd(
     ctx: click.Context,

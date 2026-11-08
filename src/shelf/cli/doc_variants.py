@@ -11,7 +11,7 @@ from shelf.cli.commit import (
     library_paths,
     require_git_if_commit,
 )
-from shelf.cli.runtime import get_config, get_library
+from shelf.cli.runtime import get_config, get_library, scope_option
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import (
     CATALOG_FILENAME,
@@ -45,6 +45,7 @@ def find_doc(catalog: Catalog, doc_id: str) -> Document:
 @click.option("--source", "source_", default=None)
 @click.option("--remove-source/--no-remove-source", "remove_source_", default=None)
 @commit_options
+@scope_option()
 @click.pass_context
 def format_add(
     ctx,
@@ -147,6 +148,7 @@ def format_add(
 )
 @click.option("--force", "-f", is_flag=True, help="Drop the entry even if its file is missing.")
 @commit_options
+@scope_option()
 @click.pass_context
 def format_delete(ctx, doc_id, fmt, primary_, force, commit, commit_message):
     """Remove one format variant."""

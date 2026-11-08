@@ -15,7 +15,7 @@ from shelf.cli.commit import (
 )
 from shelf.cli.doc_variants import find_doc
 from shelf.cli.output import output_options, resolve_format
-from shelf.cli.runtime import get_library
+from shelf.cli.runtime import get_library, scope_option
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import commit_library, load_catalog
 from shelf.core.errors import ConflictError, NotFoundError
@@ -44,6 +44,7 @@ def _confirm_or_fail(prompt: str, yes: bool) -> None:
 @click.option("-y", "--yes", is_flag=True, help="Assume yes (non-interactive consent).")
 @click.option("--dry-run", is_flag=True)
 @commit_options
+@scope_option()
 @click.pass_context
 def doc_delete(ctx, doc_id, yes, dry_run, commit, commit_message):
     """Delete a document — its entry and its folder."""
@@ -73,6 +74,7 @@ def doc_delete(ctx, doc_id, yes, dry_run, commit, commit_message):
 
 @click.command("list")
 @output_options
+@scope_option()
 @click.pass_context
 def orphan_list(ctx, output, json_):
     """List uncataloged files under docs/."""
@@ -89,6 +91,7 @@ def orphan_list(ctx, output, json_):
 @click.argument("path")
 @click.option("-y", "--yes", is_flag=True)
 @commit_options
+@scope_option()
 @click.pass_context
 def orphan_delete(ctx, path, yes, commit, commit_message):
     """Delete an uncataloged file or folder under docs/."""

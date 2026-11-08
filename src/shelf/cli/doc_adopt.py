@@ -10,7 +10,7 @@ from shelf.cli.commit import (
     library_paths,
     require_git_if_commit,
 )
-from shelf.cli.runtime import get_library
+from shelf.cli.runtime import get_library, scope_option
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import Document, FileVariant, RepoRef, commit_library, load_catalog
 from shelf.core.errors import ConflictError
@@ -30,6 +30,7 @@ from shelf.core.ingest import FORMAT_MAP, pick_primary
 @click.option("--primary", "primary_", default=None)
 @click.option("--doc-date", default=None)
 @commit_options
+@scope_option()
 @click.pass_context
 def doc_adopt(
     ctx,

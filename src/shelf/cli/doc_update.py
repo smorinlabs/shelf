@@ -9,7 +9,7 @@ from shelf.cli.commit import (
     require_git_if_commit,
 )
 from shelf.cli.doc_variants import find_doc
-from shelf.cli.runtime import get_library
+from shelf.cli.runtime import get_library, scope_option
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import commit_library, load_catalog
 from shelf.core.git import git_commit_all
@@ -41,6 +41,7 @@ def _reject_anchor(ctx, param, value):
 @click.option("--repo", "repo_", callback=_reject_anchor, expose_value=False, default=None)
 @click.option("--dry-run", is_flag=True)
 @commit_options
+@scope_option()
 @click.pass_context
 def doc_update(
     ctx,
