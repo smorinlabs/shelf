@@ -278,20 +278,21 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ### Tests & Tasks
 - [x] [P20-T00] Prerequisite: P13-T02 path-scoped commits merged and released (v0.8.4, PR #17, 2026-11-06)
-- [ ] [P20-TS01] Discovery: nearest `.shelf/shelf_config.toml` wins; search stops at `.git`; absolute `library` in a project config is rejected; `--config` replaces discovered files
-- [ ] [P20-TS02] Precedence matrix: `--library` > `SHELF_LIBRARY` > project > user > unconfigured error; `--scope project` without a project scope exits 2
-- [ ] [P20-TS03] Combined reads: `doc list`/`doc view` return both scopes with a `scope` field (table and JSON); `--scope` narrows
-- [ ] [P20-TS04] `init --scope project`: inside an existing repo creates no nested `.git`; appends to an existing `.gitignore` without losing lines; writes project defaults; rejects `--git`/`--github`
-- [ ] [P20-TS05] `doc move --to-scope`: document lands in the target and leaves the source; an injected failure after the add leaves an audit-detectable duplicate
-- [ ] [P20-TS06] Project-scope `--commit` stages only shelf paths in the host repo
-- [ ] [P20-T01] Project config discovery and relative `library` resolution (`core/config.py`, `core/paths.py`)
-- [ ] [P20-T02] `--scope` option and single-target resolution for mutating and library-level commands
-- [ ] [P20-T03] Combined-scope `doc list` / `doc view` with the `scope` field
-- [ ] [P20-T04] `init --scope project` with enclosing-repo detection and `.gitignore` append (also fixes the overwrite in plain `init`)
-- [ ] [P20-T05] `doc move --to-scope`
-- [ ] [P20-T06] Deterministic sorted document order in `catalog.json` to reduce merge conflicts
-- [ ] [P20-T07] Skill updates (`find`, `add`, `init` references) and plugin README; bump plugin to 0.2.0
-- [ ] [P20-T08] PRD: rewrite §4 precedence, remove the R5.1/R5.2 waiver in §5, close §14.3; README configuration section
+- [x] [P20-TS01] Discovery: nearest `.shelf/shelf_config.toml` wins; search stops at `.git`; absolute `library` in a project config is rejected; `--config` replaces discovered files
+- [x] [P20-TS02] Precedence matrix: `--library` > `SHELF_LIBRARY` > project > user > unconfigured error; `--scope project` without a project scope exits 2
+- [x] [P20-TS03] Combined reads: `doc list`/`doc view` return both scopes with a `scope` field (table and JSON); `--scope` narrows
+- [x] [P20-TS04] `init --scope project`: inside an existing repo creates no nested `.git`; appends to an existing `.gitignore` without losing lines; writes project defaults; rejects `--git`/`--github`
+- [x] [P20-TS05] `doc move --to-scope`: document lands in the target and leaves the source; an injected failure after the add leaves an audit-detectable duplicate
+- [x] [P20-TS06] Project-scope `--commit` stages only shelf paths in the host repo
+- [x] [P20-T01] Project config discovery and relative `library` resolution (`core/config.py`, `core/paths.py`)
+- [x] [P20-T02] `--scope` option and single-target resolution for mutating and library-level commands
+- [x] [P20-T03] Combined-scope `doc list` / `doc view` with the `scope` field
+- [x] [P20-T04] `init --scope project` with enclosing-repo detection and `.gitignore` append (also fixes the overwrite in plain `init`)
+- [x] [P20-T05] `doc move --to-scope`
+- [x] [P20-T06] Deterministic sorted document order in `catalog.json` to reduce merge conflicts
+- [x] [P20-T07] Skill updates (`find`, `add`, `init` references) and plugin README; bump plugin to 0.2.0
+- [x] [P20-T08] PRD: rewrite §4 precedence, remove the R5.1/R5.2 waiver in §5, close §14.3; README configuration section
+      Done 2026-11-07: decisions I0–I15 in `docs/superpowers/plans/2026-11-07-p20-project-scope.md`; P22-TS10 (scope question) and the `agent status` project-shelf note shipped here
 - [ ] [P20-T09] Bump to v0.10.0; `make check` and `just all` green; PR merged; tag `v0.10.0` pushed
 - [ ] Regression Test Status
 
@@ -384,7 +385,7 @@ error: smorin/shelf-library is private; publishing 3 documents requires --force 
 
 ---
 
-## [~] Project P22: Install agent skills from the CLI — `shelf agent` (v0.9.0; plugin unchanged)
+## [x] Project P22: Install agent skills from the CLI — `shelf agent` (v0.9.0; plugin unchanged)
 **Release order (2026-11-07)**: P22 ships first as v0.9.0; P20 moves to v0.10.0 and P21 to v0.11.0.
 **Goal/Requirement**: Let the CLI install its own skills (`shelf`, `shelf-reference`) for Claude Code and Codex/Cursor at user or project scope, as copies matched to the CLI version or as dev-mode symlinks into a checkout, never replacing a placement shelf did not install unless forced. Modeled on `baml agent install`. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 3). Approved 2026-11-06; `shelf skill` is an alias for `shelf agent`; default scope `user`, asking about project scope inside a repo with a project shelf.
 - `shelf agent install [--scope user|project] [--dev [--source PATH]] [--force] [--dry-run]`, `shelf agent status [--json]`, `shelf agent uninstall`; `shelf skill …` is an alias
@@ -404,7 +405,7 @@ error: smorin/shelf-library is private; publishing 3 documents requires --force 
 - [x] [P22-TS05] Safety: replacing or uninstalling a symlink never modifies its target; backup slot holds exactly the previous placement; an injected failure mid-swap restores it
 - [x] [P22-TS06] `--dry-run` writes nothing and prints `would …` lines; `agent status --json` reports kind, target, version, stale
 - [x] [P22-TS07] Packaging: the wheel contains the skills; the packaged copy matches `plugins/shelf/skills/` byte for byte
-- [ ] [P22-TS10] (moved to P20: needs project-shelf discovery) Scope question: without `--scope` inside a repo with a project shelf, a TTY asks (yes → project, no/Enter → user); `--no-input`/no TTY installs at user scope and prints the project-scope command; `--scope` and `--yes` behave as specified (no question, `--yes` does not answer it); no project shelf → no question
+- [x] [P22-TS10] (moved to P20: needs project-shelf discovery) Scope question: without `--scope` inside a repo with a project shelf, a TTY asks (yes → project, no/Enter → user); `--no-input`/no TTY installs at user scope and prints the project-scope command; `--scope` and `--yes` behave as specified (no question, `--yes` does not answer it); no project shelf → no question
 - [x] [P22-TS09] Alias: `shelf skill install|status|uninstall` behaves identically to `shelf agent …` and appears in `--help`; `agent status` notes a missing project-scope skill in a repo with a project library
 - [x] [P22-TS08] Adoption: on a machine whose placements are symlinks to the same checkout (the current dev setup), `install --dev --source <checkout>` reports `unchanged` and changes nothing
 - [x] [P22-T01] Bundle the skills as package data with the sync test
@@ -412,7 +413,7 @@ error: smorin/shelf-library is private; publishing 3 documents requires --force 
 - [x] [P22-T03] Destination classification, backup slot, atomic swap, symlink-safe removal
 - [x] [P22-T04] `agent install` (copy and dev modes) with status output and `--dry-run`
 - [x] [P22-T05] `agent status` and `agent uninstall`
-- [~] [P22-T06] Stale-copy note in `shelf audit` (done); `init --scope project` offer moves to P20 with the scope question
+- [x] [P22-T06] Stale-copy note in `shelf audit`; the `init --scope project` offer shipped in P20 (v0.10.0)
 - [x] [P22-T07] README and plugin README: the two install paths (plugin, `shelf agent install`) and when to use each; PRD §5, §11, §12
 - [x] [P22-T08] Bump to v0.9.0; `make check` and `just all` green; PR merged; tag pushed
 - [x] Regression Test Status — 383 passing at v0.9.0 (30 new in `tests/test_agent.py`); `make check` and `just all` green; dry runs against this machine's real skill folders: `--dev --source ~/c/shelf` reports all four dev links `unchanged`, copy mode skips all four with `--force` named, nothing written
@@ -440,7 +441,7 @@ Restart any running agent session to pick up changes.
 
 ---
 
-## [~] Project P23: One master copy of the skills, synced by a pre-commit hook (v0.9.1)
+## [x] Project P23: One master copy of the skills, synced by a pre-commit hook (v0.9.1)
 **Goal/Requirement**: The skills exist twice since P22: `plugins/shelf/skills/` for the marketplace and `src/shelf/agent_skills/` inside the Python package for `shelf agent install`. Make `plugins/shelf/skills/` the single master and keep the package copy generated from it automatically. Decided 2026-11-07.
 - `scripts/sync_agent_skills.py` rebuilds the package copy from the master; `--check` reports drift; `--staged` rebuilds from the staged master so unstaged edits never enter a commit
 - `lefthook.yml` pre-commit hook runs `--staged`: a staged master change syncs and stages the copy; a staged edit to the copy alone fails with guidance to edit the master
