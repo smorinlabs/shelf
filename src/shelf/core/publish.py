@@ -131,8 +131,22 @@ def build_site(
 
 
 def _check_sources(root: Path, docs: list[Document], folders: list[str]) -> None:
-    """Fail before building when a published file is missing, or when a published folder
-    holds a symlink (copying it would publish whatever it points to)."""
+    """Fail before building when a published folder lies outside the library's real docs/
+    (a `..` path or a symlinked ancestor), when a published file is missing, or when a
+    published folder holds a symlink (copying it would publish whatever it points to)."""
+    docs_dir = (root / "docs").resolve()
+    outside = [
+        rel
+        for rel in folders
+        if Path(rel).is_absolute()
+        or ".." in Path(rel).parts
+        or not (root / rel).resolve().is_relative_to(docs_dir)
+        or (root / "docs").is_symlink()
+    ]
+    if outside:
+        raise click.ClickException(
+            "published folder(s) outside the library's docs/: " + ", ".join(outside)
+        )
     missing = [f.path for d in docs for f in d.files if not (root / f.path).is_file()]
     if missing:
         raise click.ClickException(

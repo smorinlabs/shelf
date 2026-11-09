@@ -430,3 +430,24 @@ def test_source_links_encode_each_path_segment():
     tmpl = (Path(publish_core.__file__).parent.parent / "templates" / "index.html.tmpl").read_text()
     line = next(x for x in tmpl.splitlines() if ">Source</a>" in x)
     assert "encodeURIComponent" in line
+
+
+def test_a_catalog_path_escaping_docs_is_refused(lib, tmp_path):
+    raw = json.loads((lib / "catalog.json").read_text())
+    doc = [d for d in raw["documents"] if d["publish"]][0]
+    outside = lib.parent / "outside"  # where docs/../../outside resolves
+    outside.mkdir()
+    (outside / "x.md").write_text("x")
+    doc["files"] = [{"format": "md", "path": "docs/../../outside/x.md"}]
+    (lib / "catalog.json").write_text(json.dumps(raw))
+    r = run(["publish", "--out", str(tmp_path / "_site")])
+    assert r.exit_code != 0 and "outside" in r.output
+    assert not (tmp_path / "_site").exists()
+
+
+def test_a_symlinked_docs_folder_is_refused(lib, tmp_path):
+    real = tmp_path / "real-docs"
+    (lib / "docs").rename(real)
+    (lib / "docs").symlink_to(real)
+    r = run(["publish", "--out", str(tmp_path / "_site")])
+    assert r.exit_code != 0 and "outside" in r.output
