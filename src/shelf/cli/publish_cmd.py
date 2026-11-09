@@ -8,8 +8,8 @@ from shelf.cli.runtime import resolve_target, scope_option
 from shelf.core import publish as pub
 from shelf.core import visibility
 from shelf.core.atomic import library_lock
-from shelf.core.catalog import load_catalog
-from shelf.core.errors import GuardError
+from shelf.core.catalog import CURRENT_SCHEMA_VERSION, load_catalog
+from shelf.core.errors import GuardError, SchemaTooOldError
 
 _EPILOG = """\b
 Examples:
@@ -55,6 +55,10 @@ def publish_cmd(ctx, out, dry_run, force, base_url, detected_base_url):
     where = f"{repo.slug or root} ({repo.visibility})"
     with library_lock(root):
         catalog = load_catalog(root)
+        if mode == "marked" and catalog.schema_version < CURRENT_SCHEMA_VERSION:
+            raise SchemaTooOldError(
+                f"{root} predates per-document publish marks — run 'shelf migrate' first"
+            )
         docs = pub.select(catalog, mode)
         held = len(catalog.documents) - len(docs)
         if dry_run:

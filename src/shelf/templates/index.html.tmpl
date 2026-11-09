@@ -387,7 +387,7 @@ function renderPreview(d){
     return `<div class="pa-row"><span class="pf">${x.primary?'<b>':''}${esc(x.f)}${x.primary?' ●</b>':''}</span>
       <button class="pa-btn" data-copy="${esc(p)}">Copy path</button>
       <button class="pa-btn text" ${ENHANCED&&x.text?`data-copytext="${esc(x.path)}"`:'disabled'} ${ENHANCED?'':'hidden'}>Copy text</button>${PAGE.source?`
-      <a class="pa-btn" href="${esc(PAGE.source+"/"+x.path)}" target="_blank" rel="noopener">Source</a>`:''}</div>`;
+      <a class="pa-btn" href="${esc(PAGE.source+"/"+x.path.split("/").map(encodeURIComponent).join("/"))}" target="_blank" rel="noopener">Source</a>`:''}</div>`;
   }).join("");
   prev.innerHTML = `<div class="prev-inner">
     <div class="prev-top">

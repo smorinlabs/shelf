@@ -7,7 +7,7 @@
 | PR | Branch | Tasks | Content |
 |---|---|---|---|
 | 1 | `feat/p21-local-publish` | T01–T04, T09 | Schema v2 (`publish`, `shelf_version`) with migration; `--publish` flags; `publish`/`base-url` config keys; `shelf publish` (filter, `_site/`, `.nojekyll`); visibility detection and the `--force` guard; `--dry-run` report; hosted mode and base-URL resolution. Also flips P20 to `[x]` (deferred from the v0.10.0 close-out). |
-| 2 | `feat/p21-deploy` | T05, T10, T11, T12 | `shelf pages status | enable`; `shelf github create`; `init --pages` (workflow generator) and `init --readme`; next-step hints. Pilot deploy on `smorinlabs/shelf-pages-pilot` (public, created for the test, deleted after sign-off). |
+| 2 | `feat/p21-deploy` | T05, T10, T11, T12 | `shelf pages status` and `shelf pages enable`; `shelf github create`; `init --pages` (workflow generator) and `init --readme`; next-step hints. Pilot deploy on `smorinlabs/shelf-pages-pilot` (public, created for the test, deleted after sign-off). |
 | 3 | `feat/p21-release` | T06–T08 | Skill and plugin 0.3.0; PRD and README; bump to v0.11.0 and tag. |
 
 `main` carries unreleased publishing code between PR 1 and PR 3; nothing is tagged until PR 3. The version in `pyproject.toml` moves only in PR 3.

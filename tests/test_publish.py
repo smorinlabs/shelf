@@ -6,6 +6,7 @@ import re
 import subprocess
 from pathlib import Path
 
+import click
 import pytest
 from click.testing import CliRunner
 from conftest import git_init_library
@@ -239,6 +240,7 @@ def test_base_url_precedence(lib, tmp_path, monkeypatch):
 
 
 def test_source_links_follow_the_ci_branch(lib, tmp_path, monkeypatch):
+    _git_origin(lib, "o/lib")
     monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/lib")
     monkeypatch.setenv("GITHUB_REF_NAME", "main")
@@ -286,15 +288,16 @@ def test_non_github_or_missing_remote_has_no_slug(tmp_path):
 
 
 def test_event_file_is_read_first(tmp_path, monkeypatch):
+    root = _repo_with_origin(tmp_path / "r", "https://github.com/o/r")
     event = tmp_path / "event.json"
     event.write_text(json.dumps({"repository": {"full_name": "o/r", "private": False}}))
     monkeypatch.setenv("GITHUB_EVENT_PATH", str(event))
     monkeypatch.setattr(visibility, "_gh", lambda args: pytest.fail("gh must not run"))
-    assert visibility.detect(tmp_path) == visibility.Repo("o/r", "public")
+    assert visibility.detect(root) == visibility.Repo("o/r", "public")
     event.write_text(json.dumps({"repository": {"full_name": "o/r", "private": True}}))
-    assert visibility.detect(tmp_path).visibility == "private"
+    assert visibility.detect(root).visibility == "private"
     event.write_text(json.dumps({"repository": {"full_name": "o/r", "visibility": "internal"}}))
-    assert visibility.detect(tmp_path).visibility == "internal"
+    assert visibility.detect(root).visibility == "internal"
 
 
 def test_gh_is_used_outside_ci(tmp_path, monkeypatch):
@@ -326,3 +329,104 @@ def test_a_library_inside_an_unrelated_repo_is_unknown(tmp_path, monkeypatch):
 
 def test_no_repo_is_unknown(tmp_path):
     assert visibility.detect(tmp_path) == visibility.Repo(None, "unknown")
+
+
+# --- PR #21 review fixes ---------------------------------------------------------------
+
+
+def _git_origin(root, slug):
+    subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+    subprocess.run(
+        ["git", "-C", str(root), "remote", "add", "origin", f"https://github.com/{slug}"],
+        check=True,
+    )
+
+
+def test_user_publish_settings_do_not_reach_a_project_library(
+    isolated_env, isolated_git_identity, tmp_path, monkeypatch
+):
+    assert run(["init"]).exit_code == 0
+    _config('publish = "all"\nbase-url = "https://user.example"\n')
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    monkeypatch.chdir(repo)
+    r = run(["init", "--scope", "project"])
+    assert r.exit_code == 0, r.output
+    from shelf.cli.runtime import resolve_target
+
+    ctx = click.Context(cli, obj={})
+    with ctx:
+        cfg = resolve_target(ctx).config
+    assert cfg.publish is None and cfg.base_url is None
+
+
+def test_a_symlink_in_a_published_folder_is_refused(lib, tmp_path):
+    doc = json.loads((lib / "catalog.json").read_text())["documents"][0]
+    folder = lib / Path(doc["files"][0]["path"]).parent
+    private = tmp_path / "private.md"
+    private.write_text("PRIVATE\n")
+    (folder / "leak.md").symlink_to(private)
+    site = tmp_path / "_site"
+    r = run(["publish", "--out", str(site)])
+    assert r.exit_code != 0 and "symlink" in r.output
+    assert not site.exists()
+
+
+def test_a_missing_published_file_fails_before_replacing_the_site(lib, tmp_path):
+    site = tmp_path / "_site"
+    assert run(["publish", "--out", str(site)]).exit_code == 0
+    before = (site / "index.html").read_text()
+    doc = [d for d in json.loads((lib / "catalog.json").read_text())["documents"] if d["publish"]][
+        0
+    ]
+    (lib / doc["files"][0]["path"]).unlink()
+    r = run(["publish", "--out", str(site)])
+    assert r.exit_code != 0 and doc["files"][0]["path"] in r.output
+    assert (site / "index.html").read_text() == before
+
+
+def test_site_files_are_world_readable(lib, tmp_path):
+    site = tmp_path / "_site"
+    assert run(["publish", "--out", str(site)]).exit_code == 0
+    for p in [site, *site.rglob("*")]:
+        assert p.stat().st_mode & 0o004, p
+
+
+def test_an_unmigrated_catalog_refuses_marked_publishing(lib, tmp_path):
+    raw = json.loads((lib / "catalog.json").read_text())
+    raw["schema_version"] = 1
+    for d in raw["documents"]:
+        d.pop("publish")
+    (lib / "catalog.json").write_text(json.dumps(raw))
+    r = run(["publish", "--out", str(tmp_path / "_site")])
+    assert r.exit_code != 0 and "shelf migrate" in r.output
+
+
+def test_event_visibility_is_trusted_only_for_the_librarys_own_repo(tmp_path, monkeypatch):
+    event = tmp_path / "event.json"
+    event.write_text(json.dumps({"repository": {"full_name": "o/r", "private": False}}))
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event))
+    monkeypatch.setattr(visibility, "_gh", lambda args: "private\n")
+    other = _repo_with_origin(tmp_path / "other", "https://github.com/o/secret")
+    assert visibility.detect(other) == visibility.Repo("o/secret", "private")
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    assert visibility.detect(plain) == visibility.Repo(None, "unknown")
+
+
+def test_ci_source_link_is_used_only_for_the_ci_repo(tmp_path, monkeypatch):
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/workflow")
+    monkeypatch.setenv("GITHUB_REF_NAME", "ci-branch")
+    root = tmp_path / "lib"
+    root.mkdir()
+    _git_origin(root, "o/other")
+    subprocess.run(["git", "-C", str(root), "checkout", "-q", "-b", "local"], check=True)
+    assert publish_core.source_base(root, "o/other") == "https://github.com/o/other/blob/local"
+
+
+def test_source_links_encode_each_path_segment():
+    tmpl = (Path(publish_core.__file__).parent.parent / "templates" / "index.html.tmpl").read_text()
+    line = next(x for x in tmpl.splitlines() if ">Source</a>" in x)
+    assert "encodeURIComponent" in line

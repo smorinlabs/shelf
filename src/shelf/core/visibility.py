@@ -1,8 +1,8 @@
 """Which GitHub repo holds a library, and whether it is public (P21 private-repo guard).
 
-Detection order: inside GitHub Actions, the event file at `$GITHUB_EVENT_PATH`;
-otherwise `gh api repos/<owner>/<repo>` for the `origin` remote. Any failure is
-"unknown", which the guard treats as private.
+The library must be a git repo whose `origin` is on GitHub. Inside GitHub Actions the
+event file at `$GITHUB_EVENT_PATH` answers when it names that same repo; otherwise
+`gh api repos/<owner>/<repo>`. Any failure is "unknown", which the guard treats as private.
 """
 
 import json
@@ -67,13 +67,16 @@ def _from_event(path: str) -> Repo:
 
 
 def detect(root: Path) -> Repo:
-    event = os.environ.get("GITHUB_EVENT_PATH")
-    if event:
-        return _from_event(event)
     # The P20 rule: a library nested in an unrelated repo (e.g. dotfiles) is not in it.
     slug = github_slug(root) if is_git_repo(root) else None
     if slug is None:
         return Repo(None, "unknown")
+    event = os.environ.get("GITHUB_EVENT_PATH")
+    if event:
+        found = _from_event(event)
+        # The event describes the workflow's repo; trust it only for the library's own repo.
+        if found.slug is not None and found.slug.lower() == slug.lower():
+            return found
     out = _gh(["api", f"repos/{slug}", "--jq", ".visibility"])
     vis = (out or "").strip()
     return Repo(slug, vis if vis in KNOWN else "unknown")

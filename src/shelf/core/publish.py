@@ -13,7 +13,6 @@ from pathlib import Path
 
 import click
 
-from shelf.core.atomic import atomic_write_text
 from shelf.core.catalog import CATALOG_FILENAME, Catalog, Document, dumps_catalog
 from shelf.core.git import is_git_repo, toplevel
 from shelf.core.index import render_index
@@ -70,20 +69,21 @@ def _foreign(dest: Path) -> bool:
 
 def source_base(root: Path, slug: str | None) -> str:
     """GitHub blob URL of the library folder on the deployed branch (J3), or ""."""
+    if slug is None or not is_git_repo(root):
+        return ""
     server, repo, ref = (
         os.environ.get("GITHUB_SERVER_URL"),
         os.environ.get("GITHUB_REPOSITORY"),
         os.environ.get("GITHUB_REF_NAME"),
     )
-    if not (server and repo and ref):
-        if slug is None or not is_git_repo(root):
-            return ""
+    # The Actions variables describe the workflow's repo; use them only for that checkout.
+    if not (server and ref and repo and repo.lower() == slug.lower()):
         ref = _branch(root)
         if ref is None:
             return ""
         server, repo = "https://github.com", slug
     base = f"{server.rstrip('/')}/{repo}/blob/{ref}"
-    top = toplevel(root) if is_git_repo(root) else None
+    top = toplevel(root)
     if top is not None and root.resolve() != top:
         base += "/" + root.resolve().relative_to(top).as_posix()
     return base
@@ -106,27 +106,52 @@ def build_site(
     root: Path, catalog: Catalog, docs: list[Document], out: Path, *, base_url: str, source: str
 ) -> None:
     """Write the site into a sibling staging folder, then swap it into place."""
+    folders = sorted({str(Path(f.path).parent) for d in docs for f in d.files})
+    _check_sources(root, docs, folders)
     filtered = site_catalog(catalog, docs)
     catalog_text = dumps_catalog(filtered)
     snippets = build_snippets(root, [d.to_dict() for d in docs])
     out.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{out.name}.", dir=out.parent))
-    staging.chmod(0o755)  # mkdtemp is owner-only; a served site must be world-readable
     try:
-        folders = sorted({str(Path(f.path).parent) for d in docs for f in d.files})
         for rel in folders:
-            src = root / rel
-            if src.is_dir():
-                shutil.copytree(src, staging / rel, dirs_exist_ok=True)
-        atomic_write_text(staging / CATALOG_FILENAME, catalog_text)
-        atomic_write_text(
-            staging / "index.html",
-            render_index(catalog_text, snippets, root=base_url, source=source),
+            shutil.copytree(root / rel, staging / rel, dirs_exist_ok=True)
+        (staging / CATALOG_FILENAME).write_text(catalog_text, encoding="utf-8")
+        (staging / "index.html").write_text(
+            render_index(catalog_text, snippets, root=base_url, source=source), encoding="utf-8"
         )
         (staging / ".nojekyll").write_text("")
+        _make_world_readable(staging)
         if out.exists():
             shutil.rmtree(out)
         staging.rename(out)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
+
+
+def _check_sources(root: Path, docs: list[Document], folders: list[str]) -> None:
+    """Fail before building when a published file is missing, or when a published folder
+    holds a symlink (copying it would publish whatever it points to)."""
+    missing = [f.path for d in docs for f in d.files if not (root / f.path).is_file()]
+    if missing:
+        raise click.ClickException(
+            "published file(s) missing: " + ", ".join(missing) + " — run 'shelf audit'"
+        )
+    links = [
+        p.relative_to(root).as_posix()
+        for rel in folders
+        for p in [root / rel, *(root / rel).rglob("*")]
+        if p.is_symlink()
+    ]
+    if links:
+        raise click.ClickException(
+            "refusing to publish a symlink: " + ", ".join(links) + " — replace it with the file"
+        )
+
+
+def _make_world_readable(site: Path) -> None:
+    """A served site must be readable by the web server's account: dirs 755, files 644."""
+    site.chmod(0o755)
+    for p in site.rglob("*"):
+        p.chmod(0o755 if p.is_dir() else 0o644)
