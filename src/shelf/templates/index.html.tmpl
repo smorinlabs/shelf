@@ -140,6 +140,7 @@ input { font: inherit; }
 .pa-btn { font-size: 12px; border: 1px solid var(--line); background: var(--paper); border-radius: 7px; padding: 5px 11px; color: var(--ink); transition: border-color .15s, color .15s; }
 .pa-btn:hover { border-color: var(--ox); color: var(--ox); }
 .pa-btn.text { border-style: dashed; }
+a.pa-btn { text-decoration: none; }
 .pa-btn[disabled] { opacity: .4; cursor: not-allowed; }
 
 .snip-lbl { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); display: flex; align-items: center; gap: 8px; }
@@ -385,7 +386,8 @@ function renderPreview(d){
     const p = absPath(d, x.f);
     return `<div class="pa-row"><span class="pf">${x.primary?'<b>':''}${esc(x.f)}${x.primary?' ●</b>':''}</span>
       <button class="pa-btn" data-copy="${esc(p)}">Copy path</button>
-      <button class="pa-btn text" ${ENHANCED&&x.text?`data-copytext="${esc(x.path)}"`:'disabled'} ${ENHANCED?'':'hidden'}>Copy text</button></div>`;
+      <button class="pa-btn text" ${ENHANCED&&x.text?`data-copytext="${esc(x.path)}"`:'disabled'} ${ENHANCED?'':'hidden'}>Copy text</button>${PAGE.source?`
+      <a class="pa-btn" href="${esc(PAGE.source+"/"+x.path.split("/").map(encodeURIComponent).join("/"))}" target="_blank" rel="noopener">Source</a>`:''}</div>`;
   }).join("");
   prev.innerHTML = `<div class="prev-inner">
     <div class="prev-top">

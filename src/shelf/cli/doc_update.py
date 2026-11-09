@@ -36,6 +36,12 @@ def _reject_anchor(ctx, param, value):
 @click.option("--subject", default=None)
 @click.option("--clear-subject", is_flag=True)
 @click.option("--added", default=None, help="Dangerous: desyncs the slug (requires --force).")
+@click.option(
+    "--publish/--no-publish",
+    "publish_",
+    default=None,
+    help="Include or exclude it when the library is published.",
+)
 @click.option("--force", "-f", is_flag=True)
 @click.option("--topic", "topic_", callback=_reject_anchor, expose_value=False, default=None)
 @click.option("--repo", "repo_", callback=_reject_anchor, expose_value=False, default=None)
@@ -60,6 +66,7 @@ def doc_update(
     subject,
     clear_subject,
     added,
+    publish_,
     force,
     dry_run,
     commit,
@@ -82,6 +89,7 @@ def doc_update(
             subject is not None,
             clear_subject,
             added is not None,
+            publish_ is not None,
         ]
     )
     if not fields_given:
@@ -135,6 +143,8 @@ def doc_update(
             doc.doc_date = None
         if source_ is not None:
             doc.source = source_
+        if publish_ is not None:
+            doc.publish = publish_
         if added is not None:
             doc.added = added
             click.echo(

@@ -5,7 +5,7 @@ import json
 from click.testing import CliRunner
 
 from shelf.cli.main import cli
-from shelf.core.catalog import SEED_KINDS
+from shelf.core.catalog import CURRENT_SCHEMA_VERSION, SEED_KINDS
 from shelf.core.config import default_config_path, load_config
 from shelf.core.paths import default_library_path
 
@@ -19,7 +19,7 @@ def test_init_scaffolds_default_library(isolated_env):
     assert r.exit_code == 0, r.output
     root = default_library_path()
     catalog = json.loads((root / "catalog.json").read_text())
-    assert catalog["schema_version"] == 1
+    assert catalog["schema_version"] == CURRENT_SCHEMA_VERSION
     assert catalog["topics"] == []
     assert catalog["kinds"] == SEED_KINDS
     assert catalog["documents"] == []

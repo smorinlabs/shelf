@@ -70,6 +70,9 @@ from shelf.core.slugs import derive_slug
 )
 @click.option("--format", "format_", default=None, help="Override format inference (long-only).")
 @click.option("--remove-source/--no-remove-source", "remove_source_", default=None)
+@click.option(
+    "--publish", "publish_", is_flag=True, help="Include it when the library is published."
+)
 @click.option("--dry-run", is_flag=True)
 @commit_options
 @scope_option()
@@ -93,6 +96,7 @@ def doc_add(
     assets_,
     format_,
     remove_source_,
+    publish_,
     dry_run,
     handoff_agent,
     no_handoff,
@@ -174,6 +178,7 @@ def doc_add(
             added=added,
             doc_date=doc_date,
             source=source_ or str(paths[0]),
+            publish=publish_,
         )
         rel_dir = doc_rel_dir(doc)
         dest = root / rel_dir

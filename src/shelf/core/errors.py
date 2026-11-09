@@ -17,3 +17,9 @@ class ConflictError(click.ClickException):
 
 class SchemaTooOldError(ConflictError):
     """Catalog schema older than current; mutation refused until `shelf migrate`."""
+
+
+class GuardError(click.ClickException):
+    """A safety guard refused; `--force` overrides it — exit 2 (P21 private-repo guard)."""
+
+    exit_code = 2

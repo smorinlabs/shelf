@@ -22,6 +22,8 @@ _KEY_MAP = {
     "server-port": "server_port",
     "browser": "browser",
     "handoff-agent": "handoff_agent",
+    "publish": "publish",
+    "base-url": "base_url",
 }
 
 
@@ -32,6 +34,8 @@ class ShelfConfig:
     server_port: int = 8765
     browser: str | None = None
     handoff_agent: str = "claude"
+    publish: str | None = None  # "marked" (the default when unset) or "all" (P21)
+    base_url: str | None = None
 
 
 def default_config_path() -> Path:

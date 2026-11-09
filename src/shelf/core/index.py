@@ -25,7 +25,15 @@ def parse_fingerprint(html: str) -> tuple[str, str] | None:
     return (match.group(1), match.group(2)) if match else None
 
 
-def render_index(catalog_text: str, snippets: dict[str, str] | None = None) -> str:
+def render_index(
+    catalog_text: str,
+    snippets: dict[str, str] | None = None,
+    *,
+    root: str = "",
+    source: str = "",
+) -> str:
+    """`root` is the published base URL and `source` the GitHub blob base (P21); both stay
+    empty for the library's own index."""
     raw = json.loads(catalog_text)
     page_docs = []
     for doc in raw.get("documents", []):
@@ -70,7 +78,8 @@ def render_index(catalog_text: str, snippets: dict[str, str] | None = None) -> s
         )
 
     page_data = {
-        "root": "",
+        "root": root,
+        "source": source,
         "docs": page_docs,
         "topics": list(raw.get("topics", [])),
         "kinds": list(raw.get("kinds", [])),

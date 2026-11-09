@@ -18,6 +18,8 @@ from shelf.core.paths import ENV_LIBRARY, ProjectScope, discover_project, resolv
 
 _UNSET = object()
 USER_ONLY_KEYS = frozenset({"library", "browser"})
+# Publishing settings describe one library: a personal value must not reach a project library.
+LIBRARY_ONLY_KEYS = frozenset({"publish", "base-url"})
 
 
 @dataclass(frozen=True)
@@ -99,7 +101,12 @@ def _target_scope(ctx: click.Context) -> str:
 def _project_target(ctx: click.Context, proj: ProjectScope) -> Target:
     # A project file arrives with a clone: it may not pick the command 'shelf open' runs.
     layered = {k: v for k, v in proj.data.items() if k not in USER_ONLY_KEYS}
-    cfg = config_from(read_config_data(active_config_path(ctx)), layered)
+    user = {
+        k: v
+        for k, v in read_config_data(active_config_path(ctx)).items()
+        if k not in LIBRARY_ONLY_KEYS
+    }
+    cfg = config_from(user, layered)
     return Target("project", proj.library, cfg, proj.config_path)
 
 
