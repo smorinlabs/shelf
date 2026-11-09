@@ -5,6 +5,7 @@ Mutated only via commit_library (§5).
 
 import json
 from dataclasses import dataclass, field
+from importlib.metadata import version
 from pathlib import Path
 
 import click
@@ -14,7 +15,7 @@ from shelf.core.errors import SchemaTooOldError
 from shelf.core.index import render_index
 from shelf.core.preview import build_snippets
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 CATALOG_FILENAME = "catalog.json"
 SEED_KINDS = ["reference", "explainer", "tutorial", "playbook", "spec", "cheatsheet"]
 
@@ -47,6 +48,7 @@ class Document:
     added: str | None = None
     doc_date: str | None = None
     source: str | None = None
+    publish: bool = False
 
     def to_dict(self) -> dict:
         out: dict = {
@@ -62,7 +64,11 @@ class Document:
             out["category"] = self.category
         out["files"] = [{k: v for k, v in vars(f).items() if v is not None} for f in self.files]
         out.update(
-            primary=self.primary, added=self.added, doc_date=self.doc_date, source=self.source
+            primary=self.primary,
+            added=self.added,
+            doc_date=self.doc_date,
+            source=self.source,
+            publish=self.publish,
         )
         return out
 
@@ -82,6 +88,7 @@ class Document:
             added=raw.get("added"),
             doc_date=raw.get("doc_date"),
             source=raw.get("source"),
+            publish=raw.get("publish", False) is True,
         )
 
 
@@ -91,10 +98,12 @@ class Catalog:
     topics: list[str] = field(default_factory=list)
     kinds: list[str] = field(default_factory=list)
     documents: list[Document] = field(default_factory=list)
+    shelf_version: str | None = None  # the shelf that last wrote the library (schema 2)
 
     def to_dict(self) -> dict:
         return {
             "schema_version": self.schema_version,
+            "shelf_version": self.shelf_version,
             "topics": self.topics,
             "kinds": self.kinds,
             # Sorted by id (P20-T06): branches that each add a document touch different
@@ -106,6 +115,7 @@ class Catalog:
     def from_dict(cls, raw: dict) -> "Catalog":
         return cls(
             schema_version=raw.get("schema_version", 0),
+            shelf_version=raw.get("shelf_version"),
             topics=list(raw.get("topics", [])),
             kinds=list(raw.get("kinds", [])),
             documents=[Document.from_dict(d) for d in raw.get("documents", [])],
@@ -153,6 +163,7 @@ def commit_library(root: Path, catalog: Catalog) -> None:
     """Validate, then write catalog.json (the commit point), then index.html (§5)."""
     catalog.validate()
     catalog.schema_version = CURRENT_SCHEMA_VERSION
+    catalog.shelf_version = version("shelf")
     catalog_text = dumps_catalog(catalog)
     snips = build_snippets(root, [doc.to_dict() for doc in catalog.documents])
     index_text = render_index(catalog_text, snips)

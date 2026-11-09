@@ -263,8 +263,8 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 
 ---
 
-## [~] Project P20: Project-scoped libraries (v0.10.0, plugin v0.2.0)
-**Goal/Requirement**: Give shelf a **project** scope beside the existing **user** scope, like Claude Code skills. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 1). Approved 2026-11-05.
+## [x] Project P20: Project-scoped libraries (v0.10.0, plugin v0.2.0)
+**Goal/Requirement**: Give shelf a **project** scope beside the existing **user** scope, like Claude Code skills. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 1). Approved 2026-11-05. Delivery plan (three PRs, one release) and implementation defaults J1–J5: `docs/superpowers/plans/2026-11-08-p21-publishing.md`.
 - Discovery per CLI Design Standard R5.2: search the current directory and its parents for `.shelf/shelf_config.toml`, stopping at `.git`; its `library` is a relative path (default `shelf`)
 - Precedence: `--library` → `SHELF_LIBRARY` → project scope → user config → error
 - `doc list` / `doc view` search both scopes and label each result with `scope`; mutating and library-level commands act on one library (project when discovered); `--scope user|project|all` overrides
@@ -293,7 +293,7 @@ Plan approved 2026-07-18 (Option A): the `shelf` CLI is built as a minimal py-la
 - [x] [P20-T07] Skill updates (`find`, `add`, `init` references) and plugin README; bump plugin to 0.2.0
 - [x] [P20-T08] PRD: rewrite §4 precedence, remove the R5.1/R5.2 waiver in §5, close §14.3; README configuration section
       Done 2026-11-07: decisions I0–I15 in `docs/superpowers/plans/2026-11-07-p20-project-scope.md`; P22-TS10 (scope question) and the `agent status` project-shelf note shipped here
-- [ ] [P20-T09] Bump to v0.10.0; `make check` and `just all` green; PR merged; tag `v0.10.0` pushed
+- [x] [P20-T09] Bump to v0.10.0; `make check` and `just all` green; PR merged; tag `v0.10.0` pushed
 - [ ] Regression Test Status
 
 ### Deliverable
@@ -315,7 +315,7 @@ $ shelf doc list --scope all
 
 ---
 
-## [ ] Project P21: Publishing and GitHub Pages (v0.11.0, plugin v0.3.0)
+## [~] Project P21: Publishing and GitHub Pages (v0.11.0, plugin v0.3.0)
 **Goal/Requirement**: Publish a library (user or project scope) as a filtered static site, deployable to GitHub Pages, without leaking private documents. Design: `docs/superpowers/specs/2026-11-05-scopes-and-publishing-design.md` (Part 2). Approved 2026-11-05.
 - `shelf publish` never creates a repo or pushes; it builds `_site/` from the library in whichever repo holds it. Locally it is a preview; deploys happen only through the Action (artifact deploy, never a `gh-pages` branch)
 - Per-document `publish: true|false` catalog field (schema v1 → v2 via `shelf migrate`), set with `doc add --publish` and `doc update --publish|--no-publish`
@@ -339,11 +339,12 @@ $ shelf doc list --scope all
 - A `publish-formats` filter
 
 ### Tests & Tasks
-- [ ] [P21-TS01] Schema v2 migration: v1 catalogs migrate with `publish: false`; `doc add --publish` and `doc update --publish|--no-publish` set the field
-- [ ] [P21-TS02] Filtering: `marked` mode includes only `publish: true` documents; `all` includes every document and variant; the published index contains no title, tag, topic, kind, or snippet from an unpublished document
-- [ ] [P21-TS03] Guard matrix: public → publishes; private, internal, or unknown → exit 2 without `--force` in both modes, publishes with it; `--dry-run` never requires `--force`; detection reads `$GITHUB_EVENT_PATH` first, then `gh`, and any failure counts as unknown
-- [ ] [P21-TS04] `--dry-run` output lists documents, visibility, the not-published count, and the publish-everything footer (with the `--force` note for private repos)
-- [ ] [P21-TS05] `_site` contains `.nojekyll`; base-URL precedence `--base-url` > config > detected (`--detected-base-url` in CI, `gh` locally) > none; Copy path yields URLs when one resolves
+- [x] [P21-TS01] Schema v2 migration: v1 catalogs migrate with `publish: false`; `doc add --publish` and `doc update --publish|--no-publish` set the field
+- [x] [P21-TS13] Migration v1 → v2 loses nothing: every v1 field of every document (repo- and topic-anchored, all variants, tags, dates, source) survives unchanged; only `schema_version`, `publish`, and `shelf_version` are added; the v0 → v1 → v2 chain works
+- [x] [P21-TS02] Filtering: `marked` mode includes only `publish: true` documents; `all` includes every document and variant; the published index contains no title, tag, topic, kind, or snippet from an unpublished document
+- [x] [P21-TS03] Guard matrix: public → publishes; private, internal, or unknown → exit 2 without `--force` in both modes, publishes with it; `--dry-run` never requires `--force`; detection reads `$GITHUB_EVENT_PATH` first, then `gh`, and any failure counts as unknown
+- [x] [P21-TS04] `--dry-run` output lists documents, visibility, the not-published count, and the publish-everything footer (with the `--force` note for private repos)
+- [x] [P21-TS05] `_site` contains `.nojekyll`; base-URL precedence `--base-url` > config > detected (`--detected-base-url` in CI, `gh` locally) > none; Copy path yields URLs when one resolves
 - [ ] [P21-TS06] `init --pages` writes the workflow; for a private repo it refuses without `--force` and writes `--force` into the workflow with it; `--shelf-version` writes the `SHELF_VERSION` pin; it never writes `base-url`; `init --readme` inserts and updates the marked block idempotently
 - [ ] [P21-TS07] `shelf_version` is written on every library write; the workflow's version step uses the pin when set, else the catalog value, and fails with a named fix when the value is missing or below v0.11.0
 - [ ] [P21-TS08] `pages status` exit codes (0 ready, 1 not ready); `pages enable` chooses POST vs PUT by state, asks before running, `--yes` skips, `--print` runs nothing; `init --pages` offers enable and prints the command on "no"
@@ -351,12 +352,12 @@ $ shelf doc list --scope all
 - [ ] [P21-TS11] `github create`: initializes Git when missing, runs `gh repo create … --private --source --push` (`--public` honored), `--dry-run` runs nothing, refuses for a project library with exit 2
 - [ ] [P21-TS12] Flag semantics: `init --pages --yes` runs `pages enable` without asking but still refuses a private repo without `--force`; `--no-input` prints commands and runs none
 - [ ] [P21-TS09] Generated workflow: `if: failure()` step writes an annotation and job summary with the fix for each failing step (configure-pages, guard exit 2, version resolution)
-- [ ] [P21-T01] Catalog schema v2 + migration + `--publish` flags
-- [ ] [P21-T02] `shelf publish` site builder with filtered catalog and index
-- [ ] [P21-T03] Visibility detection and the `--force` guard
-- [ ] [P21-T04] Hosted mode in `index.html.tmpl` and base-URL resolution (`--base-url`, config, `--detected-base-url`, `gh` detection)
+- [x] [P21-T01] Catalog schema v2 + migration + `--publish` flags
+- [x] [P21-T02] `shelf publish` site builder with filtered catalog and index
+- [x] [P21-T03] Visibility detection and the `--force` guard
+- [x] [P21-T04] Hosted mode in `index.html.tmpl` and base-URL resolution (`--base-url`, config, `--detected-base-url`, `gh` detection)
 - [ ] [P21-T05] `init --pages` workflow generator (version step with `SHELF_VERSION` pin, failure-summary step) and `init --readme` block
-- [ ] [P21-T09] `shelf_version` written by every library write (`commit_library`) as part of schema v2
+- [x] [P21-T09] `shelf_version` written by every library write (`commit_library`) as part of schema v2
 - [ ] [P21-T10] `shelf pages status | enable | enable --print` with the readiness checklist
 - [ ] [P21-T11] `shelf github create`
 - [ ] [P21-T12] Next-step hints in `doc add`, `doc update`, and `publish`

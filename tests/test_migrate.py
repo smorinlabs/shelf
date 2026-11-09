@@ -5,6 +5,7 @@ import json
 from click.testing import CliRunner
 
 from shelf.cli.main import cli
+from shelf.core.catalog import CURRENT_SCHEMA_VERSION
 from shelf.core.paths import default_library_path
 
 
@@ -46,7 +47,7 @@ def test_migrate_sets_current_version_and_regenerates_index(isolated_env):
     r = run(["migrate"])
     assert r.exit_code == 0
     raw = json.loads((root / "catalog.json").read_text())
-    assert raw["schema_version"] == 1
+    assert raw["schema_version"] == CURRENT_SCHEMA_VERSION
     assert "shelf:fingerprint" in (root / "index.html").read_text()
 
 
@@ -55,5 +56,5 @@ def test_migrate_dry_run_changes_nothing(isolated_env):
     root = _downgrade_to_v0()
     r = run(["migrate", "--dry-run"])
     assert r.exit_code == 0
-    assert "0" in r.output and "1" in r.output  # reports from -> to
+    assert f"0 -> {CURRENT_SCHEMA_VERSION}" in r.output  # reports from -> to
     assert "schema_version" not in json.loads((root / "catalog.json").read_text())

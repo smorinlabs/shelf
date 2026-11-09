@@ -14,6 +14,9 @@ def isolated_env(tmp_path, monkeypatch):
     monkeypatch.delenv("SHELF_LIBRARY", raising=False)
     monkeypatch.delenv("CLAUDECODE", raising=False)
     monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    # A CI run must not feed its real event file or repo into publish tests (P21 J4).
+    for name in ("GITHUB_EVENT_PATH", "GITHUB_SERVER_URL", "GITHUB_REPOSITORY", "GITHUB_REF_NAME"):
+        monkeypatch.delenv(name, raising=False)
     # Project-scope discovery walks up from the working directory; never let it see the checkout.
     monkeypatch.chdir(tmp_path)
     return tmp_path
