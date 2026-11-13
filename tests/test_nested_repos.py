@@ -387,3 +387,49 @@ def test_adopting_a_nested_group_folder_as_a_document_is_refused(isolated_env, t
     r = run(["doc", "adopt", "docs/repos/obra/superpowers", *META])
     assert r.exit_code == 5, r.output
     assert len(json.loads((root / "catalog.json").read_text())["documents"]) == 1
+
+
+def test_rename_never_rolls_back_a_folder_another_process_created(
+    isolated_env, tmp_path, monkeypatch
+):
+    """Something outside shelf creates the destination after the existence check: rename
+    refuses (exit 5) and leaves that folder alone."""
+    import shelf.cli.doc_rename as mod
+
+    root = _init()
+    _add_nested(tmp_path)
+    new = "2026-01-01-renamed"
+    dest = root / "docs/repos/obra/superpowers" / new
+    real = mod.check_free_folder
+
+    def racing(*a, **k):
+        real(*a, **k)
+        dest.mkdir(parents=True)
+        (dest / "foreign.txt").write_text("not shelf's")
+
+    monkeypatch.setattr(mod, "check_free_folder", racing)
+    r = run(["doc", "rename", SLUG, new])
+    assert r.exit_code == 5, r.output
+    assert (dest / "foreign.txt").read_text() == "not shelf's"
+    assert (root / "docs/repos/obra/superpowers" / SLUG / f"{SLUG}.md").is_file()
+
+
+def test_move_never_deletes_a_folder_that_appears_during_the_copy(
+    isolated_env, tmp_path, monkeypatch
+):
+    """The destination appears just before the copy: whatever happens, its file survives."""
+    import shelf.cli.doc_move as mod
+
+    root = _init()
+    _add_nested(tmp_path)
+    dest = root / "docs/repos/flox" / SLUG
+    real = mod.shutil.copytree
+
+    def racing(src, dst, **kw):
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / "foreign.txt").write_text("not shelf's")
+        return real(src, dst, **kw)
+
+    monkeypatch.setattr(mod.shutil, "copytree", racing)
+    run(["doc", "move", SLUG, "--repo", "flox"])
+    assert (dest / "foreign.txt").read_text() == "not shelf's"

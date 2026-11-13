@@ -18,7 +18,7 @@ from shelf.core.atomic import library_lock
 from shelf.core.catalog import CATALOG_FILENAME, commit_library, load_catalog
 from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
-from shelf.core.ingest import check_free_folder, doc_rel_dir
+from shelf.core.ingest import check_free_folder, claim_folder, doc_rel_dir
 from shelf.core.slugs import apply_date_rule, is_iso_date, undated_warning, validate_slug
 
 
@@ -85,9 +85,10 @@ def doc_rename(ctx, doc_id, new_slug, dry_run, commit, commit_message):
         for variant, path in zip(doc.files, new_paths, strict=True):
             variant.path = path
 
+        claim_folder(dest_dir, new_rel)
         before_text = (root / CATALOG_FILENAME).read_text(encoding="utf-8")
         try:
-            shutil.copytree(src_dir, dest_dir)
+            shutil.copytree(src_dir, dest_dir, dirs_exist_ok=True)
             for old_name, new_name in renames:
                 (dest_dir / old_name).rename(dest_dir / new_name)
             commit_library(root, catalog)

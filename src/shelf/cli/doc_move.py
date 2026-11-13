@@ -25,6 +25,7 @@ from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
 from shelf.core.ingest import (
     check_free_folder,
+    claim_folder,
     doc_rel_dir,
     overlaps,
     prune_nested_group,
@@ -104,9 +105,9 @@ def doc_move(
             raise ConflictError(
                 f"folder '{new_rel}' overlaps the document's own folder '{old_rel}'"
             )
-        check_free_folder(catalog, new_rel, exclude=doc)
         if (root / new_rel).exists():
             raise ConflictError(f"folder '{new_rel}' already exists")
+        check_free_folder(catalog, new_rel, exclude=doc)
         if dry_run:
             click.echo(f"would move {old_rel} -> {new_rel}")
             return
@@ -115,10 +116,10 @@ def doc_move(
 
         src_dir = root / old_rel
         dest_dir = root / new_rel
-        dest_dir.parent.mkdir(parents=True, exist_ok=True)
+        claim_folder(dest_dir, new_rel)
         before_text = (root / CATALOG_FILENAME).read_text(encoding="utf-8")
         try:
-            shutil.copytree(src_dir, dest_dir)
+            shutil.copytree(src_dir, dest_dir, dirs_exist_ok=True)
             commit_library(root, catalog)
         except BaseException:
             try:
@@ -192,10 +193,10 @@ def _move_to_scope(ctx, doc_id, to_scope, create_topic, dry_run, commit, commit_
         dest = target.root / rel
         if dest.exists():
             raise ConflictError(f"folder '{rel}' already exists in the {to_scope} library")
-        dest.parent.mkdir(parents=True, exist_ok=True)
+        claim_folder(dest, rel)
         before_text = (target.root / CATALOG_FILENAME).read_text(encoding="utf-8")
         try:
-            shutil.copytree(source.root / rel, dest)
+            shutil.copytree(source.root / rel, dest, dirs_exist_ok=True)
             catalog.documents.append(doc)
             commit_library(target.root, catalog)
         except BaseException:

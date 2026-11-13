@@ -96,6 +96,17 @@ def check_free_folder(catalog: Catalog, rel_dir: str, exclude: Document | None =
             )
 
 
+def claim_folder(path: Path, rel_dir: str) -> None:
+    """Create the destination folder atomically. Failing when it already exists means a
+    rollback only ever removes a folder this command created, even if something outside
+    shelf (which the library lock cannot stop) made the folder after the existence check."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.mkdir()
+    except FileExistsError as exc:
+        raise ConflictError(f"folder '{rel_dir}' already exists") from exc
+
+
 def prune_nested_group(root: Path, rel_dir: str) -> None:
     """Remove the `<owner>/<repo>` folders a removed nested document left empty."""
     parts = Path(rel_dir).parts
