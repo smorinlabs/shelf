@@ -32,7 +32,10 @@ add `<path>` to shelf. Walk me through classification."
 3. **Read the taxonomy:** `shelf topic list` and `shelf kind list`.
 4. **Classify** and confirm with the user:
    - **Anchoring** — repo-anchored (`--repo`, optionally `--repo-url`,
-     `--subject`) vs. topical (`--topic`). In a project library, prefer a
+     `--subject`) vs. topical (`--topic`). A repo name is `<repo>` or
+     `<owner>/<repo>` (e.g. `obra/superpowers`, filed under
+     `docs/repos/obra/superpowers/`); more than one `/`, a `\`, or an empty,
+     `.` or `..` segment is rejected. In a project library, prefer a
      topic: the repo anchor would just name the repo the library lives in. An unknown topic needs
      `--create-topic` to authorize creating it (governed growth — confirm).
    - **`--kind`** (must already exist; if a new kind is warranted, add it first
@@ -42,7 +45,10 @@ add `<path>` to shelf. Walk me through classification."
      pass the explicit `--remove-source` or `--no-remove-source`. (A project
      library defaults to keeping it: the source is usually a tracked file.)
 5. **Preview:** run the add with `--dry-run` (`doc add` has no `--json`) and show the user the
-   planned destination and catalog entry.
+   planned destination and catalog entry. A `--slug` must start with the date
+   (`YYYY-MM-DD-…`); an undated one is stored with today's date prefixed and a
+   warning (`warning: slug 'x' had no date; stored as '<date>-x'. Rename with:
+   shelf doc rename …`). Pass the slug already dated, or relay the warning.
 6. **Commit for real** on confirmation with the chosen flags. Add `--commit`
    when the library is a git repo (omit otherwise). The CLI copies the file
    into `docs/repos/…` or `docs/topics/…` and writes the catalog — the skill

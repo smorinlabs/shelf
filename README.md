@@ -52,7 +52,8 @@ agent ▸  Found 2026-10-24-cli-extension-prd (spec, flox-cli). Reading it now.
   finding comes with the command that fixes it. You can also run the audit as a
   Git pre-commit hook.
 - **You stay in control.** shelf never ingests anything on its own, never
-  invents topics without asking, and never re-slugs a document.
+  invents topics without asking, and never re-slugs a document on its own
+  (only `shelf doc rename` does).
 
 > [!WARNING]
 > **`shelf doc add` deletes the original file by default**, after the document
@@ -203,7 +204,7 @@ request to one operation and loads only that operation's instructions:
 |---|---|
 | "add this PDF to my shelf", "file this under the thoth repo" | `doc add`, `doc format add`, `topic add`, `kind add` |
 | "what do I have on uv?", "use my flox PRD as context" | `doc list`, `doc view` (read-only) |
-| "make that a tutorial", "move it to the dev-tooling topic" | `doc update`, `doc move`, `doc format delete` |
+| "make that a tutorial", "move it to the dev-tooling topic", "rename that slug" | `doc update`, `doc move`, `doc rename`, `doc format delete` |
 | "remove the old auth guide" | `doc delete --yes`, after showing you exactly what will go |
 | "audit my shelf", "fix the stale index" | `audit`, `regen`, `migrate`, `doc adopt`, `orphan …` |
 | "open my shelf" | `open` |
@@ -256,6 +257,7 @@ Which agent starts is decided in this order:
 ├── README.md
 └── docs/
     ├── repos/<repo-name>/<YYYY-MM-DD-slug>/…     # repo-anchored documents
+    ├── repos/<owner>/<repo>/<YYYY-MM-DD-slug>/…  # … with an owner/repo group
     └── topics/<topic>/<YYYY-MM-DD-slug>/…        # topical documents
 ```
 
@@ -278,8 +280,12 @@ exclusive lock, `.shelf.lock`, so two commands never interleave.
 - **The slug is the document's permanent id and its folder name.** Its format
   is `YYYY-MM-DD-<kebab-title>`. The date is the day you added the document.
   The title part comes from the title, truncated to about 60 characters.
-  `--slug` overrides it. After creation, the slug never changes, and every
-  variant file is named `<slug>.<ext>`.
+  `--slug` overrides it. A `--slug` that does not start with a date gets the
+  added date prefixed, with a warning: `--slug superpowers` is stored as
+  `2026-11-12-superpowers`. A `--slug` that starts with a date keeps it, and
+  that date becomes `added`. Every variant file is named `<slug>.<ext>`.
+- **The slug changes only through `shelf doc rename`**, which renames the
+  id, the folder, and the `<slug>.<ext>` variant files together.
 - **`primary`** is the variant the UI opens on click. The default is `md`,
   else `html`, else `pdf`.
 - **`added`** is the date in the slug. **`doc_date`** optionally records when
@@ -289,7 +295,7 @@ exclusive lock, `.shelf.lock`, so two commands never interleave.
 
 | Axis | Values | Governed by |
 |---|---|---|
-| **Anchor** | *Repo-anchored*: `--repo <name>`, plus `--repo-url` and an optional `--subject` label. *Topical*: `--topic <name>`. Exactly one per document. | The anchor decides the folder: `docs/repos/` or `docs/topics/`. |
+| **Anchor** | *Repo-anchored*: `--repo <name>` or `--repo <owner>/<repo>`, plus `--repo-url` and an optional `--subject` label. *Topical*: `--topic <name>`. Exactly one per document. | The anchor decides the folder: `docs/repos/` or `docs/topics/`. |
 | **Topic** | A coarse bucket, such as `dev-tooling` | **Governed growth.** A new library has zero topics. A topic is created only by `shelf topic add` or `--create-topic`, never silently. |
 | **Kind** | What the document *is*. Seeded with `reference`, `explainer`, `tutorial`, `playbook`, `spec`, `cheatsheet`. | **Effectively closed.** `doc add` never creates kinds; `shelf kind add` does. |
 | **Tags** | Free-form, any number | No list and no confirmation. Tags carry fine-grained classification and feed search. |
@@ -298,12 +304,19 @@ For repo-anchored documents, `--repo-url` is inferred from the Git remote of
 the repository that contains the source file. A `subject` becomes a
 sub-heading under the repo's group in the UI.
 
+A repo name has at most one `/`. `--repo obra/superpowers` files the document
+under `docs/repos/obra/superpowers/`, and the UI shows the group as
+`obra/superpowers`. A deeper path, a `\`, or an empty, `.`, or `..` segment is
+a usage error (exit `2`). Single-level names such as `obra-superpowers` stay
+valid; shelf never migrates one form to the other.
+
 ### Paths stay stable
 
 Location is permanent, and classification is metadata. Changing a title,
 kind, tags, or description never moves a file. The only command that moves a
 folder is `shelf doc move`, which changes a document's topic, repo, or anchor
-type. It warns you that previously copied absolute paths will stop resolving.
+type, and `shelf doc rename`, which changes its slug. Both warn you that
+previously copied absolute paths will stop resolving.
 
 ---
 
@@ -405,6 +418,7 @@ shelf
 │   ├── format delete <id> <fmt> remove one format variant
 │   ├── update <id>              change metadata (no files move)
 │   ├── move <id>                change topic / repo / anchor (folder moves)
+│   ├── rename <id> <new-slug>   change the slug (folder and variant files move)
 │   ├── delete <id>   (rm)       delete a document and its folder
 │   ├── list          (ls)       filter and query documents
 │   ├── view <id>                print one document in full
@@ -448,7 +462,7 @@ as `shelf doc`, prints that group's help and exits `2`.
 |---|---|---|
 | `--commit` / `--no-commit` | every mutating command | Record the change as a Git commit. The default is off. The commit contains only the paths the command touched. The automatic message is `shelf: <verb> <slug>`. Requires a Git library. |
 | `--commit-message TEXT` | every mutating command | Replace the automatic commit message |
-| `--dry-run` | `doc add`, `update`, `move`, `delete`; `regen`; `migrate` | Show what would happen, then change nothing |
+| `--dry-run` | `doc add`, `update`, `move`, `rename`, `delete`; `regen`; `migrate` | Show what would happen, then change nothing |
 | `-o, --output table\|json`, `--json` | `doc list`, `doc view`, `topic list`, `kind list`, `orphan list`, `audit` | `table` is for humans and may change between releases. `json` is stable within a major version. `--json` is shorthand for `-o json`. `regen --json` and `migrate --json` print a machine-readable report. |
 | `-y, --yes` | `doc delete`, `orphan delete` | Consent without prompting. Required when not on a TTY. |
 | `-f, --force` | `doc update`, `doc format delete` | Override a safety guard. It never counts as consent. |
@@ -501,9 +515,9 @@ shelf doc add FILE… (--repo NAME | --topic NAME) --kind KIND \
 
 | Group | Options |
 |---|---|
-| Anchor (exactly one) | `--repo NAME`, with `--repo-url URL` (inferred from the source file's Git remote when possible, and required when it cannot be inferred) and `--subject LABEL`; **or** `--topic NAME`, with `--create-topic` to allow a new topic |
+| Anchor (exactly one) | `--repo NAME` (`<repo>` or `<owner>/<repo>`), with `--repo-url URL` (inferred from the source file's Git remote when possible, and required when it cannot be inferred) and `--subject LABEL`; **or** `--topic NAME`, with `--create-topic` to allow a new topic |
 | Classification | `--kind KIND` (must already exist); `--tag TAG` (repeatable) |
-| Identity | `--title`, `--description`, `--slug` (override the derived slug), `--primary FMT`, `--doc-date YYYY-MM-DD`, `--source TEXT` (provenance; the default is the first input file's absolute path) |
+| Identity | `--title`, `--description`, `--slug` (override the derived slug; the added date is prefixed when it has none), `--primary FMT`, `--doc-date YYYY-MM-DD`, `--source TEXT` (provenance; the default is the first input file's absolute path) |
 | Input | `--assets PATH` (repeatable; files or folders copied into the document folder so relative links in HTML work); `--format EXT` (override the format inferred from the extension) |
 | Source handling | `--remove-source` / `--no-remove-source`. When neither is given, the `remove-source` config key decides, and its default is to remove. |
 | Handoff | `--handoff-agent claude\|codex`; `--no-handoff` |
@@ -512,6 +526,12 @@ The format comes from the file extension: `.md`, `.html` / `.htm`, or `.pdf`.
 Passing two files with the same format is an error. Adding the same title on
 the same day collides with the existing slug. Pass `--slug`, or use
 `doc format add` if you meant to add a variant.
+
+An undated `--slug` is stored with the date and a warning that names the fix:
+
+```text
+warning: slug 'superpowers' had no date; stored as '2026-11-12-superpowers'. Rename with: shelf doc rename 2026-11-12-superpowers <new-slug>
+```
 
 Files are **copied** into the library. Source removal happens only after the
 copy, the catalog write, the index regeneration, and any commit have all
@@ -556,7 +576,7 @@ shelf doc update ID [field options] [--dry-run]
 
 | Freely editable | `--title`, `--description`, `--kind`, `--add-tag` / `--remove-tag` (repeatable), `--set-tags a,b,c`, `--primary`, `--doc-date` / `--clear-doc-date`, `--source`, and for repo-anchored documents `--repo-url`, `--subject` / `--clear-subject` |
 |---|---|
-| Needs `--force` | `--added DATE`. This puts the slug's date prefix out of sync with `added`. |
+| Needs `--force` | `--added DATE`. This puts the slug's date prefix out of sync with `added`; to change the date and the slug together, use `shelf doc rename`. |
 | Rejected | `--topic`, `--repo`. These move the folder, so use `shelf doc move`. |
 
 A new `--title` changes only the display title. The slug stays the same.
@@ -571,7 +591,7 @@ tags: ['python', 'uv'] -> ['python', 'uv', 'pep723']
 Relocates a document folder and rewrites its file paths.
 
 ```bash
-shelf doc move ID (--topic NAME [--create-topic] | --repo NAME [--repo-url URL] [--subject LABEL]) [--dry-run]
+shelf doc move ID (--topic NAME [--create-topic] | --repo NAME|OWNER/NAME [--repo-url URL] [--subject LABEL]) [--dry-run]
 shelf doc move ID --to-scope user|project [--create-topic] [--dry-run]
 ```
 
@@ -590,6 +610,29 @@ anchor. The target library needs the document's kind (`shelf kind add KIND
 --scope TARGET`) and topic (`--create-topic`). If shelf adds the copy but cannot
 remove the original, it says so and `shelf audit` reports the id in both
 libraries.
+
+### `shelf doc rename`
+
+Changes a document's slug, which is also its id and its folder name.
+
+```bash
+shelf doc rename ID NEW-SLUG [--dry-run] [--commit]
+```
+
+- The folder is renamed in place, in the same topic or repo group.
+- Variant files named `<old-slug>.<ext>` become `<new-slug>.<ext>`. Other
+  files, such as assets, keep their names.
+- `catalog.json` and `index.html` are updated together, as for every command.
+- A `NEW-SLUG` without a date gets the document's `added` date prefixed, with
+  the same warning as `doc add`. A `NEW-SLUG` with a different date sets
+  `added` to that date.
+- A slug or folder that already exists is refused, and nothing is written.
+
+This is also the repair for audit's `added-slug-mismatch` finding:
+
+```bash
+shelf doc rename superpowers-notes 2026-11-12-superpowers-notes
+```
 
 ### `shelf doc delete` (alias `rm`)
 
@@ -641,7 +684,8 @@ shelf doc adopt FOLDER --kind KIND --title TEXT --description TEXT \
 
 Registers a per-document folder that already exists under `docs/` without
 copying it. shelf takes the anchor from the folder's location and the slug
-from the folder's name. This is how you repair an orphan that you want to keep.
+from the folder's name. The folder is `docs/topics/<topic>/<slug>`,
+`docs/repos/<repo>/<slug>`, or `docs/repos/<owner>/<repo>/<slug>`. This is how you repair an orphan that you want to keep.
 
 ### `shelf topic` and `shelf kind`
 

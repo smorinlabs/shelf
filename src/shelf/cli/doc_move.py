@@ -23,14 +23,14 @@ from shelf.core.atomic import library_lock
 from shelf.core.catalog import CATALOG_FILENAME, RepoRef, commit_library, load_catalog
 from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
-from shelf.core.ingest import doc_rel_dir
+from shelf.core.ingest import doc_rel_dir, prune_nested_group, validate_repo_name
 
 
 @click.command("move")
 @click.argument("doc_id")
 @click.option("--topic", "topic_", default=None)
 @click.option("--create-topic", is_flag=True)
-@click.option("--repo", "repo_", default=None)
+@click.option("--repo", "repo_", default=None, help="<repo> or <owner>/<repo>.")
 @click.option("--repo-url", default=None)
 @click.option("--subject", default=None)
 @click.option(
@@ -66,6 +66,8 @@ def doc_move(
         return
     if (topic_ is None) == (repo_ is None):
         raise click.UsageError("exactly one of --topic or --repo is required")
+    if repo_ is not None:
+        validate_repo_name(repo_)
 
     root = get_library(ctx)
     require_git_if_commit(root, commit)
@@ -115,6 +117,7 @@ def doc_move(
                 shutil.rmtree(dest_dir, ignore_errors=True)
             raise
         shutil.rmtree(src_dir, ignore_errors=True)
+        prune_nested_group(root, old_rel)
     if commit:
         git_commit_all(
             root,
@@ -221,3 +224,4 @@ def _delete_from_source(root, doc_id, rel):
     catalog.documents = [d for d in catalog.documents if d.id != doc_id]
     commit_library(root, catalog)
     shutil.rmtree(root / rel, ignore_errors=True)
+    prune_nested_group(root, rel)

@@ -26,7 +26,7 @@ remains authoritative for every library operation and mutation.
   intent, runs the right command, and confirms the result.
 - **Preview before mutating.** Where a command supports `--dry-run`, run it
   (add `--json` only where `--help` lists it; `doc add`, `doc update`,
-  `doc delete`, and `doc move` do not) to show the user what will happen, then run for
+  `doc delete`, `doc move`, and `doc rename` do not) to show the user what will happen, then run for
   real on confirmation.
 - **Confirm destructive or ambiguous actions.** Deletes, moves, and any
   plural-match resolution get an explicit confirmation first.
@@ -48,7 +48,7 @@ Match the user's intent to one row, load **only** that reference, then follow it
 |---|---|---|
 | add a document, a new format, a topic, or a kind | `references/add.md` | `doc add`, `doc format add`, `topic add`, `kind add` |
 | find / retrieve / use a shelf doc as context | `references/find.md` | `doc list`, `doc view` (read-only) |
-| edit metadata, reclassify, retitle, or relocate (also between scopes) | `references/edit.md` | `doc update`, `doc move`, `doc move --to-scope`, `doc format delete` |
+| edit metadata, reclassify, retitle, rename a slug, or relocate (also between scopes) | `references/edit.md` | `doc update`, `doc move`, `doc rename`, `doc move --to-scope`, `doc format delete` |
 | remove / delete a document | `references/remove.md` | `doc delete --yes` |
 | audit, repair, regen, migrate, or adopt orphans | `references/audit.md` | `audit`, `regen`, `migrate`, `doc adopt`, `orphan …` |
 | open the library UI | `references/open.md` | `open` |
