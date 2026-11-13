@@ -42,6 +42,9 @@ _BLOCK_TAGS = {
     "tr",
     "ul",
 }
+# Elements whose text is never shown on the page. Each always has an end tag, so a depth
+# counter is enough and `</head>` (which HTML lets authors omit) is never relied on.
+_HIDDEN_TAGS = {"noscript", "script", "style", "svg", "template", "title"}
 
 
 class _HTMLTextExtractor(HTMLParser):
@@ -50,17 +53,23 @@ class _HTMLTextExtractor(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
+        self.hidden_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _HIDDEN_TAGS:
+            self.hidden_depth += 1
         if tag in _BLOCK_TAGS:
             self.parts.append(" ")
 
     def handle_endtag(self, tag: str) -> None:
+        if tag in _HIDDEN_TAGS and self.hidden_depth:
+            self.hidden_depth -= 1
         if tag in _BLOCK_TAGS:
             self.parts.append(" ")
 
     def handle_data(self, data: str) -> None:
-        self.parts.append(data)
+        if not self.hidden_depth:
+            self.parts.append(data)
 
     def text(self) -> str:
         return " ".join("".join(self.parts).split())

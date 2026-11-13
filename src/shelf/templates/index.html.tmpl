@@ -157,6 +157,14 @@ a.pa-btn { text-decoration: none; }
 .snip code { font-family: var(--mono); }
 .snip-hint { font-size: 11px; color: var(--faint); text-align: center; }
 .snip-hint b { color: var(--ox); font-weight: 500; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; text-transform: none; letter-spacing: 0; }
+.seg button { font-size: 11px; font-weight: 500; padding: 3px 9px; color: var(--dim); background: var(--paper); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--ox-soft); color: var(--ox); }
+.seg button[disabled] { opacity: .4; cursor: not-allowed; }
+.render { width: 100%; height: calc(100vh - 300px); min-height: 360px; border: 1px solid var(--line2); border-radius: 11px; background: #fff; }
+@media (min-width: 1081px) { .app[data-render="rendered"] { --prev: min(680px, 48vw); } }
+.added { font-family: var(--mono); font-size: 10.5px; color: var(--faint); white-space: nowrap; }
 
 .prev-empty { padding: 60px 24px; text-align: center; color: var(--faint); }
 .prev-empty .big { font-family: var(--serif); font-size: 18px; color: var(--dim); margin-bottom: 6px; }
@@ -272,6 +280,32 @@ function relPath(d, fmt){ const variant=d.formats.find(x=>x.f===fmt); return var
 const FILE_ROOT = decodeURIComponent(location.pathname.replace(/\/index\.html$/, ""));
 function absPath(d, fmt){ return `${ENHANCED ? ROOT : FILE_ROOT}/${relPath(d, fmt)}`; }
 function primary(d){ return d.formats.find(x=>x.primary)||d.formats[0]; }
+/* preview:start */
+// A document's URL is its catalog path relative to this index page. That one rule works
+// under `shelf serve`, on a published site, and from file://, so ROOT is never involved.
+function docURL(path){ return String(path).split("/").map(encodeURIComponent).join("/"); }
+// How the Rendered view shows a format: "iframe" loads it by URL, "markdown" fetches and
+// renders it (fetch is blocked from file://), null means only the snippet is available.
+function renderModeFor(fmt, enhanced){
+  if(fmt==="html") return "iframe";
+  if(fmt==="md") return enhanced ? "markdown" : null;
+  return null;
+}
+const PREVIEW_MODE_KEY = "shelf.previewMode";
+function loadPreviewMode(storage){
+  try { return storage && storage.getItem(PREVIEW_MODE_KEY)==="rendered" ? "rendered" : "snippet"; }
+  catch(e){ return "snippet"; }
+}
+function savePreviewMode(storage, mode){
+  try { if(storage) storage.setItem(PREVIEW_MODE_KEY, mode); } catch(e){}
+}
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function formatAdded(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso||"");
+  if(!m || +m[2]<1 || +m[2]>12) return "";
+  return `${MONTHS[+m[2]-1]} ${+m[3]}, ${m[1]}`;
+}
+/* preview:end */
 
 /* ---------------- state ---------------- */
 let view = "subject";       // subject | kind
@@ -345,7 +379,7 @@ function rowHTML(d){
       <div class="tl"><span class="title">${esc(d.title)}</span><span class="kind k-${esc(d.kind)}">${esc(d.kind)}</span></div>
       <div class="meta"><span class="id">${esc(d.id)}</span><span class="tags">${d.tags.map(esc).join(" · ")}</span></div>
     </div>
-    <div class="r"><div class="fmts">${fmts}</div></div>`;
+    <div class="r"><span class="added">${esc(formatAdded(d.added))}</span><div class="fmts">${fmts}</div></div>`;
 }
 function renderList(){
   const body = document.getElementById("listbody");
@@ -377,14 +411,67 @@ function paint(){
 }
 
 /* ---------------- preview ---------------- */
+function previewStorage(){ try { return window.localStorage; } catch(e){ return null; } }
+let previewMode = loadPreviewMode(previewStorage());
+let renderSeq = 0;   // bumps on every renderPreview, so a slow Markdown fetch never lands on a newer document
+
+// Pinned with Subresource Integrity; loaded only the first time Markdown is rendered.
+const MD_LIBS = [
+  ["https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js", "sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi"],
+  ["https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js", "sha384-+VfUPEb0PdtChMwmBcBmykRMDd+v6D/oFmB3rZM/puCMDYcIvF968OimRh4KQY9a"],
+];
+let mdLibs = null;
+function loadMarkdownLibs(){
+  if(!mdLibs) mdLibs = Promise.all(MD_LIBS.map(([src, sri])=> new Promise((resolve, reject)=>{
+    const s = document.createElement("script");
+    s.src = src; s.integrity = sri; s.crossOrigin = "anonymous";
+    s.onload = resolve;
+    s.onerror = ()=>{ mdLibs = null; reject(new Error("could not load " + src)); };
+    document.head.appendChild(s);
+  })));
+  return mdLibs;
+}
+const MD_STYLE = "body{margin:0;padding:18px 20px;font:15px/1.6 system-ui,sans-serif;color:#2a2420;background:#fff;overflow-wrap:anywhere}"
+  + "img{max-width:100%}pre{overflow-x:auto;background:#f6f1e8;padding:10px 12px;border-radius:7px}code{font-family:ui-monospace,monospace;font-size:.9em}"
+  + "table{border-collapse:collapse}td,th{border:1px solid #ddd4c3;padding:4px 8px}a{color:#7b2d26}";
+function mdDocument(body, base){
+  return `<!doctype html><meta charset="utf-8"><base href="${esc(base)}" target="_blank"><style>${MD_STYLE}</style>${body}`;
+}
+function renderMarkdownInto(frame, path, seq){
+  const url = docURL(path);
+  const text = fetch(url).then(r=>{ if(!r.ok) throw new Error("HTTP " + r.status); return r.text(); });
+  Promise.all([text, loadMarkdownLibs()]).then(([md])=>{
+    if(seq!==renderSeq) return;
+    frame.srcdoc = mdDocument(DOMPurify.sanitize(marked.parse(md)), new URL(url, location.href).href);
+  }).catch(err=>{
+    if(seq!==renderSeq) return;
+    frame.srcdoc = mdDocument(`<p>Could not render this document (${esc(err.message)}). Use <b>Open</b> instead.</p>`, location.href);
+  });
+}
+
 function renderPreview(d){
   const prev = document.getElementById("prev");
-  if(!d){ prev.innerHTML = `<div class="prev-empty"><div class="big">Nothing selected</div><div>Pick a document to peek inside.</div></div>`; return; }
+  const seq = ++renderSeq;
+  if(!d){ document.getElementById("app").dataset.render = "snippet"; prev.innerHTML = `<div class="prev-empty"><div class="big">Nothing selected</div><div>Pick a document to peek inside.</div></div>`; return; }
   const a=d.anchor;
   const anchorLabel = a.type==="repo" ? `${a.group} · ${a.subject}` : a.group;
+  const main = primary(d);
+  const how = renderModeFor(main.f, ENHANCED);
+  const mode = how ? previewMode : "snippet";
+  document.getElementById("app").dataset.render = mode;
+  const noRender = main.f==="md" ? "Markdown renders only when the library is served (shelf open)" : `No rendered view for ${main.f}`;
+  const view = mode==="snippet"
+    ? `<div class="snip">${d.snippet}</div>
+    <div class="snip-hint">first lines · <b>Rendered</b> or <b>Open</b> to read the rest</div>`
+    : how==="iframe"
+    ? `<iframe class="render" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" src="${esc(docURL(main.path))}" title="${esc(d.title)}"></iframe>
+    <div class="snip-hint">rendered in a sandbox · <b>Open</b> for a full tab</div>`
+    : `<iframe class="render" id="mdframe" sandbox="allow-popups allow-popups-to-escape-sandbox" title="${esc(d.title)}"></iframe>
+    <div class="snip-hint">rendered Markdown · <b>Open</b> for the source file</div>`;
   const acts = d.formats.map(x=>{
     const p = absPath(d, x.f);
     return `<div class="pa-row"><span class="pf">${x.primary?'<b>':''}${esc(x.f)}${x.primary?' ●</b>':''}</span>
+      <a class="pa-btn" href="${esc(docURL(x.path))}" target="_blank" rel="noopener">Open</a>
       <button class="pa-btn" data-copy="${esc(p)}">Copy path</button>
       <button class="pa-btn text" ${ENHANCED&&x.text?`data-copytext="${esc(x.path)}"`:'disabled'} ${ENHANCED?'':'hidden'}>Copy text</button>${PAGE.source?`
       <a class="pa-btn" href="${esc(PAGE.source+"/"+x.path.split("/").map(encodeURIComponent).join("/"))}" target="_blank" rel="noopener">Source</a>`:''}</div>`;
@@ -398,10 +485,15 @@ function renderPreview(d){
       <div class="prev-tags">${d.tags.map(t=>`<span>${esc(t)}</span>`).join("")}</div>
     </div>
     <div class="prev-actions">${acts}</div>
-    <div class="snip-lbl">Preview <span class="rule"></span> ${esc(primary(d).f)}</div>
-    <div class="snip">${d.snippet}</div>
-    <div class="snip-hint">first lines · <b>copy text</b> or open to read the rest</div>
+    <div class="snip-lbl">Preview <span class="seg"><button data-mode="snippet" class="${mode==='snippet'?'on':''}">Snippet</button><button data-mode="rendered" class="${mode==='rendered'?'on':''}" ${how?'':`disabled title="${esc(noRender)}"`}>Rendered</button></span><span class="rule"></span> ${esc(main.f)}</div>
+    ${view}
   </div>`;
+  prev.querySelectorAll("[data-mode]").forEach(b=> b.addEventListener("click", e=>{
+    e.stopPropagation();
+    if(b.disabled || b.dataset.mode===mode) return;
+    previewMode = b.dataset.mode; savePreviewMode(previewStorage(), previewMode); renderPreview(d);
+  }));
+  if(mode==="rendered" && how==="markdown") renderMarkdownInto(document.getElementById("mdframe"), main.path, seq);
   prev.querySelectorAll("[data-copy]").forEach(b=> b.addEventListener("click", e=>{ e.stopPropagation(); copy(b.dataset.copy, "Copied path"); }));
   prev.querySelectorAll("[data-copytext]").forEach(b=> b.addEventListener("click", e=>{ e.stopPropagation(); copyText(b.dataset.copytext); }));
   const pc = document.getElementById("prevclose"); if(pc) pc.addEventListener("click", ()=> app.dataset.prev = "closed");
@@ -448,7 +540,7 @@ function renderPalette(q){
       html += `<div class="pal-item" data-i="${i}">
         <div class="pl"><div class="ptl"><span class="ptt">${esc(d.title)}</span><span class="kind k-${esc(d.kind)}">${esc(d.kind)}</span></div>
           <div class="pd">${d.snippet.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,64)}…</div></div>
-        <div class="pr2"><span>${d.formats.map(x=>esc(x.f)).join(" · ")}</span><span class="ent">⏎</span></div></div>`;
+        <div class="pr2"><span class="added">${esc(formatAdded(d.added))}</span><span>${d.formats.map(x=>esc(x.f)).join(" · ")}</span><span class="ent">⏎</span></div></div>`;
     });
   });
   palresults.innerHTML = html;

@@ -465,6 +465,43 @@ Restart any running agent session to pick up changes.
 
 ---
 
+## [~] Project P24: Open, rendered preview, readable HTML snippets, added dates (v0.10.1)
+**Goal/Requirement**: Feedback from real use (2026-11-12). The detail pane has no way to open a document, HTML snippets show the page's `<title>` and CSS instead of its text, and no view shows when a document was added. Plan approved 2026-11-12 (Markdown rendering: Option A, in-browser).
+- **Open** action on every format row: a new-tab link to the document
+- **Snippet / Rendered** toggle in the detail pane; Rendered shows the primary variant in a sandboxed iframe. HTML loads by URL in every mode (scripts allowed, never `allow-same-origin`); Markdown is fetched, rendered by `marked`, sanitized by `DOMPurify` (both pinned on jsDelivr with SRI, loaded on first use), and written to `srcdoc` with a `<base href>` at the document's folder and no scripts. Markdown Rendered is disabled in `file://` (Core) mode, like Copy text; other formats keep Snippet only
+- The toggle choice is remembered across documents and reloads (`localStorage`, failures ignored); Snippet is the default
+- Every document URL is the catalog path relative to the index page, encoded per segment, so `shelf serve`, a published site, and `file://` all work with one rule
+- HTML snippets skip the text of `title`, `style`, `script`, `noscript`, `template`, and `svg`, without depending on `</head>` being present
+- The main list rows and the ⌘K search results show the document's `added` date; documents without one show none
+
+**Out of Scope**
+- Rendered previews of PDF or other formats
+- Offline Markdown rendering (Options B and C were rejected)
+
+### Tests & Tasks
+- [ ] [P24-TS01] HTML snippet: a page with inline `<style>`, `<script>`, `<title>`, `<svg>`, and no `</head>` yields its body text and none of the CSS, script, or title
+- [ ] [P24-TS02] Page data carries `added` for each document (`null` when absent)
+- [ ] [P24-TS03] Pure preview helpers under Node: `docURL` encodes per segment and stays relative; `renderModeFor` returns `iframe` for html in every mode, `markdown` for md only when enhanced, `null` otherwise; `loadPreviewMode`/`savePreviewMode` default to `snippet`, round-trip `rendered`, and survive a throwing storage; `formatAdded` formats ISO dates and returns `""` for missing ones
+- [ ] [P24-TS04] Template structure: an Open link per format row; the toggle; HTML iframe sandbox includes `allow-scripts` and never `allow-same-origin`; Markdown iframe has no `allow-scripts`; CDN scripts are pinned with `integrity`; list rows and palette items render `formatAdded(d.added)`
+- [ ] [P24-T01] Snippet extractor fix in `src/shelf/core/preview.py`
+- [ ] [P24-T02] `added` in `render_index` page data
+- [ ] [P24-T03] Template: helpers, Open link, toggle, iframe and Markdown rendering, stale-fetch guard, hint text
+- [ ] [P24-T04] Template: added date in list rows and palette results
+- [ ] [P24-T05] Bump to v0.10.1; `make check` and `just all` green; browser smoke in `shelf serve`, `file://`, and a built `_site`; PR opened
+- [ ] Regression Test Status
+
+### Deliverable
+Selecting a document shows **Open**; **Rendered** shows the page itself beside the list; the HTML snippet starts with body text; each list row and search result shows its added date.
+
+### Automated Verification
+- `just all` passes, including the P24-TS* tests
+- `make check` passes
+
+### Manual Verification
+- In `shelf serve`, a published `_site`, and `file://`: Open opens the document; Rendered shows HTML; Rendered shows Markdown except in `file://`; arrow-key navigation in the list still works after clicking inside the iframe; the toggle persists across reloads
+
+---
+
 ## Backlog — minor
 - [ ] **Skill-text fixes from the PR #18 review** (CodeRabbit, found when the skills were copied into the package; the text predates P22). Edit `plugins/shelf/skills/shelf/references/`, then `just sync-agent-skills` and bump the plugin version:
       - `add.md`: when the agent fetches a URL to a temp file, pass the URL as `--source` so the catalog keeps it
