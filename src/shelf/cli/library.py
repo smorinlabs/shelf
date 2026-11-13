@@ -77,6 +77,12 @@ def validate_library(root: Path) -> None:
     f"'{git_core.DEFAULT_GITHUB_REPO}' for the default user library).",
 )
 @click.option(
+    "--no-register",
+    "no_register",
+    is_flag=True,
+    help="Create the library without registering it in the user config.",
+)
+@click.option(
     "--scope",
     type=click.Choice(["user", "project"]),
     default="user",
@@ -94,6 +100,7 @@ def init_cmd(
     github: bool,
     owner: str | None,
     repo_name: str | None,
+    no_register: bool,
     scope: str,
     yes: bool,
 ) -> None:
@@ -104,8 +111,13 @@ def init_cmd(
       shelf init                    # your personal (user) library
       shelf init --scope project    # a library committed in the current Git repo
       shelf init --library ~/team-shelf --github --repo-name team-shelf
+      shelf init --library ~/scratch-shelf --no-register
     """
     if scope == "project":
+        if no_register:
+            raise click.UsageError(
+                "--scope project never registers in the user config; drop --no-register"
+            )
         if adopt_ or git_ or github or owner or repo_name is not None:
             raise click.UsageError(
                 "--scope project uses the Git repo you are in; "
@@ -117,6 +129,8 @@ def init_cmd(
         raise click.UsageError("--owner requires --github")
     if repo_name is not None and not github:
         raise click.UsageError("--repo-name requires --github")
+    if adopt_ and no_register:
+        raise click.UsageError("--adopt only registers a library; it cannot take --no-register")
     if adopt_ and (force or git_ or github):
         raise click.UsageError("--adopt is mutually exclusive with --force, --git, and --github")
     cfg_path = active_config_path(ctx)
@@ -134,8 +148,11 @@ def init_cmd(
     github_repo = _github_repo_name(root, repo_name) if github else None
     target_exists = (root / CATALOG_FILENAME).is_file()
     configured_root = Path(cfg.library) if cfg.library else None
+    # An unregistered library never replaces the configured one, so only the target counts.
     configured_exists = (
-        configured_root is not None and (configured_root / CATALOG_FILENAME).is_file()
+        not no_register
+        and configured_root is not None
+        and (configured_root / CATALOG_FILENAME).is_file()
     )
     if (target_exists or configured_exists) and not force:
         existing_root = root if target_exists else configured_root
@@ -158,6 +175,11 @@ def init_cmd(
     if github_repo is not None:
         github_owner = owner or git_core._gh(["api", "user", "--jq", ".login"])
         git_core.github_create_and_link(root, github_owner, github_repo)
+    if no_register:
+        click.echo(f"initialized library at {root} (not registered)")
+        click.echo(f"use it with: shelf --library {root} <command>")
+        click.echo(f"or register it later with: shelf init --adopt {root}")
+        return
     cfg.library = str(root)
     save_config(cfg_path, cfg)
     click.echo(f"initialized library at {root}")

@@ -373,6 +373,10 @@ relative path inside the repo.
   for that project library, so its `remove-source = false` never affects
   `doc add --scope user`.
 - `shelf doc move <id> --to-scope user|project` moves a document between them.
+- **An extra, unregistered library.** `shelf init --no-register --library <path>`
+  creates a library without touching the user config, so your registered user
+  library stays the default. Reach it with `shelf --library <path> …`, or
+  register it later with `shelf init --adopt <path>`.
 - `--commit` in a project library commits only shelf's own paths into the host
   repo, leaving your other changes alone.
 
@@ -472,7 +476,7 @@ as `shelf doc`, prints that group's help and exits `2`.
 Creates a library and registers it in the config file.
 
 ```bash
-shelf init [--library PATH] [--git] [--github [--owner OWNER] [--repo-name NAME]] [--force]
+shelf init [--library PATH] [--git] [--github [--owner OWNER] [--repo-name NAME]] [--no-register] [--force]
 shelf init --adopt PATH
 shelf init --scope project [--library RELATIVE-PATH] [--force] [--yes]
 ```
@@ -495,6 +499,13 @@ shelf init --scope project [--library RELATIVE-PATH] [--force] [--yes]
   authenticated as.
 - `--force` re-initializes over an existing configured library. Without it,
   `init` refuses.
+- `--no-register` creates the library (with `--git` and `--github` if given)
+  and never writes the user config. It then prints how to use the library:
+  `shelf --library <path> …`, or `shelf init --adopt <path>` later. Only a
+  library already at the target path blocks it; the registered library does
+  not. It cannot be combined with `--adopt` or `--scope project` (exit `2`).
+  On a machine with no user config file at all, `shelf --library <path> audit`
+  reports `config-missing` for such a library.
 - `--adopt PATH` registers an **existing** library, such as a clone, and
   creates nothing. It first checks that `catalog.json` parses, that its schema
   version is supported, and that `docs/repos/` and `docs/topics/` exist.
