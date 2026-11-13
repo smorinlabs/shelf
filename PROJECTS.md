@@ -545,7 +545,7 @@ $ shelf audit   # clean
 
 ---
 
-## [~] Project P26: `shelf init --repo-name` (version proposed in the PR)
+## [x] Project P26: `shelf init --repo-name` (version proposed in the PR)
 **Goal/Requirement**: `init --github` always names the repo `shelf-library`. Decision Q3 = A (owner, 2026-11-12).
 - `--repo-name NAME`, valid only with `--github` (usage error otherwise, like `--owner`)
 - Default: the library folder's basename; the default user library keeps `shelf-library`
@@ -558,22 +558,23 @@ $ shelf audit   # clean
 - [x] [P26-TS04] An invalid name is rejected before any `gh` call
 - [x] [P26-T01] Implement in `library.py` and `git.py`; README `shelf init` and `init.md`
 - [x] Regression Test Status — 670 passing (18 new in `tests/test_init_repo_name.py`); `make check` and `just all` green. Beyond the decision: the folder-name default is also validated before anything is written, and an invalid one asks for `--repo-name`
-- [ ] [P26-T02] Merge the PR (merge commit); version bump proposed in the PR, no tag
+- [x] [P26-T02] Merged PR #25 (merge commit `4ce88b8`); version bump proposed in the PR, no tag. Review fix: names ending in `.wiki` are rejected
 
 ---
 
-## [ ] Project P27: `shelf init --no-register` (version proposed in the PR)
+## [~] Project P27: `shelf init --no-register` (version proposed in the PR)
 **Goal/Requirement**: `init` always registers the library in the user config. Decision Q5 = A (owner, 2026-11-12).
 - `--no-register` creates the library (with `--git`/`--github` if given) and never writes the user config, then prints how to use it (`shelf --library <path> …` or `shelf init --adopt <path>`)
 - `--no-register --scope project` exits 2 with `--scope project never registers in the user config; drop --no-register` and writes nothing
 
 ### Tests & Tasks
-- [ ] [P27-TS01] `init --no-register --library <p>` creates a valid library; the user config is byte-identical before and after
-- [ ] [P27-TS02] `--no-register --github --repo-name x` creates and links the repo and does not register
-- [ ] [P27-TS03] `--no-register --scope project` exits 2 with the decided message and writes nothing
-- [ ] [P27-TS04] Regression: without the flag, behavior is unchanged
-- [ ] [P27-T01] Implement in `library.py`; README ("User and project libraries", `shelf init`) and `init.md`
-- [ ] Regression Test Status
+- [x] [P27-TS01] `init --no-register --library <p>` creates a valid library; the user config is byte-identical before and after
+- [x] [P27-TS02] `--no-register --github --repo-name x` creates and links the repo and does not register
+- [x] [P27-TS03] `--no-register --scope project` exits 2 with the decided message and writes nothing
+- [x] [P27-TS04] Regression: without the flag, behavior is unchanged
+- [x] [P27-T01] Implement in `library.py`; README ("User and project libraries", `shelf init`) and `init.md`
+- [x] Regression Test Status — 682 passing (9 new in `tests/test_init_no_register.py`; Codex review fixes: printed paths are shell-quoted, an empty `--adopt` with `--no-register` is a usage error); `make check` and `just all` green. Beyond the decision: with `--no-register` only a library at the target path blocks `init` (the registered one does not); `--adopt --no-register` is a usage error. Known limit: with no user config file at all, audit of an unregistered library reports `config-missing`
+- [ ] [P27-T02] Merge the PR (merge commit); version bump proposed in the PR, no tag
 
 ---
 

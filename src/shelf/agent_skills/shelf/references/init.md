@@ -19,7 +19,11 @@ Owns `shelf init` and `shelf init --adopt`. Two entry points:
    with the user and pass `--repo-name <name>` to choose another. A folder name
    GitHub would reject (spaces, non-ASCII) needs `--repo-name`.
 3. Run `shelf init` with the chosen options and confirm the library is
-   registered.
+   registered. When the user wants an **additional** library that must not
+   replace the registered one (a team or scratch library), pass
+   `--no-register`: the user config is left alone, and the library is reached
+   with `shelf --library <path> …` (or registered later with
+   `shelf init --adopt <path>`). It does not combine with `--scope project`.
 4. If this was reached mid-add, return to `references/add.md` and finish the
    add.
 
