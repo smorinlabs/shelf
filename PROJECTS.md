@@ -503,7 +503,7 @@ Selecting a document shows **Open**; **Rendered** shows the page itself beside t
 
 ---
 
-## [~] Project P25: Dated slugs, `doc rename`, nested repo groups (version proposed in the PR)
+## [x] Project P25: Dated slugs, `doc rename`, nested repo groups (version proposed in the PR)
 **Goal/Requirement**: `doc add` must never accept a `--slug` or `--repo` that `shelf audit` then rejects. Decisions by the owner, 2026-11-12 (Q1 = A with a warning, Q2 = B, Q4 = A).
 - Q1: a `--slug` that does not start with a valid `YYYY-MM-DD-` date gets the added date prefixed; a warning says so and names `shelf doc rename`. A slug that already starts with a date is kept, and that date becomes `added` (existing behavior)
 - Q4: `shelf doc rename <id> <new-slug>` renames the ID, the folder, and `<id>.<format>` variant files together; same date rule and warning; updates `catalog.json` and `index.html`; honors `--dry-run` and `--commit`; refuses a collision
@@ -527,7 +527,7 @@ Selecting a document shows **Open**; **Rendered** shows the page itself beside t
 - [x] [P25-T03] Q2: nested groups in ingest, audit, orphan, move, update, adopt, index template, publish; repo-name validation
 - [x] [P25-T04] Docs: README (`doc add`, `doc rename`, repo anchors), skill references, regenerated skill
 - [x] Regression Test Status — 652 passing (117 new: `tests/test_slug_dating.py`, `tests/test_doc_rename.py`, `tests/test_nested_repos.py`); `make check` and `just all` green; CLI smoke via `uv run --project <worktree>` (add with undated slug and nested repo, rename, audit clean, `--repo a/b/c` exits 2). Review fixes: path-like slugs exit 2 in `doc add` and `doc rename`; a failed add or move into a new nested group prunes the empty folders; nested `doc format add`/`delete` and `shelf serve` covered; CLI-standard check v1.4.14 (help example added, same-ID rename exits 5, R2.3 waiver recorded in `SHELF-PRD.md`). PR #23 review: folder overlaps between documents and nested groups are refused (exit 5) in add, move, adopt and rename; `doc move` refuses an existing destination before copying; `doc rename` refuses to overwrite a supporting file; move and rename claim the destination with an atomic `mkdir`, so a rollback only removes a folder the command created. Not done: a live browser check of the sidebar and Open (see Manual Verification)
-- [ ] [P25-T05] Merge the PR (merge commit); version bump proposed in the PR, no tag
+- [x] [P25-T05] Merged PR #23 (merge commit `b044c0d`); version bump proposed in the PR, no tag
 
 ### Deliverable
 ```bash
@@ -545,19 +545,20 @@ $ shelf audit   # clean
 
 ---
 
-## [ ] Project P26: `shelf init --repo-name` (version proposed in the PR)
+## [~] Project P26: `shelf init --repo-name` (version proposed in the PR)
 **Goal/Requirement**: `init --github` always names the repo `shelf-library`. Decision Q3 = A (owner, 2026-11-12).
 - `--repo-name NAME`, valid only with `--github` (usage error otherwise, like `--owner`)
 - Default: the library folder's basename; the default user library keeps `shelf-library`
 - The name is validated against GitHub's allowed characters before any `gh` call
 
 ### Tests & Tasks
-- [ ] [P26-TS01] `--github --repo-name foo` runs `gh repo create <owner>/foo --private` (mocked `_gh`)
-- [ ] [P26-TS02] `--repo-name` without `--github` exits 2
-- [ ] [P26-TS03] Default name is the folder basename; the default user library gives `shelf-library`
-- [ ] [P26-TS04] An invalid name is rejected before any `gh` call
-- [ ] [P26-T01] Implement in `library.py` and `git.py`; README `shelf init` and `init.md`
-- [ ] Regression Test Status
+- [x] [P26-TS01] `--github --repo-name foo` runs `gh repo create <owner>/foo --private` (mocked `_gh`)
+- [x] [P26-TS02] `--repo-name` without `--github` exits 2
+- [x] [P26-TS03] Default name is the folder basename; the default user library gives `shelf-library`
+- [x] [P26-TS04] An invalid name is rejected before any `gh` call
+- [x] [P26-T01] Implement in `library.py` and `git.py`; README `shelf init` and `init.md`
+- [x] Regression Test Status — 670 passing (18 new in `tests/test_init_repo_name.py`); `make check` and `just all` green. Beyond the decision: the folder-name default is also validated before anything is written, and an invalid one asks for `--repo-name`
+- [ ] [P26-T02] Merge the PR (merge commit); version bump proposed in the PR, no tag
 
 ---
 

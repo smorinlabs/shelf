@@ -13,8 +13,11 @@ Owns `shelf init` and `shelf init --adopt`. Two entry points:
 1. **Propose the on-disk location** — offer the default library path (`shelf
    path` shows where resolution would place it); let the user override.
 2. **Ask whether to make it a git repo.** If yes, offer to create the private
-   GitHub repo for it. Version control is what enables `--commit` on later
-   mutations.
+   GitHub repo for it (`--github`, optionally `--owner`). Version control is
+   what enables `--commit` on later mutations. The repo is named after the
+   library folder (`shelf-library` for the default library); confirm the name
+   with the user and pass `--repo-name <name>` to choose another. A folder name
+   GitHub would reject (spaces, non-ASCII) needs `--repo-name`.
 3. Run `shelf init` with the chosen options and confirm the library is
    registered.
 4. If this was reached mid-add, return to `references/add.md` and finish the
@@ -40,8 +43,8 @@ When the user says "set up shelf in this repo" or "give this project a shelf":
 
 ## Existing library on a new machine → `shelf init --adopt`
 
-When the library content already exists (e.g. cloned from a private
-`shelf-library` repo):
+When the library content already exists (e.g. cloned from the private repo
+`shelf init --github` created):
 
 1. Clone / locate the library directory.
 2. `shelf init --adopt <path>` registers that existing directory as the library
