@@ -465,7 +465,7 @@ Restart any running agent session to pick up changes.
 
 ---
 
-## [~] Project P24: Open, rendered preview, readable HTML snippets, added dates (v0.10.1)
+## [x] Project P24: Open, rendered preview, readable HTML snippets, added dates (v0.10.1)
 **Goal/Requirement**: Feedback from real use (2026-11-12). The detail pane has no way to open a document, HTML snippets show the page's `<title>` and CSS instead of its text, and no view shows when a document was added. Plan approved 2026-11-12 (Markdown rendering: Option A, in-browser).
 - **Open** action on every format row: a new-tab link to the document
 - **Snippet / Rendered** toggle in the detail pane; Rendered shows the primary variant in a sandboxed iframe. HTML loads by URL in every mode (scripts allowed, never `allow-same-origin`); Markdown is fetched, rendered by `marked`, sanitized by `DOMPurify` (both pinned on jsDelivr with SRI, loaded on first use), and written to `srcdoc` with a `<base href>` at the document's folder and no scripts. Markdown Rendered is disabled in `file://` (Core) mode, like Copy text; other formats keep Snippet only
@@ -488,7 +488,7 @@ Restart any running agent session to pick up changes.
 - [x] [P24-T03] Template: helpers, Open link, toggle, iframe and Markdown rendering, stale-fetch guard, hint text
 - [x] [P24-T04] Template: added date in list rows and palette results
 - [x] [P24-T05] Bump to v0.10.1; `make check` and `just all` green; browser smoke in `shelf serve` and a built `_site`; PR opened. `file://` was not browser-checked (the automation extension cannot open file URLs); its Markdown rule is covered by P24-TS03
-- [ ] [P24-T06] Merge the PR, then tag `v0.10.1` (tagging ships the partly built P21 commands already on `main`; confirm before tagging)
+- [x] [P24-T06] PR #22 merged as `495f602` (review fixes in `791ffcf`: title-tag parsing on Python 3.12.0, popup sandbox escape, Enter on links); annotated tag `v0.10.1` pushed on `495f602` with owner approval 2026-11-12. The tag also ships the partly built P21 commands already on `main`
 - [x] Regression Test Status — 535 passing at v0.10.1 (7 new: 2 in `tests/test_preview.py`, 4 in `tests/test_index_render.py`, plus the self-closed `<svg/>` guard); `make check` and `just all` green. Browser smoke (Chrome, 2026-11-12) in `shelf serve` and a published `_site`: Open, HTML and Markdown Rendered, dates in list and ⌘K, mode persists across reload. Known limit: after a click inside the iframe, arrow keys go to the iframe until a list row is clicked (the sandbox blocks listening there)
 
 ### Deliverable
