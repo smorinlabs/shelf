@@ -20,7 +20,7 @@ from shelf.core.atomic import library_lock
 from shelf.core.catalog import commit_library, load_catalog
 from shelf.core.errors import ConflictError, NotFoundError
 from shelf.core.git import git_commit_all
-from shelf.core.ingest import doc_rel_dir, scan_orphans
+from shelf.core.ingest import doc_rel_dir, prune_nested_group, scan_orphans
 
 
 def _fsid(p: Path) -> tuple[int, int] | None:
@@ -63,6 +63,7 @@ def doc_delete(ctx, doc_id, yes, dry_run, commit, commit_message):
         catalog.documents = [d for d in catalog.documents if d.id != doc_id]
         commit_library(root, catalog)
         shutil.rmtree(root / rel_dir, ignore_errors=True)
+        prune_nested_group(root, rel_dir)
     if commit:
         git_commit_all(
             root,

@@ -15,7 +15,7 @@ from shelf.core.atomic import library_lock
 from shelf.core.catalog import Document, FileVariant, RepoRef, commit_library, load_catalog
 from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
-from shelf.core.ingest import FORMAT_MAP, pick_primary
+from shelf.core.ingest import FORMAT_MAP, check_free_folder, pick_primary, validate_repo_name
 
 
 @click.command("adopt")
@@ -56,11 +56,17 @@ def doc_adopt(
             raise click.UsageError(f"'{rel}' is outside the library at {root}")
         rel = rel.relative_to(root)
     parts = rel.parts
-    if len(parts) != 4 or parts[0] != "docs" or parts[1] not in ("repos", "topics"):
+    nested = len(parts) == 5 and parts[:2] == ("docs", "repos")
+    if not nested and (
+        len(parts) != 4 or parts[0] != "docs" or parts[1] not in ("repos", "topics")
+    ):
         raise click.UsageError(
-            "folder must be docs/repos/<repo>/<slug> or docs/topics/<topic>/<slug>"
+            "folder must be docs/repos/<repo>/<slug>, docs/repos/<owner>/<repo>/<slug>, "
+            "or docs/topics/<topic>/<slug>"
         )
-    bucket, group, slug = parts[1], parts[2], parts[3]
+    bucket, group, slug = parts[1], "/".join(parts[2:-1]), parts[-1]
+    if bucket == "repos":
+        validate_repo_name(group)
     target = root / rel
     if not target.is_dir():
         raise click.ClickException(f"'{rel}' is not a directory inside the library")
@@ -80,6 +86,7 @@ def doc_adopt(
             raise click.ClickException(f"kind '{kind_}' is not in the kind list")
         if any(d.id == slug for d in catalog.documents):
             raise ConflictError(f"slug '{slug}' already exists in the catalog")
+        check_free_folder(catalog, rel.as_posix())
         if bucket == "topics":
             if group not in catalog.topics:
                 if not create_topic:

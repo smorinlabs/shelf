@@ -12,6 +12,8 @@ from shelf.core import git as git_core
 from shelf.core.atomic import library_lock
 from shelf.core.catalog import CURRENT_SCHEMA_VERSION
 from shelf.core.index import _sha256, parse_fingerprint
+from shelf.core.ingest import group_entries
+from shelf.core.slugs import date_prefix, is_iso_date
 
 
 @dataclass
@@ -31,6 +33,17 @@ def _doc_dir(doc: dict) -> str | None:
     if doc.get("category"):
         return f"docs/topics/{doc['category']}/{doc.get('id')}"
     return None
+
+
+def _mismatch_hint(doc_id: str, added: object) -> str:
+    """Rename to the recorded date when it is a real one; otherwise fix `added` itself.
+    Never suggests a value that is not a YYYY-MM-DD date."""
+    if is_iso_date(added):
+        rest = doc_id[11:] if date_prefix(doc_id) else doc_id
+        new_slug = f"{added}-{rest}" if rest else str(added)
+        return f"repair with 'shelf doc rename {doc_id} {new_slug}'"
+    value = date_prefix(doc_id) or "<YYYY-MM-DD>"
+    return f"repair with 'shelf doc update {doc_id} --added {value} --force'"
 
 
 def run_audit(root: Path, config_path: Path, *, pre_commit: bool = False) -> list[Finding]:
@@ -239,7 +252,7 @@ def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False
                     3,
                     "added-slug-mismatch",
                     f"{doc_id}: added={added}",
-                    f"repair with 'shelf doc update {doc_id} --added {doc_id[:10]} --force'",
+                    _mismatch_hint(doc_id, added),
                 )
             )
         files = doc.get("files", [])
@@ -314,44 +327,30 @@ def _run_audit_locked(root: Path, config_path: Path, *, pre_commit: bool = False
 
     docs_dir = root / "docs"
     if docs_dir.is_dir():
-        for bucket in ("repos", "topics"):
-            base = docs_dir / bucket
-            if not base.is_dir():
-                continue
-            for group in sorted(base.iterdir()):
-                if group.is_file():
-                    if group.name == ".gitkeep":
-                        continue
-                    findings.append(
-                        Finding(
-                            1,
-                            "orphan",
-                            str(group.relative_to(root)),
-                            (
-                                "inspect with 'shelf orphan list'; "
-                                "adopt with 'shelf doc adopt' or "
-                                "delete with 'shelf orphan delete'"
-                            ),
-                        )
-                    )
-                    continue
-                for entry in sorted(group.iterdir()):
-                    if entry.is_file() and entry.name == ".gitkeep":
-                        continue
-                    rel = str(entry.relative_to(root))
-                    if rel not in cataloged_dirs:
-                        findings.append(
-                            Finding(
-                                1,
-                                "orphan",
-                                rel,
-                                (
-                                    "inspect with 'shelf orphan list'; "
-                                    "adopt with 'shelf doc adopt' or "
-                                    "delete with 'shelf orphan delete'"
-                                ),
-                            )
-                        )
+        repo_names = [
+            d["repo"]["name"]
+            for d in raw_documents
+            if isinstance(d, dict)
+            and isinstance(d.get("repo"), dict)
+            and isinstance(d["repo"].get("name"), str)
+        ]
+        strays, entries = group_entries(docs_dir, repo_names)
+        for path in [
+            *strays,
+            *(e for e in entries if str(e.relative_to(root)) not in cataloged_dirs),
+        ]:
+            findings.append(
+                Finding(
+                    1,
+                    "orphan",
+                    str(path.relative_to(root)),
+                    (
+                        "inspect with 'shelf orphan list'; "
+                        "adopt with 'shelf doc adopt' or "
+                        "delete with 'shelf orphan delete'"
+                    ),
+                )
+            )
         for entry in sorted(docs_dir.iterdir()):
             if entry.is_file():
                 if entry.name == ".gitkeep":

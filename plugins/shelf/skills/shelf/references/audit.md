@@ -18,6 +18,9 @@ shelf", "is my catalog consistent?", "fix the shelf", "the index looks stale",
      either `shelf doc adopt <path>` to register an existing per-document folder
      in place, or `shelf orphan delete` to remove stray files. Confirm before
      deleting.
+   - **`added-slug-mismatch`** (the slug's date differs from `added`) → the
+     finding names the fix, usually `shelf doc rename <id> <added>-<rest>`;
+     preview it with `--dry-run`.
    - **Dirty git state** (library is a repo with uncommitted changes) → offer a
      `git` commit run *in the library*.
 

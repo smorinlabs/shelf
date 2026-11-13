@@ -25,13 +25,23 @@ from shelf.core.catalog import (
 )
 from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
-from shelf.core.ingest import doc_rel_dir, infer_format, infer_repo_url, pick_primary
-from shelf.core.slugs import derive_slug
+from shelf.core.ingest import (
+    check_free_folder,
+    doc_rel_dir,
+    infer_format,
+    infer_repo_url,
+    pick_primary,
+    prune_nested_group,
+    validate_repo_name,
+)
+from shelf.core.slugs import apply_date_rule, derive_slug, undated_warning, validate_slug
 
 
 @click.command("add")
 @click.argument("files", nargs=-1, required=True, type=click.Path(exists=True, dir_okay=False))
-@click.option("--repo", "repo_", default=None, help="Anchor to this repo.")
+@click.option(
+    "--repo", "repo_", default=None, help="Anchor to this repo: <repo> or <owner>/<repo>."
+)
 @click.option(
     "--repo-url",
     default=None,
@@ -57,7 +67,12 @@ from shelf.core.slugs import derive_slug
     is_flag=True,
     help="Suppress the handoff; missing flags become an error.",
 )
-@click.option("--slug", "slug_", default=None, help="Override the derived slug.")
+@click.option(
+    "--slug",
+    "slug_",
+    default=None,
+    help="Override the derived slug (the added date is prefixed when it has none).",
+)
 @click.option("--primary", "primary_", default=None, help="Primary format (default heuristic).")
 @click.option("--doc-date", default=None)
 @click.option("--source", "source_", default=None)
@@ -107,6 +122,10 @@ def doc_add(
     paths = [Path(f).resolve() for f in files]
     if repo_ is not None and topic_ is not None:
         raise click.UsageError("--repo and --topic are mutually exclusive")
+    if repo_ is not None:
+        validate_repo_name(repo_)
+    if slug_:
+        validate_slug(slug_)
 
     def _blank(value):
         return value is None or not str(value).strip()
@@ -158,9 +177,11 @@ def doc_add(
             catalog.topics.append(topic_)
 
         added = datetime.date.today().isoformat()
-        slug = derive_slug(title, added, slug_)
-        if slug_ and len(slug) >= 10 and slug[4] == "-" and slug[7] == "-":
-            added = slug[:10]
+        dated = False
+        if slug_:
+            slug, added, dated = apply_date_rule(slug_, added)
+        else:
+            slug = derive_slug(title, added)
         if any(d.id == slug for d in catalog.documents):
             raise ConflictError(
                 f"slug '{slug}' already exists — use --slug or 'shelf doc format add'"
@@ -181,11 +202,14 @@ def doc_add(
             publish=publish_,
         )
         rel_dir = doc_rel_dir(doc)
+        check_free_folder(catalog, rel_dir)
         dest = root / rel_dir
         if dest.exists():
             raise ConflictError(f"folder '{rel_dir}' already exists — use --slug")
         doc.files = [FileVariant(format=f, path=f"{rel_dir}/{slug}.{f}") for f in formats]
 
+        if dated:
+            click.echo(undated_warning(slug_, slug), err=True)
         if dry_run:
             click.echo(f"would add '{slug}' -> {rel_dir} ({', '.join(formats)})")
             return
@@ -214,6 +238,7 @@ def doc_add(
                 committed = True
             if not committed:
                 shutil.rmtree(dest, ignore_errors=True)
+                prune_nested_group(root, rel_dir)
             raise
 
     if commit:

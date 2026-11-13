@@ -23,14 +23,21 @@ from shelf.core.atomic import library_lock
 from shelf.core.catalog import CATALOG_FILENAME, RepoRef, commit_library, load_catalog
 from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
-from shelf.core.ingest import doc_rel_dir
+from shelf.core.ingest import (
+    check_free_folder,
+    claim_folder,
+    doc_rel_dir,
+    overlaps,
+    prune_nested_group,
+    validate_repo_name,
+)
 
 
 @click.command("move")
 @click.argument("doc_id")
 @click.option("--topic", "topic_", default=None)
 @click.option("--create-topic", is_flag=True)
-@click.option("--repo", "repo_", default=None)
+@click.option("--repo", "repo_", default=None, help="<repo> or <owner>/<repo>.")
 @click.option("--repo-url", default=None)
 @click.option("--subject", default=None)
 @click.option(
@@ -66,6 +73,8 @@ def doc_move(
         return
     if (topic_ is None) == (repo_ is None):
         raise click.UsageError("exactly one of --topic or --repo is required")
+    if repo_ is not None:
+        validate_repo_name(repo_)
 
     root = get_library(ctx)
     require_git_if_commit(root, commit)
@@ -92,6 +101,13 @@ def doc_move(
             doc.repo = RepoRef(name=repo_, url=repo_url, subject=subject)
 
         new_rel = doc_rel_dir(doc)
+        if overlaps(new_rel, old_rel):
+            raise ConflictError(
+                f"folder '{new_rel}' overlaps the document's own folder '{old_rel}'"
+            )
+        if (root / new_rel).exists():
+            raise ConflictError(f"folder '{new_rel}' already exists")
+        check_free_folder(catalog, new_rel, exclude=doc)
         if dry_run:
             click.echo(f"would move {old_rel} -> {new_rel}")
             return
@@ -100,10 +116,10 @@ def doc_move(
 
         src_dir = root / old_rel
         dest_dir = root / new_rel
-        dest_dir.parent.mkdir(parents=True, exist_ok=True)
+        claim_folder(dest_dir, new_rel)
         before_text = (root / CATALOG_FILENAME).read_text(encoding="utf-8")
         try:
-            shutil.copytree(src_dir, dest_dir)
+            shutil.copytree(src_dir, dest_dir, dirs_exist_ok=True)
             commit_library(root, catalog)
         except BaseException:
             try:
@@ -113,8 +129,10 @@ def doc_move(
                 committed = True
             if not committed:
                 shutil.rmtree(dest_dir, ignore_errors=True)
+                prune_nested_group(root, new_rel)
             raise
         shutil.rmtree(src_dir, ignore_errors=True)
+        prune_nested_group(root, old_rel)
     if commit:
         git_commit_all(
             root,
@@ -168,16 +186,17 @@ def _move_to_scope(ctx, doc_id, to_scope, create_topic, dry_run, commit, commit_
                     "— pass --create-topic to create it"
                 )
             catalog.topics.append(doc.category)
+        check_free_folder(catalog, rel)
         if dry_run:
             click.echo(f"would move '{doc_id}' {source.scope} -> {to_scope} ({rel})")
             return
         dest = target.root / rel
         if dest.exists():
             raise ConflictError(f"folder '{rel}' already exists in the {to_scope} library")
-        dest.parent.mkdir(parents=True, exist_ok=True)
+        claim_folder(dest, rel)
         before_text = (target.root / CATALOG_FILENAME).read_text(encoding="utf-8")
         try:
-            shutil.copytree(source.root / rel, dest)
+            shutil.copytree(source.root / rel, dest, dirs_exist_ok=True)
             catalog.documents.append(doc)
             commit_library(target.root, catalog)
         except BaseException:
@@ -189,6 +208,7 @@ def _move_to_scope(ctx, doc_id, to_scope, create_topic, dry_run, commit, commit_
                 committed = True  # unreadable witness: keep data — residue is audit-detectable
             if not committed:
                 shutil.rmtree(dest, ignore_errors=True)
+                prune_nested_group(target.root, rel)
             raise
         try:
             _delete_from_source(source.root, doc_id, rel)
@@ -221,3 +241,4 @@ def _delete_from_source(root, doc_id, rel):
     catalog.documents = [d for d in catalog.documents if d.id != doc_id]
     commit_library(root, catalog)
     shutil.rmtree(root / rel, ignore_errors=True)
+    prune_nested_group(root, rel)

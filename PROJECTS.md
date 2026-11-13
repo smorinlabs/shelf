@@ -503,6 +503,79 @@ Selecting a document shows **Open**; **Rendered** shows the page itself beside t
 
 ---
 
+## [~] Project P25: Dated slugs, `doc rename`, nested repo groups (version proposed in the PR)
+**Goal/Requirement**: `doc add` must never accept a `--slug` or `--repo` that `shelf audit` then rejects. Decisions by the owner, 2026-11-12 (Q1 = A with a warning, Q2 = B, Q4 = A).
+- Q1: a `--slug` that does not start with a valid `YYYY-MM-DD-` date gets the added date prefixed; a warning says so and names `shelf doc rename`. A slug that already starts with a date is kept, and that date becomes `added` (existing behavior)
+- Q4: `shelf doc rename <id> <new-slug>` renames the ID, the folder, and `<id>.<format>` variant files together; same date rule and warning; updates `catalog.json` and `index.html`; honors `--dry-run` and `--commit`; refuses a collision
+- Q2: `--repo owner/repo` gives `docs/repos/<owner>/<repo>/<id>/` across ingest, audit (orphan detection), `orphan` commands, `doc move`, `doc update`, `doc adopt`, the index sidebar, ⌘K search, and `publish`. At most one `/`; `\`, empty, `.` and `..` segments exit 2. Flat groups stay valid; no migration
+- The `added-slug-mismatch` repair hint suggests `shelf doc rename` and never a non-date `--added` value
+
+**Out of Scope**
+- Migrating existing flat groups to nested ones
+- Repo nesting deeper than `owner/repo`; nested topics
+
+### Tests & Tasks
+- [x] [P25-TS01] `doc add --slug superpowers` stores `<added>-superpowers` and warns naming `shelf doc rename`; a dated slug is kept with no warning; `--dry-run` shows the final ID and the warning
+- [x] [P25-TS02] `doc rename`: ID, folder, catalog and index updated, audit clean; an undated new slug is dated with the warning; a collision exits non-zero and writes nothing; `--dry-run` writes nothing
+- [x] [P25-TS03] `--repo a/b` writes `docs/repos/a/b/<id>/`; audit clean with no `orphan` findings; `orphan list` empty; the sidebar shows the group and ⌘K finds the document
+- [x] [P25-TS04] `--repo a/b/c`, `a\b`, `a//b`, `../x`, `a/./b` each exit 2 and write nothing, including under `--dry-run`
+- [x] [P25-TS05] `doc move` between flat and nested groups, `doc adopt` of a nested folder, and `publish` with nested groups work and pass audit
+- [x] [P25-TS06] Property test: every successful `doc add` is followed by a clean `shelf audit`, parametrized over the add flags
+- [x] [P25-TS07] The `added-slug-mismatch` repair hint never suggests a value that is not `YYYY-MM-DD`
+- [x] [P25-T01] Q1: dating rule and warning in `slugs.py` and `doc_add.py`
+- [x] [P25-T02] Q4: `doc rename`, wired into the CLI and the skill's `edit.md`
+- [x] [P25-T03] Q2: nested groups in ingest, audit, orphan, move, update, adopt, index template, publish; repo-name validation
+- [x] [P25-T04] Docs: README (`doc add`, `doc rename`, repo anchors), skill references, regenerated skill
+- [x] Regression Test Status — 652 passing (117 new: `tests/test_slug_dating.py`, `tests/test_doc_rename.py`, `tests/test_nested_repos.py`); `make check` and `just all` green; CLI smoke via `uv run --project <worktree>` (add with undated slug and nested repo, rename, audit clean, `--repo a/b/c` exits 2). Review fixes: path-like slugs exit 2 in `doc add` and `doc rename`; a failed add or move into a new nested group prunes the empty folders; nested `doc format add`/`delete` and `shelf serve` covered; CLI-standard check v1.4.14 (help example added, same-ID rename exits 5, R2.3 waiver recorded in `SHELF-PRD.md`). PR #23 review: folder overlaps between documents and nested groups are refused (exit 5) in add, move, adopt and rename; `doc move` refuses an existing destination before copying; `doc rename` refuses to overwrite a supporting file; move and rename claim the destination with an atomic `mkdir`, so a rollback only removes a folder the command created. Not done: a live browser check of the sidebar and Open (see Manual Verification)
+- [ ] [P25-T05] Merge the PR (merge commit); version bump proposed in the PR, no tag
+
+### Deliverable
+```bash
+$ shelf doc add notes.md --repo obra/superpowers --slug superpowers --kind reference --title T --description D
+warning: slug 'superpowers' had no date; stored as '2026-11-12-superpowers'. Rename with: shelf doc rename 2026-11-12-superpowers <new-slug>
+added '2026-11-12-superpowers' (md) -> docs/repos/obra/superpowers/2026-11-12-superpowers
+$ shelf audit   # clean
+```
+
+### Automated Verification
+- `make check` and `just all` pass, including the P25-TS* tests
+
+### Manual Verification
+- A nested group appears in the `shelf open` sidebar, and ⌘K finds its document
+
+---
+
+## [ ] Project P26: `shelf init --repo-name` (version proposed in the PR)
+**Goal/Requirement**: `init --github` always names the repo `shelf-library`. Decision Q3 = A (owner, 2026-11-12).
+- `--repo-name NAME`, valid only with `--github` (usage error otherwise, like `--owner`)
+- Default: the library folder's basename; the default user library keeps `shelf-library`
+- The name is validated against GitHub's allowed characters before any `gh` call
+
+### Tests & Tasks
+- [ ] [P26-TS01] `--github --repo-name foo` runs `gh repo create <owner>/foo --private` (mocked `_gh`)
+- [ ] [P26-TS02] `--repo-name` without `--github` exits 2
+- [ ] [P26-TS03] Default name is the folder basename; the default user library gives `shelf-library`
+- [ ] [P26-TS04] An invalid name is rejected before any `gh` call
+- [ ] [P26-T01] Implement in `library.py` and `git.py`; README `shelf init` and `init.md`
+- [ ] Regression Test Status
+
+---
+
+## [ ] Project P27: `shelf init --no-register` (version proposed in the PR)
+**Goal/Requirement**: `init` always registers the library in the user config. Decision Q5 = A (owner, 2026-11-12).
+- `--no-register` creates the library (with `--git`/`--github` if given) and never writes the user config, then prints how to use it (`shelf --library <path> …` or `shelf init --adopt <path>`)
+- `--no-register --scope project` exits 2 with `--scope project never registers in the user config; drop --no-register` and writes nothing
+
+### Tests & Tasks
+- [ ] [P27-TS01] `init --no-register --library <p>` creates a valid library; the user config is byte-identical before and after
+- [ ] [P27-TS02] `--no-register --github --repo-name x` creates and links the repo and does not register
+- [ ] [P27-TS03] `--no-register --scope project` exits 2 with the decided message and writes nothing
+- [ ] [P27-TS04] Regression: without the flag, behavior is unchanged
+- [ ] [P27-T01] Implement in `library.py`; README ("User and project libraries", `shelf init`) and `init.md`
+- [ ] Regression Test Status
+
+---
+
 ## Backlog — minor
 - [ ] **Skill-text fixes from the PR #18 review** (CodeRabbit, found when the skills were copied into the package; the text predates P22). Edit `plugins/shelf/skills/shelf/references/`, then `just sync-agent-skills` and bump the plugin version:
       - `add.md`: when the agent fetches a URL to a temp file, pass the URL as `--source` so the catalog keeps it
