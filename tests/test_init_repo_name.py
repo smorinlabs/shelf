@@ -83,7 +83,9 @@ def test_default_user_library_given_explicitly_keeps_shelf_library(
     assert gh_calls == [["repo", "create", "me/shelf-library", "--private"]]
 
 
-@pytest.mark.parametrize("name", ["bad name", "a/b", ".", "..", "x" * 101, "", "nö"])
+@pytest.mark.parametrize(
+    "name", ["bad name", "a/b", ".", "..", "x" * 101, "", "nö", "notes.wiki", "Notes.WIKI"]
+)
 def test_invalid_repo_name_is_rejected_before_gh_or_any_write(tmp_path, gh_calls, name):
     root = tmp_path / "lib"
     r = run(["init", "--library", str(root), "--github", "--repo-name", name])
@@ -109,3 +111,11 @@ def test_valid_repo_names_are_accepted(tmp_path, git_commit_env, gh_calls, name)
     )
     assert r.exit_code == 0, r.output
     assert gh_calls == [["repo", "create", f"me/{name}", "--private"]]
+
+
+def test_a_wiki_folder_name_is_rejected_before_any_write(tmp_path, gh_calls):
+    root = tmp_path / "notes.wiki"
+    r = run(["init", "--library", str(root), "--github", "--owner", "me"])
+    assert r.exit_code == 2, r.output
+    assert gh_calls == []
+    assert not root.exists()

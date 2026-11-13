@@ -178,8 +178,12 @@ _GITHUB_NAME_RE = re.compile(r"[A-Za-z0-9._-]{1,100}")
 
 def valid_github_repo_name(name: str) -> bool:
     """GitHub repository names: ASCII letters, digits, '.', '_' and '-', at most 100
-    characters, and not '.' or '..'."""
-    return bool(_GITHUB_NAME_RE.fullmatch(name)) and name not in (".", "..")
+    characters, not '.' or '..', and not ending in '.wiki' (reserved for wikis)."""
+    return (
+        bool(_GITHUB_NAME_RE.fullmatch(name))
+        and name not in (".", "..")
+        and not name.lower().endswith(".wiki")
+    )
 
 
 def github_create_and_link(root: Path, owner: str, name: str = DEFAULT_GITHUB_REPO) -> str:

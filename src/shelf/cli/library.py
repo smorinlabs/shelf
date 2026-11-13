@@ -169,7 +169,7 @@ def _github_repo_name(root: Path, repo_name: str | None) -> str:
         if not git_core.valid_github_repo_name(repo_name):
             raise click.UsageError(
                 f"--repo-name '{repo_name}' is not a valid GitHub repository name "
-                "(letters, digits, '.', '_' and '-'; at most 100 characters)"
+                "(letters, digits, '.', '_' and '-'; at most 100 characters; not ending in '.wiki')"
             )
         return repo_name
     if root.resolve() == default_library_path().resolve():

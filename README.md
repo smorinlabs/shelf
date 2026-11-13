@@ -489,7 +489,7 @@ shelf init --scope project [--library RELATIVE-PATH] [--force] [--yes]
   library folder's name, so `--library ~/x/agent-tooling-shelf` creates
   `agent-tooling-shelf`; the default user library keeps `shelf-library`. The
   name is checked against GitHub's rules (letters, digits, `.`, `_`, `-`; at
-  most 100 characters) before anything is written. A folder name that breaks
+  most 100 characters; not ending in `.wiki`) before anything is written. A folder name that breaks
   them, such as `my shelf`, is a usage error that asks for `--repo-name`.
 - `--owner` sets the GitHub owner. The default is the user `gh` is
   authenticated as.
