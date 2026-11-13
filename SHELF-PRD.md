@@ -197,6 +197,7 @@ The CLI conforms to the org **CLI Design Standard** (cli-standards repo, v1.4.14
 **Documented waivers** (rule / deviation / rationale — owner Steve, 2026-07-18):
 
 - **R2.1 — `add` instead of `create`** for `doc add`, `topic add`, `kind add`. Shelf ingests existing artifacts rather than creating them, and "add to shelf" is the product's language; one waiver covers all three for consistency.
+- **R2.3 — `doc rename ID NEW-SLUG` takes the new slug as a second positional** (owner decision Q4, 2026-11-12). The new slug is the document's new identity, as in `mv` and `gh repo rename`, so it reads as an identity rather than a modifier. `rename` itself is an established domain verb (R2.1 MAY).
 - **R2.2 — `regen` abbreviation.** Rare, mostly skill-invoked maintenance command; the abbreviation is well understood in context.
 - **R5.1/R5.2 — no system config scope.** The user and project scopes follow R5.1/R5.2 (§4); `$XDG_CONFIG_DIRS` is not searched, because a machine-wide shelf library has no use case. (Narrowed in P20, v0.10.0; it previously waived the project scope too.)
 
@@ -208,7 +209,7 @@ The CLI conforms to the org **CLI Design Standard** (cli-standards repo, v1.4.14
 
 Documents are either specific to a source repository or purely topical. This maps onto two roots under `docs/` that never change:
 
-- `docs/repos/<repo-name>/` — repo-anchored documents.
+- `docs/repos/<repo-name>/` — repo-anchored documents. A repo name may also be `<owner>/<repo>`, giving `docs/repos/<owner>/<repo>/` (P25; at most one `/`).
 - `docs/topics/<topic>/` — topical documents.
 
 `repos/` buckets **self-populate**: the CLI creates `repos/<repo-name>/` on the first document added for that repo. `topics/` buckets are a **controlled, coarse, rarely-changing list** the user maintains (§9).
@@ -231,7 +232,8 @@ A document's slug is its stable identifier (`id`) and its folder name. Variant f
 - **Date:** the date the document was **added to shelf** — always known, unambiguous, and never becomes wrong. The date prefix makes slug collisions unlikely; an exact collision (the same title added on the same day) is detected and rejected at `shelf doc add` (§11.2). The content's own publication date, when relevant, is stored separately as `doc_date`.
 - The kebab title is truncated to roughly 60 characters.
 - The slug is auto-derived from the title, with a `--slug` override at `shelf doc add`.
-- **The slug is immutable.** It is the permanent `id`; neither `shelf doc update` nor `shelf doc move` ever re-slugs a document.
+- **The slug changes only on request.** It is the `id`; neither `shelf doc update` nor `shelf doc move` ever re-slugs a document. `shelf doc rename <id> <new-slug>` (P25) renames the id, folder, and `<slug>.<ext>` variants together.
+- A `--slug` (or a rename's new slug) that does not start with a valid `YYYY-MM-DD-` date gets the added date prefixed, with a warning (P25).
 
 Example: `docs/repos/flox-cli/2026-05-22-cli-extension-prd/2026-05-22-cli-extension-prd.md`
 

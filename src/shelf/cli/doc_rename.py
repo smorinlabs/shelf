@@ -19,10 +19,16 @@ from shelf.core.catalog import CATALOG_FILENAME, commit_library, load_catalog
 from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
 from shelf.core.ingest import doc_rel_dir
-from shelf.core.slugs import apply_date_rule, is_iso_date, undated_warning
+from shelf.core.slugs import apply_date_rule, is_iso_date, undated_warning, validate_slug
 
 
-@click.command("rename")
+@click.command(
+    "rename",
+    epilog=(
+        "Example:\n\n\b\n"
+        "  shelf doc rename 2026-11-12-superpowers 2026-11-12-skills-notes --dry-run"
+    ),
+)
 @click.argument("doc_id")
 @click.argument("new_slug")
 @click.option("--dry-run", is_flag=True)
@@ -31,6 +37,7 @@ from shelf.core.slugs import apply_date_rule, is_iso_date, undated_warning
 @click.pass_context
 def doc_rename(ctx, doc_id, new_slug, dry_run, commit, commit_message):
     """Rename a document's ID and folder (the added date is prefixed when NEW_SLUG has none)."""
+    validate_slug(new_slug)
     root = get_library(ctx)
     require_git_if_commit(root, commit)
     with library_lock(root):
@@ -39,7 +46,7 @@ def doc_rename(ctx, doc_id, new_slug, dry_run, commit, commit_message):
         base = doc.added if is_iso_date(doc.added) else datetime.date.today().isoformat()
         new_id, added, dated = apply_date_rule(new_slug, base)
         if new_id == doc_id:
-            raise click.ClickException(f"'{doc_id}' already has that ID")
+            raise ConflictError(f"'{doc_id}' already has that ID")
         if any(d.id == new_id for d in catalog.documents):
             raise ConflictError(f"slug '{new_id}' already exists — pick another name")
         old_rel = doc_rel_dir(doc)

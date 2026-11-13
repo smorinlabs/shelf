@@ -118,7 +118,7 @@ def test_rename_dry_run_writes_nothing(isolated_env, tmp_path):
 
 def test_rename_to_the_same_id_is_an_error(isolated_env, tmp_path):
     _seed(tmp_path)
-    assert run(["doc", "rename", OLD, OLD]).exit_code != 0
+    assert run(["doc", "rename", OLD, OLD]).exit_code == 5
 
 
 def test_rename_unknown_id_exits_three(isolated_env, tmp_path):
@@ -147,3 +147,30 @@ def test_rename_commit(isolated_env, tmp_path, isolated_git_identity):
         ["git", "-C", str(root), "status", "--porcelain"], capture_output=True, text=True
     ).stdout
     assert status.strip() == ""
+
+
+BAD_SLUGS = ["2026-01-01-a/b", "2026-01-01-a/../../../../docs", "a\\b", ".", "..", ""]
+
+
+def test_rename_rejects_path_like_slugs_and_writes_nothing(isolated_env, tmp_path):
+    root = _seed(tmp_path)
+    before = _snapshot(root)
+    for bad in BAD_SLUGS:
+        for extra in ([], ["--dry-run"]):
+            r = run(["doc", "rename", OLD, bad, *extra])
+            assert r.exit_code == 2, (bad, r.output)
+    assert _snapshot(root) == before
+
+
+def test_add_rejects_path_like_slugs_and_writes_nothing(isolated_env, tmp_path):
+    root = _seed(tmp_path)
+    before = _snapshot(root)
+    src = tmp_path / "again.md"
+    src.write_text("# again")
+    for bad in [s for s in BAD_SLUGS if s]:  # an empty --slug means "derive it"
+        for extra in ([], ["--dry-run"]):
+            r = run(
+                ["doc", "add", str(src), "--topic", "dev-tooling", *BASE, "--slug", bad, *extra]
+            )
+            assert r.exit_code == 2, (bad, r.output)
+    assert _snapshot(root) == before

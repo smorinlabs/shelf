@@ -115,6 +115,7 @@ def doc_move(
                 committed = True
             if not committed:
                 shutil.rmtree(dest_dir, ignore_errors=True)
+                prune_nested_group(root, new_rel)
             raise
         shutil.rmtree(src_dir, ignore_errors=True)
         prune_nested_group(root, old_rel)
@@ -192,6 +193,7 @@ def _move_to_scope(ctx, doc_id, to_scope, create_topic, dry_run, commit, commit_
                 committed = True  # unreadable witness: keep data — residue is audit-detectable
             if not committed:
                 shutil.rmtree(dest, ignore_errors=True)
+                prune_nested_group(target.root, rel)
             raise
         try:
             _delete_from_source(source.root, doc_id, rel)

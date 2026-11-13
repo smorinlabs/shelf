@@ -30,9 +30,10 @@ from shelf.core.ingest import (
     infer_format,
     infer_repo_url,
     pick_primary,
+    prune_nested_group,
     validate_repo_name,
 )
-from shelf.core.slugs import apply_date_rule, derive_slug, undated_warning
+from shelf.core.slugs import apply_date_rule, derive_slug, undated_warning, validate_slug
 
 
 @click.command("add")
@@ -122,6 +123,8 @@ def doc_add(
         raise click.UsageError("--repo and --topic are mutually exclusive")
     if repo_ is not None:
         validate_repo_name(repo_)
+    if slug_:
+        validate_slug(slug_)
 
     def _blank(value):
         return value is None or not str(value).strip()
@@ -233,6 +236,7 @@ def doc_add(
                 committed = True
             if not committed:
                 shutil.rmtree(dest, ignore_errors=True)
+                prune_nested_group(root, rel_dir)
             raise
 
     if commit:

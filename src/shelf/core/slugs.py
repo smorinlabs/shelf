@@ -4,6 +4,8 @@ import datetime
 import re
 from typing import TypeGuard
 
+import click
+
 KEBAB_MAX = 60
 
 
@@ -51,6 +53,15 @@ def apply_date_rule(slug: str, added: str) -> tuple[str, str, bool]:
     if existing is not None:
         return slug, existing, False
     return f"{added}-{slug}", added, True
+
+
+def validate_slug(slug: str) -> str:
+    """A slug is one folder name: no path separators, and not '.' or '..'."""
+    if not slug or "/" in slug or "\\" in slug or slug in (".", ".."):
+        raise click.UsageError(
+            f"slug '{slug}' must be a single folder name (no '/' or '\\', not '.' or '..')"
+        )
+    return slug
 
 
 def undated_warning(given: str, stored: str) -> str:

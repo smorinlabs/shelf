@@ -264,3 +264,75 @@ def test_every_successful_add_audits_clean(isolated_env, tmp_path, anchor, slug,
     r = run(["doc", "add", str(_src(tmp_path)), *ANCHORS[anchor], *META, *SLUGS[slug], *extra_args])
     assert r.exit_code == 0, r.output
     _assert_clean(root)
+
+
+# --- rollback, variants, and the server for nested groups ----------------------------------
+
+
+def test_failed_add_into_a_new_nested_group_leaves_nothing(isolated_env, tmp_path, monkeypatch):
+    import shelf.cli.doc_add as mod
+
+    root = _init()
+
+    def boom(*a, **k):
+        raise RuntimeError("injected")
+
+    with monkeypatch.context() as m:
+        m.setattr(mod, "commit_library", boom)
+        r = run(["doc", "add", str(_src(tmp_path)), "--repo", "obra/superpowers", *URL, *META])
+    assert r.exit_code != 0
+    assert not (root / "docs/repos/obra").exists()
+    _assert_clean(root)
+
+
+def test_failed_move_into_a_new_nested_group_leaves_nothing(isolated_env, tmp_path, monkeypatch):
+    import shelf.cli.doc_move as mod
+
+    root = _init()
+    _add_nested(tmp_path, repo="flox")
+
+    def boom(*a, **k):
+        raise RuntimeError("injected")
+
+    with monkeypatch.context() as m:
+        m.setattr(mod, "commit_library", boom)
+        assert run(["doc", "move", SLUG, "--repo", "obra/superpowers"]).exit_code != 0
+    assert not (root / "docs/repos/obra").exists()
+    _assert_clean(root)
+
+
+def test_format_add_and_delete_on_a_nested_document(isolated_env, tmp_path):
+    root = _init()
+    _add_nested(tmp_path)
+    pdf = tmp_path / "notes.pdf"
+    pdf.write_text("%PDF")
+    r = run(["doc", "format", "add", SLUG, str(pdf)])
+    assert r.exit_code == 0, r.output
+    assert (root / "docs/repos/obra/superpowers" / SLUG / f"{SLUG}.pdf").is_file()
+    _assert_clean(root)
+    r = run(["doc", "format", "delete", SLUG, "pdf"])
+    assert r.exit_code == 0, r.output
+    _assert_clean(root)
+
+
+def test_server_serves_a_nested_document(isolated_env, tmp_path):
+    import socket
+    import urllib.request
+
+    from shelf.server.serve import serve
+
+    root = _init()
+    _add_nested(tmp_path)
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    server, port = serve(root, port)
+    try:
+        url = f"http://127.0.0.1:{port}/docs/repos/obra/superpowers/{SLUG}/{SLUG}.md"
+        with urllib.request.urlopen(url) as resp:
+            assert resp.status == 200
+            assert b"Superpowers" in resp.read()
+    finally:
+        server.shutdown()
+        server.server_close()
