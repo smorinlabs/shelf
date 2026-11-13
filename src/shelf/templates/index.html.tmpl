@@ -464,7 +464,7 @@ function renderPreview(d){
     ? `<div class="snip">${d.snippet}</div>
     <div class="snip-hint">first lines · <b>Rendered</b> or <b>Open</b> to read the rest</div>`
     : how==="iframe"
-    ? `<iframe class="render" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" src="${esc(docURL(main.path))}" title="${esc(d.title)}"></iframe>
+    ? `<iframe class="render" sandbox="allow-scripts allow-popups" src="${esc(docURL(main.path))}" title="${esc(d.title)}"></iframe>
     <div class="snip-hint">rendered in a sandbox · <b>Open</b> for a full tab</div>`
     : `<iframe class="render" id="mdframe" sandbox="allow-popups allow-popups-to-escape-sandbox" title="${esc(d.title)}"></iframe>
     <div class="snip-hint">rendered Markdown · <b>Open</b> for the source file</div>`;
@@ -589,7 +589,7 @@ document.addEventListener("keydown", e=>{
   if(typing) return;
   if(k==="ArrowDown"){ e.preventDefault(); sel=Math.min(visRows.length-1,sel+1); paint(); }
   else if(k==="ArrowUp"){ e.preventDefault(); sel=Math.max(0,sel-1); paint(); }
-  else if(k==="Enter" && visRows[sel]){ e.preventDefault(); const d=visRows[sel].doc; const p=primary(d); if(e.altKey&&ENHANCED&&p.text) copyText(p.path); else copy(absPath(d,p.f),"Copied path"); }
+  else if(k==="Enter" && visRows[sel] && !(document.activeElement && document.activeElement.closest("a,button"))){ e.preventDefault(); const d=visRows[sel].doc; const p=primary(d); if(e.altKey&&ENHANCED&&p.text) copyText(p.path); else copy(absPath(d,p.f),"Copied path"); }
   else if(k==="["){ app.dataset.side = app.dataset.side==="closed"?"open":"closed"; }
   else if(k==="]"){ app.dataset.prev = app.dataset.prev==="closed"?"open":"closed"; }
 });

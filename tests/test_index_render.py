@@ -491,6 +491,15 @@ def test_detail_pane_has_open_toggle_and_safe_iframes(seeded_index):
     assert len(sandboxes) == 2, sandboxes
     assert all("allow-same-origin" not in s for s in sandboxes)
     assert sum("allow-scripts" in s for s in sandboxes) == 1, "only the HTML iframe runs scripts"
+    scripted = next(s for s in sandboxes if "allow-scripts" in s)
+    assert "allow-popups-to-escape-sandbox" not in scripted, (
+        "a popup escaping the HTML iframe would be same-origin with Shelf and reach it via opener"
+    )
+
+    keydown = re.search(r'else if\(k==="Enter" && visRows\[sel\](.*?)\{', html_text)
+    assert keydown is not None and 'closest("a,button")' in keydown.group(1), (
+        "Enter on a focused link or button must activate it, not copy the selected path"
+    )
 
     for lib in ("marked@12.0.2", "dompurify@3.1.6"):
         line = next(ln for ln in html_text.splitlines() if lib in ln)

@@ -42,8 +42,8 @@ _BLOCK_TAGS = {
     "tr",
     "ul",
 }
-# Elements whose text is never shown on the page. Each always has an end tag, so a depth
-# counter is enough and `</head>` (which HTML lets authors omit) is never relied on.
+# Elements whose text is never shown on the page. Each always has an end tag, so tracking
+# open ones is enough and `</head>` (which HTML lets authors omit) is never relied on.
 _HIDDEN_TAGS = {"noscript", "script", "style", "svg", "template", "title"}
 
 
@@ -53,22 +53,26 @@ class _HTMLTextExtractor(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
-        self.hidden_depth = 0
+        self.hidden: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        # Title content is text only, but parsers before Python 3.12's RCDATA fix
+        # still report tags inside it; ignore them so they cannot stay open.
+        if self.hidden and self.hidden[-1] == "title":
+            return
         if tag in _HIDDEN_TAGS:
-            self.hidden_depth += 1
+            self.hidden.append(tag)
         if tag in _BLOCK_TAGS:
             self.parts.append(" ")
 
     def handle_endtag(self, tag: str) -> None:
-        if tag in _HIDDEN_TAGS and self.hidden_depth:
-            self.hidden_depth -= 1
+        if tag in self.hidden:
+            del self.hidden[len(self.hidden) - 1 - self.hidden[::-1].index(tag) :]
         if tag in _BLOCK_TAGS:
             self.parts.append(" ")
 
     def handle_data(self, data: str) -> None:
-        if not self.hidden_depth:
+        if not self.hidden:
             self.parts.append(data)
 
     def text(self) -> str:

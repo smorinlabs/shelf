@@ -159,6 +159,21 @@ class TestExtractSnippetHtml:
         assert result == "<p>feature-dev A plugin for guided feature work.</p>"
         _assert_balanced_html(result)
 
+    def test_tag_like_text_in_title_does_not_hide_the_body(self):
+        """PR #22 review: Python 3.12.0's parser reports tags inside <title> (later
+        patch releases treat title as text). Drive the extractor with those tokens."""
+        from shelf.core.preview import _HTMLTextExtractor
+
+        parser = _HTMLTextExtractor()
+        parser.handle_starttag("title", [])
+        parser.handle_data("Using ")
+        parser.handle_starttag("template", [])
+        parser.handle_endtag("title")
+        parser.handle_starttag("p", [])
+        parser.handle_data("Visible body")
+        parser.handle_endtag("p")
+        assert parser.text() == "Visible body"
+
     def test_text_after_a_self_closed_svg_is_kept(self):
         assert extract_snippet("<svg/><p>after icon</p>", "html") == "<p>after icon</p>"
 
