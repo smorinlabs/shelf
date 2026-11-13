@@ -562,7 +562,7 @@ $ shelf audit   # clean
 
 ---
 
-## [~] Project P27: `shelf init --no-register` (version proposed in the PR)
+## [x] Project P27: `shelf init --no-register` (version proposed in the PR)
 **Goal/Requirement**: `init` always registers the library in the user config. Decision Q5 = A (owner, 2026-11-12).
 - `--no-register` creates the library (with `--git`/`--github` if given) and never writes the user config, then prints how to use it (`shelf --library <path> …` or `shelf init --adopt <path>`)
 - `--no-register --scope project` exits 2 with `--scope project never registers in the user config; drop --no-register` and writes nothing
@@ -574,7 +574,7 @@ $ shelf audit   # clean
 - [x] [P27-TS04] Regression: without the flag, behavior is unchanged
 - [x] [P27-T01] Implement in `library.py`; README ("User and project libraries", `shelf init`) and `init.md`
 - [x] Regression Test Status — 682 passing (9 new in `tests/test_init_no_register.py`; Codex review fixes: printed paths are shell-quoted, an empty `--adopt` with `--no-register` is a usage error); `make check` and `just all` green. Beyond the decision: with `--no-register` only a library at the target path blocks `init` (the registered one does not); `--adopt --no-register` is a usage error. Known limit: with no user config file at all, audit of an unregistered library reports `config-missing`
-- [ ] [P27-T02] Merge the PR (merge commit); version bump proposed in the PR, no tag
+- [x] [P27-T02] Merged PR #26 (merge commit `cfe9492`); version bump proposed in the PR, no tag. Review fixes (Codex): printed paths are shell-quoted; an empty `--adopt` with `--no-register` is a usage error
 
 ---
 
