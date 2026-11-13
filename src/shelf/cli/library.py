@@ -71,6 +71,12 @@ def validate_library(root: Path) -> None:
 )
 @click.option("--owner", metavar="<gh-owner>", help="GitHub owner for --github.")
 @click.option(
+    "--repo-name",
+    metavar="<name>",
+    help="GitHub repository name for --github (default: the library folder's name; "
+    f"'{git_core.DEFAULT_GITHUB_REPO}' for the default user library).",
+)
+@click.option(
     "--scope",
     type=click.Choice(["user", "project"]),
     default="user",
@@ -87,6 +93,7 @@ def init_cmd(
     git_: bool,
     github: bool,
     owner: str | None,
+    repo_name: str | None,
     scope: str,
     yes: bool,
 ) -> None:
@@ -96,17 +103,20 @@ def init_cmd(
     Examples:
       shelf init                    # your personal (user) library
       shelf init --scope project    # a library committed in the current Git repo
+      shelf init --library ~/team-shelf --github --repo-name team-shelf
     """
     if scope == "project":
-        if adopt_ or git_ or github or owner:
+        if adopt_ or git_ or github or owner or repo_name is not None:
             raise click.UsageError(
                 "--scope project uses the Git repo you are in; "
-                "it does not take --adopt, --git, --github, or --owner"
+                "it does not take --adopt, --git, --github, --owner, or --repo-name"
             )
         _init_project(ctx, library_, force, yes)
         return
     if owner and not github:
         raise click.UsageError("--owner requires --github")
+    if repo_name is not None and not github:
+        raise click.UsageError("--repo-name requires --github")
     if adopt_ and (force or git_ or github):
         raise click.UsageError("--adopt is mutually exclusive with --force, --git, and --github")
     cfg_path = active_config_path(ctx)
@@ -121,6 +131,7 @@ def init_cmd(
         return
 
     root = Path(library_ or ctx.obj.get("library") or default_library_path())
+    github_repo = _github_repo_name(root, repo_name) if github else None
     target_exists = (root / CATALOG_FILENAME).is_file()
     configured_root = Path(cfg.library) if cfg.library else None
     configured_exists = (
@@ -144,12 +155,32 @@ def init_cmd(
         git_core.append_gitignore(root, [".shelf.lock"])
         git_core.git_init(root)
         git_core.git_commit_all(root, "shelf: init")
-    if github:
+    if github_repo is not None:
         github_owner = owner or git_core._gh(["api", "user", "--jq", ".login"])
-        git_core.github_create_and_link(root, github_owner)
+        git_core.github_create_and_link(root, github_owner, github_repo)
     cfg.library = str(root)
     save_config(cfg_path, cfg)
     click.echo(f"initialized library at {root}")
+
+
+def _github_repo_name(root: Path, repo_name: str | None) -> str:
+    """The --github repository name, validated before anything is written or `gh` runs."""
+    if repo_name is not None:
+        if not git_core.valid_github_repo_name(repo_name):
+            raise click.UsageError(
+                f"--repo-name '{repo_name}' is not a valid GitHub repository name "
+                "(letters, digits, '.', '_' and '-'; at most 100 characters)"
+            )
+        return repo_name
+    if root.resolve() == default_library_path().resolve():
+        return git_core.DEFAULT_GITHUB_REPO
+    name = root.resolve().name
+    if not git_core.valid_github_repo_name(name):
+        raise click.UsageError(
+            f"the library folder name '{name}' is not a valid GitHub repository name "
+            "— pass --repo-name <name>"
+        )
+    return name
 
 
 AGENT_INSTALL_PROJECT = "shelf agent install --scope project"

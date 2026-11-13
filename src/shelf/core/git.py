@@ -1,6 +1,7 @@
 """Git and GitHub subprocess helpers."""
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -171,7 +172,17 @@ def _gh(args: list[str]) -> str:
         raise click.ClickException(f"gh {' '.join(args)} failed: {detail}") from exc
 
 
-def github_create_and_link(root: Path, owner: str, name: str = "shelf-library") -> str:
+DEFAULT_GITHUB_REPO = "shelf-library"
+_GITHUB_NAME_RE = re.compile(r"[A-Za-z0-9._-]{1,100}")
+
+
+def valid_github_repo_name(name: str) -> bool:
+    """GitHub repository names: ASCII letters, digits, '.', '_' and '-', at most 100
+    characters, and not '.' or '..'."""
+    return bool(_GITHUB_NAME_RE.fullmatch(name)) and name not in (".", "..")
+
+
+def github_create_and_link(root: Path, owner: str, name: str = DEFAULT_GITHUB_REPO) -> str:
     """Create a private GitHub repository and add it as the local origin."""
     url = _gh(["repo", "create", f"{owner}/{name}", "--private"])
     try:

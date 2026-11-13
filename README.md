@@ -472,7 +472,7 @@ as `shelf doc`, prints that group's help and exits `2`.
 Creates a library and registers it in the config file.
 
 ```bash
-shelf init [--library PATH] [--git] [--github] [--owner OWNER] [--force]
+shelf init [--library PATH] [--git] [--github [--owner OWNER] [--repo-name NAME]] [--force]
 shelf init --adopt PATH
 shelf init --scope project [--library RELATIVE-PATH] [--force] [--yes]
 ```
@@ -483,8 +483,14 @@ shelf init --scope project [--library RELATIVE-PATH] [--force] [--yes]
   `${XDG_DATA_HOME:-~/.local/share}/shelf`.
 - `--git` initializes a Git repository and records the scaffold as the first
   commit.
-- `--github` implies `--git`, runs `gh repo create <owner>/shelf-library --private`,
+- `--github` implies `--git`, runs `gh repo create <owner>/<name> --private`,
   and sets the new repo as `origin`.
+- `--repo-name NAME` sets `<name>`, and requires `--github`. The default is the
+  library folder's name, so `--library ~/x/agent-tooling-shelf` creates
+  `agent-tooling-shelf`; the default user library keeps `shelf-library`. The
+  name is checked against GitHub's rules (letters, digits, `.`, `_`, `-`; at
+  most 100 characters) before anything is written. A folder name that breaks
+  them, such as `my shelf`, is a usage error that asks for `--repo-name`.
 - `--owner` sets the GitHub owner. The default is the user `gh` is
   authenticated as.
 - `--force` re-initializes over an existing configured library. Without it,
