@@ -479,16 +479,17 @@ Restart any running agent session to pick up changes.
 - Offline Markdown rendering (Options B and C were rejected)
 
 ### Tests & Tasks
-- [ ] [P24-TS01] HTML snippet: a page with inline `<style>`, `<script>`, `<title>`, `<svg>`, and no `</head>` yields its body text and none of the CSS, script, or title
-- [ ] [P24-TS02] Page data carries `added` for each document (`null` when absent)
-- [ ] [P24-TS03] Pure preview helpers under Node: `docURL` encodes per segment and stays relative; `renderModeFor` returns `iframe` for html in every mode, `markdown` for md only when enhanced, `null` otherwise; `loadPreviewMode`/`savePreviewMode` default to `snippet`, round-trip `rendered`, and survive a throwing storage; `formatAdded` formats ISO dates and returns `""` for missing ones
-- [ ] [P24-TS04] Template structure: an Open link per format row; the toggle; HTML iframe sandbox includes `allow-scripts` and never `allow-same-origin`; Markdown iframe has no `allow-scripts`; CDN scripts are pinned with `integrity`; list rows and palette items render `formatAdded(d.added)`
-- [ ] [P24-T01] Snippet extractor fix in `src/shelf/core/preview.py`
-- [ ] [P24-T02] `added` in `render_index` page data
-- [ ] [P24-T03] Template: helpers, Open link, toggle, iframe and Markdown rendering, stale-fetch guard, hint text
-- [ ] [P24-T04] Template: added date in list rows and palette results
-- [ ] [P24-T05] Bump to v0.10.1; `make check` and `just all` green; browser smoke in `shelf serve`, `file://`, and a built `_site`; PR opened
-- [ ] Regression Test Status
+- [x] [P24-TS01] HTML snippet: a page with inline `<style>`, `<script>`, `<title>`, `<svg>`, and no `</head>` yields its body text and none of the CSS, script, or title
+- [x] [P24-TS02] Page data carries `added` for each document (`null` when absent)
+- [x] [P24-TS03] Pure preview helpers under Node: `docURL` encodes per segment and stays relative; `renderModeFor` returns `iframe` for html in every mode, `markdown` for md only when enhanced, `null` otherwise; `loadPreviewMode`/`savePreviewMode` default to `snippet`, round-trip `rendered`, and survive a throwing storage; `formatAdded` formats ISO dates and returns `""` for missing ones
+- [x] [P24-TS04] Template structure: an Open link per format row; the toggle; HTML iframe sandbox includes `allow-scripts` and never `allow-same-origin`; Markdown iframe has no `allow-scripts`; CDN scripts are pinned with `integrity`; list rows and palette items render `formatAdded(d.added)`
+- [x] [P24-T01] Snippet extractor fix in `src/shelf/core/preview.py`
+- [x] [P24-T02] `added` in `render_index` page data
+- [x] [P24-T03] Template: helpers, Open link, toggle, iframe and Markdown rendering, stale-fetch guard, hint text
+- [x] [P24-T04] Template: added date in list rows and palette results
+- [x] [P24-T05] Bump to v0.10.1; `make check` and `just all` green; browser smoke in `shelf serve` and a built `_site`; PR opened. `file://` was not browser-checked (the automation extension cannot open file URLs); its Markdown rule is covered by P24-TS03
+- [ ] [P24-T06] Merge the PR, then tag `v0.10.1` (tagging ships the partly built P21 commands already on `main`; confirm before tagging)
+- [x] Regression Test Status — 535 passing at v0.10.1 (7 new: 2 in `tests/test_preview.py`, 4 in `tests/test_index_render.py`, plus the self-closed `<svg/>` guard); `make check` and `just all` green. Browser smoke (Chrome, 2026-11-12) in `shelf serve` and a published `_site`: Open, HTML and Markdown Rendered, dates in list and ⌘K, mode persists across reload. Known limit: after a click inside the iframe, arrow keys go to the iframe until a list row is clicked (the sandbox blocks listening there)
 
 ### Deliverable
 Selecting a document shows **Open**; **Rendered** shows the page itself beside the list; the HTML snippet starts with body text; each list row and search result shows its added date.
