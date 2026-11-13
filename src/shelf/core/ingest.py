@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 
 from shelf.core.catalog import Catalog, Document
+from shelf.core.errors import ConflictError
 
 FORMAT_MAP = {".md": "md", ".html": "html", ".htm": "html", ".pdf": "pdf"}
 PRIMARY_ORDER = ["md", "html", "pdf"]
@@ -72,6 +73,27 @@ def group_entries(docs_dir: Path, repo_names: Iterable[str]) -> tuple[list[Path]
                 else:
                     entries.append(entry)
     return strays, entries
+
+
+def overlaps(a: str, b: str) -> bool:
+    """True when one library-relative folder is, or lies inside, the other."""
+    return a == b or a.startswith(b + "/") or b.startswith(a + "/")
+
+
+def check_free_folder(catalog: Catalog, rel_dir: str, exclude: Document | None = None) -> None:
+    """Refuse a document folder that is, holds, or sits inside another document's folder.
+
+    A flat repo document and a nested `<owner>/<repo>` group could otherwise share
+    `docs/repos/<owner>/<repo>`."""
+    for other in catalog.documents:
+        if other is exclude:
+            continue
+        other_rel = doc_rel_dir(other)
+        if overlaps(rel_dir, other_rel):
+            raise ConflictError(
+                f"folder '{rel_dir}' overlaps document '{other.id}' at '{other_rel}' "
+                "— pick another repo or slug"
+            )
 
 
 def prune_nested_group(root: Path, rel_dir: str) -> None:

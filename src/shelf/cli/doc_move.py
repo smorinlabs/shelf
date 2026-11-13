@@ -23,7 +23,13 @@ from shelf.core.atomic import library_lock
 from shelf.core.catalog import CATALOG_FILENAME, RepoRef, commit_library, load_catalog
 from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
-from shelf.core.ingest import doc_rel_dir, prune_nested_group, validate_repo_name
+from shelf.core.ingest import (
+    check_free_folder,
+    doc_rel_dir,
+    overlaps,
+    prune_nested_group,
+    validate_repo_name,
+)
 
 
 @click.command("move")
@@ -94,6 +100,13 @@ def doc_move(
             doc.repo = RepoRef(name=repo_, url=repo_url, subject=subject)
 
         new_rel = doc_rel_dir(doc)
+        if overlaps(new_rel, old_rel):
+            raise ConflictError(
+                f"folder '{new_rel}' overlaps the document's own folder '{old_rel}'"
+            )
+        check_free_folder(catalog, new_rel, exclude=doc)
+        if (root / new_rel).exists():
+            raise ConflictError(f"folder '{new_rel}' already exists")
         if dry_run:
             click.echo(f"would move {old_rel} -> {new_rel}")
             return
@@ -172,6 +185,7 @@ def _move_to_scope(ctx, doc_id, to_scope, create_topic, dry_run, commit, commit_
                     "— pass --create-topic to create it"
                 )
             catalog.topics.append(doc.category)
+        check_free_folder(catalog, rel)
         if dry_run:
             click.echo(f"would move '{doc_id}' {source.scope} -> {to_scope} ({rel})")
             return

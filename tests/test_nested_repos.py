@@ -336,3 +336,54 @@ def test_server_serves_a_nested_document(isolated_env, tmp_path):
     finally:
         server.shutdown()
         server.server_close()
+
+
+# --- folder overlaps between documents and nested groups (PR #23 review) --------------------
+
+
+def _adopt(root, rel, name):
+    folder = root / rel
+    folder.mkdir(parents=True)
+    (folder / f"{name}.md").write_text("# adopted")
+    r = run(["doc", "adopt", rel, *META])
+    assert r.exit_code == 0, r.output
+
+
+def test_move_onto_a_folder_holding_the_document_is_refused(isolated_env, tmp_path):
+    root = _init()
+    _adopt(root, "docs/repos/obra/notes/notes", "notes")
+    before = _snapshot(root)
+    r = run(["doc", "move", "notes", "--repo", "obra"])
+    assert r.exit_code == 5, r.output
+    assert _snapshot(root) == before
+
+
+def test_move_onto_an_existing_uncataloged_folder_is_refused(isolated_env, tmp_path):
+    root = _init()
+    _add_nested(tmp_path)
+    squat = root / "docs/repos/flox" / SLUG
+    squat.mkdir(parents=True)
+    (squat / "keep.txt").write_text("keep")
+    before = _snapshot(root)
+    r = run(["doc", "move", SLUG, "--repo", "flox"])
+    assert r.exit_code == 5, r.output
+    assert _snapshot(root) == before
+
+
+def test_nested_group_inside_a_flat_document_folder_is_refused(isolated_env, tmp_path):
+    root = _init()
+    _adopt(root, "docs/repos/obra/superpowers", "superpowers")
+    before = _snapshot(root)
+    r = run(["doc", "add", str(_src(tmp_path)), "--repo", "obra/superpowers", *URL, *META])
+    assert r.exit_code == 5, r.output
+    assert _snapshot(root) == before
+    _assert_clean(root)
+
+
+def test_adopting_a_nested_group_folder_as_a_document_is_refused(isolated_env, tmp_path):
+    root = _init()
+    _add_nested(tmp_path)
+    (root / "docs/repos/obra/superpowers/superpowers.md").write_text("# stray")
+    r = run(["doc", "adopt", "docs/repos/obra/superpowers", *META])
+    assert r.exit_code == 5, r.output
+    assert len(json.loads((root / "catalog.json").read_text())["documents"]) == 1

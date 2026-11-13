@@ -15,7 +15,7 @@ from shelf.core.atomic import library_lock
 from shelf.core.catalog import Document, FileVariant, RepoRef, commit_library, load_catalog
 from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
-from shelf.core.ingest import FORMAT_MAP, pick_primary, validate_repo_name
+from shelf.core.ingest import FORMAT_MAP, check_free_folder, pick_primary, validate_repo_name
 
 
 @click.command("adopt")
@@ -86,6 +86,7 @@ def doc_adopt(
             raise click.ClickException(f"kind '{kind_}' is not in the kind list")
         if any(d.id == slug for d in catalog.documents):
             raise ConflictError(f"slug '{slug}' already exists in the catalog")
+        check_free_folder(catalog, rel.as_posix())
         if bucket == "topics":
             if group not in catalog.topics:
                 if not create_topic:

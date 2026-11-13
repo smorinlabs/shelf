@@ -174,3 +174,15 @@ def test_add_rejects_path_like_slugs_and_writes_nothing(isolated_env, tmp_path):
             )
             assert r.exit_code == 2, (bad, r.output)
     assert _snapshot(root) == before
+
+
+def test_rename_refuses_to_overwrite_a_supporting_file(isolated_env, tmp_path):
+    root = _seed(tmp_path)
+    folder = root / "docs" / "topics" / "dev-tooling" / OLD
+    (folder / "2026-01-01-uv-guide.md").write_text("supporting file")
+    before = _snapshot(root)
+    for extra in ([], ["--dry-run"]):
+        r = run(["doc", "rename", OLD, "2026-01-01-uv-guide", *extra])
+        assert r.exit_code == 5, r.output
+        assert "2026-01-01-uv-guide.md" in r.output
+    assert _snapshot(root) == before

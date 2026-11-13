@@ -26,6 +26,7 @@ from shelf.core.catalog import (
 from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
 from shelf.core.ingest import (
+    check_free_folder,
     doc_rel_dir,
     infer_format,
     infer_repo_url,
@@ -201,6 +202,7 @@ def doc_add(
             publish=publish_,
         )
         rel_dir = doc_rel_dir(doc)
+        check_free_folder(catalog, rel_dir)
         dest = root / rel_dir
         if dest.exists():
             raise ConflictError(f"folder '{rel_dir}' already exists — use --slug")

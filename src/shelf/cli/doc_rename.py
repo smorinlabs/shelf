@@ -18,7 +18,7 @@ from shelf.core.atomic import library_lock
 from shelf.core.catalog import CATALOG_FILENAME, commit_library, load_catalog
 from shelf.core.errors import ConflictError
 from shelf.core.git import git_commit_all
-from shelf.core.ingest import doc_rel_dir
+from shelf.core.ingest import check_free_folder, doc_rel_dir
 from shelf.core.slugs import apply_date_rule, is_iso_date, undated_warning, validate_slug
 
 
@@ -55,25 +55,36 @@ def doc_rename(ctx, doc_id, new_slug, dry_run, commit, commit_message):
         new_rel = doc_rel_dir(doc)
         if (root / new_rel).exists():
             raise ConflictError(f"folder '{new_rel}' already exists — pick another name")
-        if dated:
-            click.echo(undated_warning(new_slug, new_id), err=True)
-        if dry_run:
-            click.echo(f"would rename '{doc_id}' -> '{new_id}' ({old_rel} -> {new_rel})")
-            return
+        check_free_folder(catalog, new_rel, exclude=doc)
 
         # Variant files named <id>.<format> follow the ID; other names (adopted files,
         # supporting assets) are kept.
+        src_dir = root / old_rel
+        dest_dir = root / new_rel
         renames: list[tuple[str, str]] = []
+        new_paths: list[str] = []
         for variant in doc.files:
             name = Path(variant.path).name
             if Path(name).stem == doc_id:
                 new_name = new_id + Path(name).suffix
                 renames.append((name, new_name))
                 name = new_name
-            variant.path = f"{new_rel}/{name}"
+            new_paths.append(f"{new_rel}/{name}")
+        moved_away = {old for old, _ in renames}
+        for _, new_name in renames:
+            if (src_dir / new_name).exists() and new_name not in moved_away:
+                raise ConflictError(
+                    f"'{old_rel}/{new_name}' already exists and would be overwritten "
+                    "— rename or remove it first"
+                )
+        if dated:
+            click.echo(undated_warning(new_slug, new_id), err=True)
+        if dry_run:
+            click.echo(f"would rename '{doc_id}' -> '{new_id}' ({old_rel} -> {new_rel})")
+            return
+        for variant, path in zip(doc.files, new_paths, strict=True):
+            variant.path = path
 
-        src_dir = root / old_rel
-        dest_dir = root / new_rel
         before_text = (root / CATALOG_FILENAME).read_text(encoding="utf-8")
         try:
             shutil.copytree(src_dir, dest_dir)
