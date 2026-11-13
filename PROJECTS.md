@@ -503,7 +503,7 @@ Selecting a document shows **Open**; **Rendered** shows the page itself beside t
 
 ---
 
-## [x] Project P25: Dated slugs, `doc rename`, nested repo groups (version proposed in the PR)
+## [x] Project P25: Dated slugs, `doc rename`, nested repo groups (v0.11.0)
 **Goal/Requirement**: `doc add` must never accept a `--slug` or `--repo` that `shelf audit` then rejects. Decisions by the owner, 2026-11-12 (Q1 = A with a warning, Q2 = B, Q4 = A).
 - Q1: a `--slug` that does not start with a valid `YYYY-MM-DD-` date gets the added date prefixed; a warning says so and names `shelf doc rename`. A slug that already starts with a date is kept, and that date becomes `added` (existing behavior)
 - Q4: `shelf doc rename <id> <new-slug>` renames the ID, the folder, and `<id>.<format>` variant files together; same date rule and warning; updates `catalog.json` and `index.html`; honors `--dry-run` and `--commit`; refuses a collision
@@ -545,7 +545,7 @@ $ shelf audit   # clean
 
 ---
 
-## [x] Project P26: `shelf init --repo-name` (version proposed in the PR)
+## [x] Project P26: `shelf init --repo-name` (v0.11.0)
 **Goal/Requirement**: `init --github` always names the repo `shelf-library`. Decision Q3 = A (owner, 2026-11-12).
 - `--repo-name NAME`, valid only with `--github` (usage error otherwise, like `--owner`)
 - Default: the library folder's basename; the default user library keeps `shelf-library`
@@ -562,7 +562,7 @@ $ shelf audit   # clean
 
 ---
 
-## [x] Project P27: `shelf init --no-register` (version proposed in the PR)
+## [x] Project P27: `shelf init --no-register` (v0.11.0)
 **Goal/Requirement**: `init` always registers the library in the user config. Decision Q5 = A (owner, 2026-11-12).
 - `--no-register` creates the library (with `--git`/`--github` if given) and never writes the user config, then prints how to use it (`shelf --library <path> …` or `shelf init --adopt <path>`)
 - `--no-register --scope project` exits 2 with `--scope project never registers in the user config; drop --no-register` and writes nothing
@@ -575,6 +575,7 @@ $ shelf audit   # clean
 - [x] [P27-T01] Implement in `library.py`; README ("User and project libraries", `shelf init`) and `init.md`
 - [x] Regression Test Status — 682 passing (9 new in `tests/test_init_no_register.py`; Codex review fixes: printed paths are shell-quoted, an empty `--adopt` with `--no-register` is a usage error); `make check` and `just all` green. Beyond the decision: with `--no-register` only a library at the target path blocks `init` (the registered one does not); `--adopt --no-register` is a usage error. Known limit: with no user config file at all, audit of an unregistered library reports `config-missing`
 - [x] [P27-T02] Merged PR #26 (merge commit `cfe9492`); version bump proposed in the PR, no tag. Review fixes (Codex): printed paths are shell-quoted; an empty `--adopt` with `--no-register` is a usage error
+- [x] [P27-T03] P25–P27 released together as v0.11.0 (minor: new `doc rename` command and `init` options, plus the changed `doc add --slug` behavior; plugin 0.2.0 → 0.3.0 because the skill gained new abilities). Annotated tag `v0.11.0` on the release merge commit, owner approval 2026-11-13
 
 ---
 
