@@ -110,3 +110,27 @@ def test_without_the_flag_init_still_registers(tmp_path):
     assert r.exit_code == 0, r.output
     assert load_config(default_config_path()).library == str(lib)
     assert "--adopt" not in r.output
+
+
+def test_printed_commands_work_for_a_path_with_spaces(tmp_path):
+    import shlex
+
+    _registered(tmp_path)
+    lib = tmp_path / "team shelf"
+    r = run(["init", "--no-register", "--library", str(lib)])
+    assert r.exit_code == 0, r.output
+    use = next(line for line in r.output.splitlines() if line.startswith("use it with: "))
+    argv = shlex.split(use.removeprefix("use it with: ").replace("<command>", "audit"))
+    assert argv[0] == "shelf"
+    audit = run(argv[1:])
+    assert audit.exit_code == 0, audit.output
+    adopt = next(line for line in r.output.splitlines() if "shelf init --adopt" in line)
+    argv = shlex.split(adopt.split(": ", 1)[1])
+    assert argv[1:] == ["init", "--adopt", str(lib)]
+
+
+def test_an_empty_adopt_with_no_register_is_a_usage_error(tmp_path):
+    lib = tmp_path / "new"
+    r = run(["init", "--adopt", "", "--no-register", "--library", str(lib)])
+    assert r.exit_code == 2, r.output
+    assert not lib.exists()

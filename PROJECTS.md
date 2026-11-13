@@ -573,7 +573,7 @@ $ shelf audit   # clean
 - [x] [P27-TS03] `--no-register --scope project` exits 2 with the decided message and writes nothing
 - [x] [P27-TS04] Regression: without the flag, behavior is unchanged
 - [x] [P27-T01] Implement in `library.py`; README ("User and project libraries", `shelf init`) and `init.md`
-- [x] Regression Test Status — 680 passing (7 new in `tests/test_init_no_register.py`); `make check` and `just all` green. Beyond the decision: with `--no-register` only a library at the target path blocks `init` (the registered one does not); `--adopt --no-register` is a usage error. Known limit: with no user config file at all, audit of an unregistered library reports `config-missing`
+- [x] Regression Test Status — 682 passing (9 new in `tests/test_init_no_register.py`; Codex review fixes: printed paths are shell-quoted, an empty `--adopt` with `--no-register` is a usage error); `make check` and `just all` green. Beyond the decision: with `--no-register` only a library at the target path blocks `init` (the registered one does not); `--adopt --no-register` is a usage error. Known limit: with no user config file at all, audit of an unregistered library reports `config-missing`
 - [ ] [P27-T02] Merge the PR (merge commit); version bump proposed in the PR, no tag
 
 ---

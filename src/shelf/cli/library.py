@@ -2,6 +2,7 @@
 
 import json
 import re
+import shlex
 from pathlib import Path, PurePath
 
 import click
@@ -129,7 +130,7 @@ def init_cmd(
         raise click.UsageError("--owner requires --github")
     if repo_name is not None and not github:
         raise click.UsageError("--repo-name requires --github")
-    if adopt_ and no_register:
+    if adopt_ is not None and no_register:
         raise click.UsageError("--adopt only registers a library; it cannot take --no-register")
     if adopt_ and (force or git_ or github):
         raise click.UsageError("--adopt is mutually exclusive with --force, --git, and --github")
@@ -177,8 +178,9 @@ def init_cmd(
         git_core.github_create_and_link(root, github_owner, github_repo)
     if no_register:
         click.echo(f"initialized library at {root} (not registered)")
-        click.echo(f"use it with: shelf --library {root} <command>")
-        click.echo(f"or register it later with: shelf init --adopt {root}")
+        quoted = shlex.quote(str(root))
+        click.echo(f"use it with: shelf --library {quoted} <command>")
+        click.echo(f"or register it later with: shelf init --adopt {quoted}")
         return
     cfg.library = str(root)
     save_config(cfg_path, cfg)
