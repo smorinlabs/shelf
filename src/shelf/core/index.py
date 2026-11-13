@@ -73,6 +73,7 @@ def render_index(
                 "tags": list(doc.get("tags", [])),
                 "formats": formats,
                 "primary": doc.get("primary"),
+                "added": doc.get("added"),
                 "snippet": (snippets or {}).get(doc["id"], ""),
             }
         )

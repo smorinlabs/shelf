@@ -144,6 +144,39 @@ class TestExtractSnippetHtml:
         assert "<div>" not in result
         _assert_balanced_html(result)
 
+    def test_skips_title_style_script_and_svg_text(self):
+        """P24-TS01: a shelf-reference page inlines its CSS in <head>. The snippet must
+        start at the body text, and must not rely on </head> being present."""
+        page = (
+            "<!doctype html><html><head><title>feature-dev — Shelf reference</title>"
+            "<style>* { box-sizing: border-box; } body { margin: 0; }</style>"
+            "<script>window.x = 1;</script><noscript>enable js</noscript>"
+            "<body><svg><text>LOGO</text></svg><template><p>hidden</p></template>"
+            "<main><h1>feature-dev</h1><p>A plugin for guided feature work.</p></main>"
+            "<script>console.log('tail')</script></body></html>"
+        )
+        result = extract_snippet(page, "html")
+        assert result == "<p>feature-dev A plugin for guided feature work.</p>"
+        _assert_balanced_html(result)
+
+    def test_tag_like_text_in_title_does_not_hide_the_body(self):
+        """PR #22 review: Python 3.12.0's parser reports tags inside <title> (later
+        patch releases treat title as text). Drive the extractor with those tokens."""
+        from shelf.core.preview import _HTMLTextExtractor
+
+        parser = _HTMLTextExtractor()
+        parser.handle_starttag("title", [])
+        parser.handle_data("Using ")
+        parser.handle_starttag("template", [])
+        parser.handle_endtag("title")
+        parser.handle_starttag("p", [])
+        parser.handle_data("Visible body")
+        parser.handle_endtag("p")
+        assert parser.text() == "Visible body"
+
+    def test_text_after_a_self_closed_svg_is_kept(self):
+        assert extract_snippet("<svg/><p>after icon</p>", "html") == "<p>after icon</p>"
+
     def test_empty_and_whitespace_input_returns_empty_string(self):
         assert extract_snippet("", "html") == ""
         assert extract_snippet("   ", "html") == ""

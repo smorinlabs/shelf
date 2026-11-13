@@ -397,3 +397,120 @@ def test_sidebar_footer_shows_real_values(seeded_index):
     assert "localhost:8765" not in footer
     assert "13 files" not in footer
     assert "3 docs" in footer
+
+
+def test_page_docs_carry_the_added_date():
+    """P24-TS02: the list and the palette show when a document was added."""
+    from shelf.core.index import render_index
+
+    catalog = json.loads(
+        _minimal_catalog_text(
+            doc_id="2026-01-01-doc",
+            category="guides",
+            files=[{"format": "md", "path": "docs/topics/guides/2026-01-01-doc/x.md"}],
+        )
+    )
+    undated = dict(catalog["documents"][0], id="undated-doc")
+    catalog["documents"][0]["added"] = "2026-01-01"
+    catalog["documents"].append(undated)
+
+    page = _extract_page(render_index(json.dumps(catalog)))
+
+    added = {d["id"]: d["added"] for d in page["docs"]}
+    assert added == {"2026-01-01-doc": "2026-01-01", "undated-doc": None}
+
+
+_PREVIEW_RE = re.compile(r"/\* preview:start \*/(.*?)/\* preview:end \*/", re.DOTALL)
+
+_PREVIEW_CHECKS = r"""
+const assert = (cond, msg) => { if (!cond) { console.error("FAIL: " + msg); process.exit(1); } };
+
+assert(docURL("docs/topics/a b/x#1/x?.md") === "docs/topics/a%20b/x%231/x%3F.md",
+  "docURL encodes each segment and keeps the slashes");
+assert(!docURL("docs/x.md").startsWith("/"), "docURL stays relative to the index page");
+
+assert(renderModeFor("html", true) === "iframe", "html renders when served");
+assert(renderModeFor("html", false) === "iframe", "html renders from file://");
+assert(renderModeFor("md", true) === "markdown", "markdown renders when served");
+assert(renderModeFor("md", false) === null, "markdown cannot be fetched from file://");
+assert(renderModeFor("pdf", true) === null, "other formats keep the snippet only");
+
+const store = () => { const m = {}; return {
+  getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }; };
+const s = store();
+assert(loadPreviewMode(s) === "snippet", "the default mode is snippet");
+savePreviewMode(s, "rendered");
+assert(loadPreviewMode(s) === "rendered", "the chosen mode round-trips");
+s.setItem("shelf.previewMode", "bogus");
+assert(loadPreviewMode(s) === "snippet", "an unknown stored value falls back to snippet");
+const blocked = () => { throw new Error("blocked"); };
+const broken = { getItem: blocked, setItem: blocked };
+assert(loadPreviewMode(broken) === "snippet", "a throwing storage reads as snippet");
+savePreviewMode(broken, "rendered");
+assert(loadPreviewMode(null) === "snippet", "missing storage reads as snippet");
+
+assert(formatAdded("2026-11-12") === "Nov 12, 2026", "ISO dates format as Mon D, YYYY");
+assert(formatAdded("2026-01-05") === "Jan 5, 2026", "day has no leading zero");
+assert(formatAdded(null) === "", "a missing date shows nothing");
+assert(formatAdded("someday") === "", "an unparseable date shows nothing");
+console.log("ok");
+"""
+
+
+def test_preview_helpers_behave(seeded_index, tmp_path):
+    """P24-TS03: the pure helpers behind Open, the Rendered toggle, and added dates,
+    pulled out of the rendered index.html and run under Node."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node not on PATH")
+    html_text = (seeded_index / "index.html").read_text()
+    match = _PREVIEW_RE.search(html_text)
+    assert match is not None, "index.html must mark the helpers with /* preview:start */ … end"
+    script = tmp_path / "preview_check.js"
+    script.write_text(match.group(1) + _PREVIEW_CHECKS, encoding="utf-8")
+
+    result = subprocess.run([node, str(script)], capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert result.stdout.strip() == "ok"
+
+
+def test_detail_pane_has_open_toggle_and_safe_iframes(seeded_index):
+    """P24-TS04: Open per format row, the Snippet/Rendered toggle, iframes that can
+    never reach the Shelf page, and pinned CDN scripts."""
+    html_text = (seeded_index / "index.html").read_text()
+
+    match = re.search(r"function renderPreview\(d\)\{(.*?)\n\}\n", html_text, re.DOTALL)
+    assert match is not None, "could not locate renderPreview in index.html"
+    preview = match.group(1)
+    assert 'target="_blank"' in preview and ">Open</a>" in preview
+    assert "docURL(x.path)" in preview
+    assert 'data-mode="snippet"' in preview and 'data-mode="rendered"' in preview
+
+    sandboxes = re.findall(r'sandbox="([^"]*)"', html_text)
+    assert len(sandboxes) == 2, sandboxes
+    assert all("allow-same-origin" not in s for s in sandboxes)
+    assert sum("allow-scripts" in s for s in sandboxes) == 1, "only the HTML iframe runs scripts"
+    scripted = next(s for s in sandboxes if "allow-scripts" in s)
+    assert "allow-popups-to-escape-sandbox" not in scripted, (
+        "a popup escaping the HTML iframe would be same-origin with Shelf and reach it via opener"
+    )
+
+    keydown = re.search(r'else if\(k==="Enter" && visRows\[sel\](.*?)\{', html_text)
+    assert keydown is not None and 'closest("a,button")' in keydown.group(1), (
+        "Enter on a focused link or button must activate it, not copy the selected path"
+    )
+
+    for lib in ("marked@12.0.2", "dompurify@3.1.6"):
+        line = next(ln for ln in html_text.splitlines() if lib in ln)
+        assert "cdn.jsdelivr.net/npm/" in line and "sha384-" in line, line
+
+
+def test_list_and_palette_show_the_added_date(seeded_index):
+    """P24-TS04: list rows and ⌘K results render the added date."""
+    html_text = (seeded_index / "index.html").read_text()
+    row = re.search(r"function rowHTML\(d\)\{(.*?)function renderList\(\)\{", html_text, re.DOTALL)
+    palette = re.search(r"function renderPalette\(q\)\{(.*?)\n\}\n", html_text, re.DOTALL)
+    assert row is not None and palette is not None
+    assert "formatAdded(d.added)" in row.group(1)
+    assert "formatAdded(d.added)" in palette.group(1)
