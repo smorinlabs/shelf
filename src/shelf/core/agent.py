@@ -175,21 +175,31 @@ def plugin_enabled(root: Path) -> bool:
     return isinstance(plugins, dict) and plugins.get(PLUGIN_ID) is True
 
 
-def _agy_manifest_disabled(plugin_dir: Path) -> bool:
-    for rel in (Path(".antigravity-plugin") / "plugin.json", Path("plugin.json")):
+_AGY_MANIFEST_PATHS = (
+    Path(".antigravity-plugin") / "plugin.json",
+    Path(".gemini-plugin") / "plugin.json",
+    Path("plugin.json"),
+)
+
+
+def _read_agy_manifest(plugin_dir: Path) -> dict | None:
+    for rel in _AGY_MANIFEST_PATHS:
         manifest = plugin_dir / rel
         if manifest.is_file():
             try:
                 data = json.loads(manifest.read_text(encoding="utf-8"))
             except (OSError, ValueError):
-                return False
-            return isinstance(data, dict) and data.get("disabled") is True
-    return False
+                return None
+            return data if isinstance(data, dict) else None
+    return None
 
 
 def agy_plugin_enabled(root: Path) -> bool:
     plugin_dir = root / ".gemini" / "config" / "plugins" / AGY_PLUGIN_NAME
     if not plugin_dir.is_dir():
+        return False
+    manifest = _read_agy_manifest(plugin_dir)
+    if manifest is None:
         return False
     try:
         data = json.loads((root / ".gemini" / "config" / "config.json").read_text(encoding="utf-8"))
@@ -199,7 +209,7 @@ def agy_plugin_enabled(root: Path) -> bool:
     entry = plugins.get(AGY_PLUGIN_NAME) if isinstance(plugins, dict) else None
     if isinstance(entry, dict) and isinstance(entry.get("enabled"), bool):
         return entry["enabled"]
-    return not _agy_manifest_disabled(plugin_dir)
+    return manifest.get("disabled") is not True
 
 
 def _files(path: Path) -> dict:

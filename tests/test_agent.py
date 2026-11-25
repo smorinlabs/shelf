@@ -281,9 +281,18 @@ def test_an_enabled_shelf_plugin_skips_the_claude_folder(home):
     assert (home / ".gemini/config/skills/shelf/SKILL.md").is_file()
 
 
-def test_an_enabled_antigravity_plugin_skips_the_gemini_folder(home):
-    plugin_dir = home / ".gemini" / "config" / "plugins" / "shelf"
-    plugin_dir.mkdir(parents=True)
+@pytest.mark.parametrize(
+    "manifest_rel",
+    [
+        ".antigravity-plugin/plugin.json",
+        ".gemini-plugin/plugin.json",
+        "plugin.json",
+    ],
+)
+def test_an_enabled_antigravity_plugin_skips_the_gemini_folder(home, manifest_rel):
+    manifest = home / ".gemini" / "config" / "plugins" / "shelf" / manifest_rel
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({"name": "shelf"}))
     r = run(["agent", "install"])
     assert r.exit_code == 1
     assert "Antigravity plugin" in r.output
@@ -296,9 +305,32 @@ def test_an_enabled_antigravity_plugin_skips_the_gemini_folder(home):
     assert (home / ".gemini/config/skills/shelf/SKILL.md").is_file()
 
 
-def test_a_disabled_antigravity_plugin_does_not_skip_the_gemini_folder(home):
+def test_empty_or_invalid_antigravity_plugin_dir_does_not_skip_the_gemini_folder(home):
     plugin_dir = home / ".gemini" / "config" / "plugins" / "shelf"
     plugin_dir.mkdir(parents=True)
+    cfg = home / ".gemini" / "config" / "config.json"
+    cfg.write_text(json.dumps({"plugins": {"shelf": {"enabled": True}}}))
+    assert agent.agy_plugin_enabled(home) is False
+
+    manifest = plugin_dir / ".antigravity-plugin" / "plugin.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text("{not valid json")
+    assert agent.agy_plugin_enabled(home) is False
+
+    manifest.write_text("[]")
+    assert agent.agy_plugin_enabled(home) is False
+
+    manifest.unlink()
+    r = run(["agent", "install"])
+    assert r.exit_code == 0, r.output
+    assert (home / ".gemini/config/skills/shelf/SKILL.md").is_file()
+    assert (home / ".gemini/config/skills/shelf-reference/SKILL.md").is_file()
+
+
+def test_a_disabled_antigravity_plugin_does_not_skip_the_gemini_folder(home):
+    manifest = home / ".gemini" / "config" / "plugins" / "shelf" / "plugin.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({"name": "shelf"}))
     cfg = home / ".gemini" / "config" / "config.json"
     cfg.write_text(json.dumps({"plugins": {"shelf": {"enabled": False}}}))
     r = run(["agent", "install"])
