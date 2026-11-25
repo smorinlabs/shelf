@@ -295,17 +295,19 @@ def test_each_missing_required_flag_triggers_handoff(isolated_env, tmp_path, mon
     assert fired == ["claude"]  # any single missing required flag → handoff
 
 
-def test_handoff_agent_flag_overrides_config(isolated_env, tmp_path, monkeypatch):
+@pytest.mark.parametrize("agent", ["codex", "agy"])
+def test_handoff_agent_flag_overrides_config(isolated_env, tmp_path, monkeypatch, agent):
     fired = []
     monkeypatch.setattr(handoff_mod, "run_handoff", lambda a, p: fired.append(a))
     _init()
     src = _src(tmp_path)
-    r = run(["doc", "add", str(src), "--handoff-agent", "codex"])
+    r = run(["doc", "add", str(src), "--handoff-agent", agent])
     assert r.exit_code == 0
-    assert fired == ["codex"]
+    assert fired == [agent]
 
 
-def test_config_handoff_agent_used_when_no_flag(isolated_env, tmp_path, monkeypatch):
+@pytest.mark.parametrize("agent", ["codex", "agy"])
+def test_config_handoff_agent_used_when_no_flag(isolated_env, tmp_path, monkeypatch, agent):
     from shelf.core.config import default_config_path, load_config, save_config
 
     fired = []
@@ -313,12 +315,12 @@ def test_config_handoff_agent_used_when_no_flag(isolated_env, tmp_path, monkeypa
     _init()
     cfgp = default_config_path()
     cfg = load_config(cfgp)
-    cfg.handoff_agent = "codex"
+    cfg.handoff_agent = agent
     save_config(cfgp, cfg)
     src = _src(tmp_path)
     r = run(["doc", "add", str(src)])  # no --handoff-agent flag
     assert r.exit_code == 0
-    assert fired == ["codex"]  # config value reaches the resolver
+    assert fired == [agent]  # config value reaches the resolver
 
 
 def test_no_handoff_missing_flags_exit_2(isolated_env, tmp_path, monkeypatch):
@@ -363,6 +365,22 @@ def test_inside_codex_session_exit_1(isolated_env, tmp_path, monkeypatch):
     r = run(["doc", "add", str(src)])
     assert r.exit_code == 1
     assert "Codex" in r.output
+    assert fired == []
+
+
+@pytest.mark.parametrize(
+    ("env_var", "env_val"),
+    [("ANTIGRAVITY_AGENT", "1"), ("ANTIGRAVITY_CONVERSATION_ID", "conv-123")],
+)
+def test_inside_antigravity_session_exit_1(isolated_env, tmp_path, monkeypatch, env_var, env_val):
+    fired = []
+    monkeypatch.setattr(handoff_mod, "run_handoff", lambda a, p: fired.append(a))
+    monkeypatch.setenv(env_var, env_val)
+    _init()
+    src = _src(tmp_path)
+    r = run(["doc", "add", str(src)])
+    assert r.exit_code == 1
+    assert "shelf skill" in r.output and "Antigravity" in r.output
     assert fired == []
 
 

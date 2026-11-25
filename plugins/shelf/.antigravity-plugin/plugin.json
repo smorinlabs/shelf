@@ -1,0 +1,24 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "shelf",
+  "displayName": "Shelf",
+  "version": "0.3.0",
+  "description": "Manage a personal shelf documentation library through the shelf CLI and research resource links into original HTML reference pages.",
+  "suggestedPrompts": [
+    "What do I have in shelf about this topic?",
+    "Add this file to my shelf and walk me through classification",
+    "Audit my shelf library and report any findings"
+  ],
+  "author": {
+    "name": "Steve Morin"
+  },
+  "homepage": "https://github.com/smorinlabs/shelf",
+  "repository": "https://github.com/smorinlabs/shelf",
+  "keywords": [
+    "shelf",
+    "documentation",
+    "library",
+    "catalog",
+    "cli"
+  ]
+}

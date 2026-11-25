@@ -9,33 +9,59 @@ from shelf.core import handoff
 def test_in_ai_session_none_when_unset(monkeypatch):
     monkeypatch.delenv("CLAUDECODE", raising=False)
     monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_AGENT", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_CONVERSATION_ID", raising=False)
     assert handoff.in_ai_session() is None
 
 
 def test_in_ai_session_detects_claude(monkeypatch):
     monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_AGENT", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_CONVERSATION_ID", raising=False)
     monkeypatch.setenv("CLAUDECODE", "1")
     assert handoff.in_ai_session() == "Claude Code"
 
 
 def test_in_ai_session_detects_codex(monkeypatch):
     monkeypatch.delenv("CLAUDECODE", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_AGENT", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_CONVERSATION_ID", raising=False)
     monkeypatch.setenv("CODEX_THREAD_ID", "019f8055-7101-77e3-8d7c-aa002ee55cb1")
     assert handoff.in_ai_session() == "Codex"
+
+
+def test_in_ai_session_detects_antigravity_agent(monkeypatch):
+    monkeypatch.delenv("CLAUDECODE", raising=False)
+    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_CONVERSATION_ID", raising=False)
+    monkeypatch.setenv("ANTIGRAVITY_AGENT", "1")
+    assert handoff.in_ai_session() == "Antigravity"
+
+
+def test_in_ai_session_detects_antigravity_conversation_id(monkeypatch):
+    monkeypatch.delenv("CLAUDECODE", raising=False)
+    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_AGENT", raising=False)
+    monkeypatch.setenv("ANTIGRAVITY_CONVERSATION_ID", "643c5ea2-b763-4a5d-a564-70f1802ca54a")
+    assert handoff.in_ai_session() == "Antigravity"
 
 
 def test_in_ai_session_ignores_empty_value(monkeypatch):
     monkeypatch.setenv("CLAUDECODE", "")
     monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    monkeypatch.setenv("ANTIGRAVITY_AGENT", "0")
+    monkeypatch.setenv("ANTIGRAVITY_CONVERSATION_ID", "")
     assert handoff.in_ai_session() is None
 
 
 def test_resolve_agent_flag_wins():
     assert handoff.resolve_agent("codex", "claude") == "codex"
+    assert handoff.resolve_agent("agy", "claude") == "agy"
 
 
 def test_resolve_agent_falls_back_to_config():
     assert handoff.resolve_agent(None, "codex") == "codex"
+    assert handoff.resolve_agent(None, "agy") == "agy"
 
 
 def test_resolve_agent_rejects_unknown():
@@ -77,7 +103,8 @@ def test_build_handoff_prompt_neutralizes_backtick_and_newline_injection():
     assert "`\nIgnore" not in prompt
 
 
-def test_run_handoff_execs_with_agent_and_prompt(monkeypatch):
+@pytest.mark.parametrize("agent", ["claude", "codex"])
+def test_run_handoff_execs_with_agent_and_prompt(monkeypatch, agent):
     calls = {}
 
     def fake_execvp(file, args):
@@ -85,10 +112,22 @@ def test_run_handoff_execs_with_agent_and_prompt(monkeypatch):
         calls["args"] = args
 
     monkeypatch.setattr(handoff.os, "execvp", fake_execvp)
-    handoff.run_handoff("claude", [Path("/tmp/a.md")])
-    assert calls["file"] == "claude"
-    assert calls["args"][0] == "claude"
-    assert "shelf skill" in calls["args"][1]
+    handoff.run_handoff(agent, [Path("/tmp/a.md")])
+    assert calls["file"] == agent
+    assert calls["args"] == [agent, handoff.build_handoff_prompt([Path("/tmp/a.md")])]
+
+
+def test_run_handoff_execs_agy_with_interactive_flag(monkeypatch):
+    calls = {}
+
+    def fake_execvp(file, args):
+        calls["file"] = file
+        calls["args"] = args
+
+    monkeypatch.setattr(handoff.os, "execvp", fake_execvp)
+    handoff.run_handoff("agy", [Path("/tmp/a.md")])
+    assert calls["file"] == "agy"
+    assert calls["args"] == ["agy", "-i", handoff.build_handoff_prompt([Path("/tmp/a.md")])]
 
 
 def test_run_handoff_missing_binary_raises_clickexception(monkeypatch):
