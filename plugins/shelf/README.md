@@ -1,6 +1,6 @@
 # Shelf skills
 
-Claude Code / Codex skills that drive the [`shelf`](../../README.md)
+Claude Code / Codex / Antigravity skills that drive the [`shelf`](../../README.md)
 CLI to manage a personal documentation library — **add, find, edit, remove,
 audit, open, and set up** documents. It ships **in the shelf repo** (monorepo):
 the same repository is the `uv`-installable CLI, a **plugin**, and its own
@@ -40,9 +40,11 @@ The skill invokes `shelf`, so it must resolve. Either:
 shelf/                                  ← repo root = the marketplace
 ├── .claude-plugin/marketplace.json     ← Claude catalog (primary)
 ├── .agents/plugins/marketplace.json    ← Codex catalog
+├── .agents/plugins.json                ← Antigravity workspace discovery
 ├── .agents/skills/shelf                → plugins/shelf/skills/shelf
 ├── .agents/skills/shelf-reference      → plugins/shelf/skills/shelf-reference
 └── plugins/shelf/                      ← the plugin
+    ├── .antigravity-plugin/plugin.json ← Antigravity manifest
     ├── .claude-plugin/plugin.json      ← superset manifest (primary, real file)
     ├── .codex-plugin/plugin.json       → ../.claude-plugin/plugin.json  (symlink)
     └── skills/
@@ -71,6 +73,13 @@ The repo is a marketplace named `shelf` whose single plugin is `shelf`.
 codex plugin marketplace add https://github.com/smorinlabs/shelf   # or a local clone path
 codex plugin add shelf@shelf
 ```
+
+**Antigravity:**
+```bash
+agy plugin install /path/to/shelf/plugins/shelf
+```
+Inside a clone of this repo, `.agents/plugins.json` also registers `plugins/shelf`
+automatically for Antigravity workspaces.
 
 **For everyone in a repo (project scope):** commit the marketplace and the
 plugin in the repo's `.claude/settings.json`. Once a teammate trusts the repo

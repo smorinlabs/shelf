@@ -8,7 +8,7 @@ published. They end up in `~/Downloads`, in chat threads, or in tabs you
 eventually close. When you later want your agent to *"use my notes on uv
 packaging"*, they are gone.
 
-shelf gives those documents a permanent home. You tell Claude Code or Codex
+shelf gives those documents a permanent home. You tell Claude Code, Codex, or Antigravity
 *"add this to my shelf"*. The agent classifies the document with you, then
 files it at a stable path in a library that you own. Later, from any repo, you
 ask *"what do I have in shelf about provider config?"*. The agent finds the
@@ -30,8 +30,8 @@ agent ▸  Found 2026-10-24-cli-extension-prd (spec, flox-cli). Reading it now.
 
 ## Why shelf
 
-- **Built for agents, and safe for them.** The shelf skills work in both Claude
-  Code and Codex. They propose a classification, preview every change
+- **Built for agents, and safe for them.** The shelf skills work in Claude
+  Code, Codex, and Antigravity. They propose a classification, preview every change
   (with `--dry-run` where the CLI supports it), and ask before anything
   destructive. All writes go through the `shelf` CLI, so an agent never
   hand-edits your catalog.
@@ -68,7 +68,7 @@ agent ▸  Found 2026-10-24-cli-extension-prd (spec, flox-cli). Reading it now.
 
 - [Quick start](#quick-start)
 - [Installation](#installation)
-- [Using shelf from Claude Code and Codex](#using-shelf-from-claude-code-and-codex)
+- [Using shelf from Claude Code, Codex, and Antigravity](#using-shelf-from-claude-code-codex-and-antigravity)
 - [Core concepts](#core-concepts)
 - [Configuration](#configuration)
 - [Command reference](#command-reference)
@@ -119,7 +119,7 @@ starts your coding agent and lets it walk you through classification. See
 | Python ≥ 3.12 and [`uv`](https://docs.astral.sh/uv/) | Installing and running the CLI |
 | `git` | Optional: version-controlling the library (`--git`, `--commit`) |
 | [`gh`](https://cli.github.com/), authenticated | Optional: `shelf init --github` |
-| Claude Code or Codex | Optional: the skill and the `doc add` handoff |
+| Claude Code, Codex, or Antigravity | Optional: the skill and the `doc add` handoff |
 
 ### Install the CLI
 
@@ -161,7 +161,7 @@ something, the skill runs setup for you.
 
 ---
 
-## Using shelf from Claude Code and Codex
+## Using shelf from Claude Code, Codex, and Antigravity
 
 This repo is also a plugin **marketplace** named `shelf`. It contains one
 plugin, `shelf`, which holds two skills: `shelf` manages the library, and
@@ -182,15 +182,27 @@ codex plugin marketplace add https://github.com/smorinlabs/shelf
 codex plugin add shelf@shelf
 ```
 
-**Without the plugin: `shelf agent install`.** The CLI carries its own copy of
-both skills, matched to its version, and can install them for Claude Code
-(`.claude/skills/`) and for Codex and Cursor (`.agents/skills/`). Use one
-install path, not both: with the plugin enabled, `shelf agent install` skips the
-Claude Code folder so the skill does not load twice.
+**Antigravity**
 
 ```bash
-shelf agent install                    # copies into ~/.claude/skills and ~/.agents/skills
-shelf agent install --scope project    # into this repo, so teammates get the skills
+git clone https://github.com/smorinlabs/shelf
+agy plugin install ./shelf/plugins/shelf
+```
+
+Inside a clone of this repo, `.agents/plugins.json` also lets Antigravity
+auto-discover `plugins/shelf` for the workspace.
+
+**Without the plugin: `shelf agent install`.** The CLI carries its own copy of
+both skills, matched to its version, and can install them for Claude Code
+(`.claude/skills/`), Codex and Cursor (`.agents/skills/`), and Antigravity
+(`~/.gemini/config/skills/` at user scope; `.agents/skills/` at project scope).
+Use one install path, not both: with the Claude Code or Antigravity plugin
+enabled, `shelf agent install` skips that tool's user-scope folder so the skill
+does not load twice.
+
+```bash
+shelf agent install                    # copies into ~/.claude/skills, ~/.agents/skills, and ~/.gemini/config/skills
+shelf agent install --scope project    # into this repo (.claude/skills and .agents/skills), so teammates get the skills
 shelf agent install --dev --source ~/c/shelf   # symlinks into a checkout, for skill development
 shelf agent status                     # what is installed, and whether a copy is stale
 ```
@@ -233,16 +245,16 @@ Use the shelf skill to add `/path/to/file.md` to shelf. Walk me through classifi
 
 Which agent starts is decided in this order:
 
-1. `--handoff-agent claude|codex`
+1. `--handoff-agent claude|codex|agy`
 2. `handoff-agent` in the config file
 3. `claude` (the default)
 
 | Situation | Result |
 |---|---|
 | All classification flags given | Normal non-interactive add; no handoff |
-| Flags missing, ordinary terminal | Launches the handoff agent |
+| Flags missing, ordinary terminal | Launches the handoff agent (`agy -i <prompt>` for Antigravity) |
 | Flags missing, `--no-handoff` or `--no-input` | Error, exit `2` |
-| Flags missing, already inside Claude Code (`CLAUDECODE` set) or Codex (`CODEX_THREAD_ID` set) | Error asking the assistant to use the `shelf` skill. shelf never nests an agent session. |
+| Flags missing, already inside Claude Code (`CLAUDECODE` set), Codex (`CODEX_THREAD_ID` set), or Antigravity (`ANTIGRAVITY_AGENT=1` or `ANTIGRAVITY_CONVERSATION_ID` set) | Error asking the assistant to use the `shelf` skill. shelf never nests an agent session. |
 
 ---
 
@@ -329,7 +341,7 @@ library = "/Users/you/.local/share/shelf"   # library root
 remove-source = true                        # default for doc add / doc format add
 server-port = 8765                          # preferred port for `shelf open`
 # browser = "Firefox"                       # optional; unset = system default browser
-handoff-agent = "claude"                    # claude | codex, for the doc add handoff
+handoff-agent = "claude"                    # claude | codex | agy, for the doc add handoff
 ```
 
 | Key | Default | Effect |
@@ -537,7 +549,7 @@ shelf doc add FILE… (--repo NAME | --topic NAME) --kind KIND \
 | Identity | `--title`, `--description`, `--slug` (override the derived slug; the added date is prefixed when it has none), `--primary FMT`, `--doc-date YYYY-MM-DD`, `--source TEXT` (provenance; the default is the first input file's absolute path) |
 | Input | `--assets PATH` (repeatable; files or folders copied into the document folder so relative links in HTML work); `--format EXT` (override the format inferred from the extension) |
 | Source handling | `--remove-source` / `--no-remove-source`. When neither is given, the `remove-source` config key decides, and its default is to remove. |
-| Handoff | `--handoff-agent claude\|codex`; `--no-handoff` |
+| Handoff | `--handoff-agent claude\|codex\|agy`; `--no-handoff` |
 
 The format comes from the file extension: `.md`, `.html` / `.htm`, or `.pdf`.
 Passing two files with the same format is an error. Adding the same title on
@@ -772,9 +784,10 @@ Opens the library UI. See [The library UI](#the-library-ui).
 
 ### `shelf agent` (alias `skill`)
 
-Installs the `shelf` and `shelf-reference` skills into both skill folders of a
-scope: `.claude/skills/` for Claude Code, and `.agents/skills/` for Codex,
-Cursor, and OpenCode.
+Installs the `shelf` and `shelf-reference` skills into the skill folders of a
+scope: `.claude/skills/` for Claude Code, `.agents/skills/` for Codex, Cursor,
+OpenCode (and Antigravity at project scope), and `~/.gemini/config/skills/` for
+Antigravity at user scope.
 
 ```bash
 shelf agent install [--scope user|project] [--dev [--source PATH]] [--force] [--dry-run]
@@ -784,8 +797,8 @@ shelf agent uninstall [--scope user|project] [--force] [--dry-run]
 
 | Scope | Skill folders |
 |---|---|
-| `user` (default) | `~/.claude/skills/` and `~/.agents/skills/` |
-| `project` | The Git repo root's `.claude/skills/` and `.agents/skills/`, for committing. Refused outside a repo and for a repo rooted at your home directory. |
+| `user` (default) | `~/.claude/skills/`, `~/.agents/skills/`, and `~/.gemini/config/skills/` |
+| `project` | The Git repo root's `.claude/skills/` and `.agents/skills/` (discovered by Codex, Cursor, OpenCode, and Antigravity), for committing. Refused outside a repo and for a repo rooted at your home directory. |
 
 | Mode | What is placed |
 |---|---|
@@ -794,20 +807,25 @@ shelf agent uninstall [--scope user|project] [--force] [--dry-run]
 
 **shelf never replaces a placement it did not install** unless you pass
 `--force`. It skips a hand-made copy, a symlink pointing elsewhere, a switch
-between copy and dev mode, and the Claude Code folder when the `shelf@shelf`
-plugin is enabled there. Each skip is reported with its reason, and the command
-exits `1`. With `--force`, the old placement is moved to
-`shelf-old_skills/<name>` in the same folder, and a symlink is only unlinked;
+between copy and dev mode, the Claude Code folder when the `shelf@shelf`
+plugin is enabled there, and the Antigravity user folder when the `shelf`
+Antigravity plugin is enabled in `~/.gemini/config/plugins/shelf`. Each skip is
+reported with its reason, and the command exits `1`. With `--force`, the old
+placement is moved to `shelf-old_skills/<name>` in the same folder, and a
+symlink is only unlinked;
 its target is never touched. `--dry-run` reports the same lines without
 writing anything.
 
 ```text
 $ shelf agent install --dev --source ~/c/shelf
-Installed shelf agent skills (scope: user, mode: dev → ~/c/shelf, v0.9.0)
+Installed shelf agent skills (scope: user, mode: dev → ~/c/shelf, v0.11.0)
   Claude Code (~/.claude/skills)
     shelf             unchanged (dev link)
     shelf-reference   unchanged (dev link)
   Codex / Cursor (~/.agents/skills)
+    shelf             unchanged (dev link)
+    shelf-reference   unchanged (dev link)
+  Antigravity (~/.gemini/config/skills)
     shelf             unchanged (dev link)
     shelf-reference   unchanged (dev link)
 ```
@@ -962,9 +980,10 @@ shelf/                               # monorepo: CLI + plugin + marketplace
 │   ├── server/                      # local server for `shelf open`
 │   └── templates/index.html.tmpl    # UI template, rendered into each library
 ├── tests/                           # pytest suite
-├── plugins/shelf/                   # the Claude Code / Codex plugin; skills/ is the skills' master copy
+├── plugins/shelf/                   # the Claude Code / Codex / Antigravity plugin; skills/ is the skills' master copy
 ├── .claude-plugin/marketplace.json  # Claude Code marketplace catalog
 ├── .agents/plugins/marketplace.json # Codex marketplace catalog
+├── .agents/plugins.json             # Antigravity workspace plugin discovery
 ├── SHELF-PRD.md                     # product requirements and design rationale
 └── PROJECTS.md                      # roadmap and project tracking
 ```

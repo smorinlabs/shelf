@@ -58,7 +58,7 @@ from shelf.core.slugs import apply_date_rule, derive_slug, undated_warning, vali
     "--handoff-agent",
     "handoff_agent",
     default=None,
-    type=click.Choice(["claude", "codex"]),
+    type=click.Choice(handoff.VALID_AGENTS),
     help="Agent to hand off to when classification flags are missing (overrides config).",
 )
 @click.option(

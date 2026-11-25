@@ -1,4 +1,4 @@
-"""Install shelf's agent skills for Claude Code and Codex/Cursor (P22).
+"""Install shelf's agent skills for Claude Code, Codex/Cursor, and Antigravity (P22).
 
 Modeled on `baml agent install`: the skills ship inside the package, so a copy always
 matches the CLI version. Shelf adds a user scope, a dev mode that places symlinks into
@@ -19,11 +19,24 @@ from shelf.core import git as git_core
 from shelf.core.paths import discover_project
 
 SKILL_NAMES = ("shelf", "shelf-reference")
-FOLDERS = ((".claude/skills", "Claude Code"), (".agents/skills", "Codex / Cursor"))
+USER_FOLDERS = (
+    (".claude/skills", "Claude Code"),
+    (".agents/skills", "Codex / Cursor"),
+    (".gemini/config/skills", "Antigravity"),
+)
+PROJECT_FOLDERS = (
+    (".claude/skills", "Claude Code"),
+    (".agents/skills", "Codex / Cursor / Antigravity"),
+)
 STAMP = ".shelf-agent.json"
 BACKUP_DIR = "shelf-old_skills"
 PLUGIN_ID = "shelf@shelf"
+AGY_PLUGIN_NAME = "shelf"
 CHECKOUT_SKILLS = Path("plugins") / "shelf" / "skills"
+
+
+def folders_for(scope: str) -> tuple[tuple[str, str], ...]:
+    return PROJECT_FOLDERS if scope == "project" else USER_FOLDERS
 
 
 def cli_version() -> str:
@@ -38,7 +51,7 @@ def bundled_dir() -> Path:
 
 
 def scope_root(scope: str, cwd: Path | None = None) -> Path:
-    """Directory under which `.claude/skills` and `.agents/skills` live for *scope*."""
+    """Directory under which the skill folders live for *scope*."""
     home = Path.home().resolve()
     if scope == "user":
         return home
@@ -106,8 +119,8 @@ class Placement:
         return self.skills_dir / self.skill
 
 
-def placements(root: Path) -> list[Placement]:
-    return [Placement(root, f, label, s) for f, label in FOLDERS for s in SKILL_NAMES]
+def placements(root: Path, scope: str = "user") -> list[Placement]:
+    return [Placement(root, f, label, s) for f, label in folders_for(scope) for s in SKILL_NAMES]
 
 
 def _read_stamp(path: Path) -> dict | None:
@@ -160,6 +173,43 @@ def plugin_enabled(root: Path) -> bool:
         return False
     plugins = data.get("enabledPlugins") if isinstance(data, dict) else None
     return isinstance(plugins, dict) and plugins.get(PLUGIN_ID) is True
+
+
+_AGY_MANIFEST_PATHS = (
+    Path(".antigravity-plugin") / "plugin.json",
+    Path(".gemini-plugin") / "plugin.json",
+    Path("plugin.json"),
+)
+
+
+def _read_agy_manifest(plugin_dir: Path) -> dict | None:
+    for rel in _AGY_MANIFEST_PATHS:
+        manifest = plugin_dir / rel
+        if manifest.is_file():
+            try:
+                data = json.loads(manifest.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return None
+            return data if isinstance(data, dict) else None
+    return None
+
+
+def agy_plugin_enabled(root: Path) -> bool:
+    plugin_dir = root / ".gemini" / "config" / "plugins" / AGY_PLUGIN_NAME
+    if not plugin_dir.is_dir():
+        return False
+    manifest = _read_agy_manifest(plugin_dir)
+    if manifest is None:
+        return False
+    try:
+        data = json.loads((root / ".gemini" / "config" / "config.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    plugins = data.get("plugins") if isinstance(data, dict) else None
+    entry = plugins.get(AGY_PLUGIN_NAME) if isinstance(plugins, dict) else None
+    if isinstance(entry, dict) and isinstance(entry.get("enabled"), bool):
+        return entry["enabled"]
+    return manifest.get("disabled") is not True
 
 
 def _files(path: Path) -> dict:
@@ -248,19 +298,21 @@ class Outcome:
 def install(
     root: Path,
     *,
+    scope: str = "user",
     dev: Path | None,
     relative_links: bool,
     force: bool,
     dry_run: bool,
 ) -> list[Outcome]:
     results = []
-    has_plugin = plugin_enabled(root)
-    for p in placements(root):
+    has_claude_plugin = plugin_enabled(root)
+    has_agy_plugin = scope == "user" and agy_plugin_enabled(root)
+    for p in placements(root, scope):
         info = inspect(p.dest)
         kind = info["kind"]
         target = dev / p.skill if dev is not None else None
         text = _link_text(p, target, relative_links) if target is not None else None
-        verb, reason = _decide(p, info, target, text, has_plugin, force)
+        verb, reason = _decide(p, info, target, text, has_claude_plugin, has_agy_plugin, force)
         if verb in ("created", "updated", "replaced") and not dry_run:
             if target is not None:
                 _swap(p, lambda staged, text=text: staged.symlink_to(text))
@@ -277,13 +329,19 @@ def _decide(
     info: dict,
     target: Path | None,
     text: str | None,
-    has_plugin: bool,
+    has_claude_plugin: bool,
+    has_agy_plugin: bool,
     force: bool,
 ):
     kind = info["kind"]
     guard = None
-    if has_plugin and p.folder == ".claude/skills":
+    if has_claude_plugin and p.folder == ".claude/skills":
         guard = f"the {PLUGIN_ID} plugin is enabled here, so the skill would load twice"
+    elif has_agy_plugin and p.folder == ".gemini/config/skills":
+        guard = (
+            f"the {AGY_PLUGIN_NAME} Antigravity plugin is enabled here, "
+            "so the skill would load twice"
+        )
     elif target is not None:  # dev mode
         if kind == "missing":
             return "created", ""
@@ -315,9 +373,9 @@ def _decide(
     return "skipped", guard
 
 
-def uninstall(root: Path, *, force: bool, dry_run: bool) -> list[Outcome]:
+def uninstall(root: Path, *, scope: str = "user", force: bool, dry_run: bool) -> list[Outcome]:
     results = []
-    for p in placements(root):
+    for p in placements(root, scope):
         info = inspect(p.dest)
         kind = info["kind"]
         if kind == "missing":
@@ -346,7 +404,7 @@ def uninstall(root: Path, *, force: bool, dry_run: bool) -> list[Outcome]:
 
 def status_rows(root: Path, scope: str) -> list[dict]:
     rows = []
-    for p in placements(root):
+    for p in placements(root, scope):
         info = inspect(p.dest)
         rows.append(
             {

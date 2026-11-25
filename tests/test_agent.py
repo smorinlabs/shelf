@@ -16,7 +16,8 @@ from shelf.core import agent
 REPO = Path(__file__).resolve().parents[1]
 PLUGIN_SKILLS = REPO / "plugins" / "shelf" / "skills"
 NAMES = ("shelf", "shelf-reference")
-TARGETS = (".claude/skills", ".agents/skills")
+USER_TARGETS = (".claude/skills", ".agents/skills", ".gemini/config/skills")
+PROJECT_TARGETS = (".claude/skills", ".agents/skills")
 
 
 def run(args, **kw):
@@ -48,8 +49,9 @@ def git_repo(path: Path) -> Path:
     return path
 
 
-def dests(root: Path, name: str = "shelf"):
-    return [root / t / name for t in TARGETS]
+def dests(root: Path, name: str = "shelf", scope: str = "user"):
+    targets = PROJECT_TARGETS if scope == "project" else USER_TARGETS
+    return [root / t / name for t in targets]
 
 
 def tree(path: Path) -> dict:
@@ -86,9 +88,10 @@ def test_wheel_contains_the_bundled_skills(tmp_path):
 # --- TS01 scope roots -------------------------------------------------------
 
 
-def test_user_scope_installs_into_both_home_skill_folders(home):
+def test_user_scope_installs_into_all_home_skill_folders(home):
     r = run(["agent", "install"])
     assert r.exit_code == 0, r.output
+    assert "Antigravity (~/.gemini/config/skills)" in r.output
     for name in NAMES:
         for d in dests(home, name):
             assert (d / "SKILL.md").is_file()
@@ -100,9 +103,12 @@ def test_project_scope_installs_at_the_repo_root(home, tmp_path, monkeypatch):
     monkeypatch.chdir(repo / "sub")
     r = run(["agent", "install", "--scope", "project"])
     assert r.exit_code == 0, r.output
-    for d in dests(repo):
+    assert "Codex / Cursor / Antigravity" in r.output
+    for d in dests(repo, scope="project"):
         assert (d / "SKILL.md").is_file()
+    assert not (repo / ".gemini").exists()
     assert not (home / ".claude").exists()
+    assert not (home / ".gemini").exists()
 
 
 def test_project_scope_outside_a_repo_is_refused(home, tmp_path, monkeypatch):
@@ -206,10 +212,11 @@ def test_project_dev_mode_with_an_in_repo_source_writes_relative_links(home, tmp
     monkeypatch.chdir(repo)
     r = run(["agent", "install", "--scope", "project", "--dev", "--source", str(repo)])
     assert r.exit_code == 0, r.output
-    for d in dests(repo):
+    for d in dests(repo, scope="project"):
         assert d.is_symlink()
         assert not Path(os.readlink(d)).is_absolute()
         assert (d / "SKILL.md").is_file()
+    assert not (repo / ".gemini").exists()
 
 
 # --- TS04 classification: never replace what shelf did not install ----------
@@ -271,6 +278,82 @@ def test_an_enabled_shelf_plugin_skips_the_claude_folder(home):
     assert "plugin" in r.output
     assert not (home / ".claude/skills/shelf").exists()
     assert (home / ".agents/skills/shelf/SKILL.md").is_file()
+    assert (home / ".gemini/config/skills/shelf/SKILL.md").is_file()
+
+
+@pytest.mark.parametrize(
+    "manifest_rel",
+    [
+        ".antigravity-plugin/plugin.json",
+        ".gemini-plugin/plugin.json",
+        "plugin.json",
+    ],
+)
+def test_an_enabled_antigravity_plugin_skips_the_gemini_folder(home, manifest_rel):
+    manifest = home / ".gemini" / "config" / "plugins" / "shelf" / manifest_rel
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({"name": "shelf"}))
+    r = run(["agent", "install"])
+    assert r.exit_code == 1
+    assert "Antigravity plugin" in r.output
+    assert not (home / ".gemini/config/skills/shelf").exists()
+    assert (home / ".claude/skills/shelf/SKILL.md").is_file()
+    assert (home / ".agents/skills/shelf/SKILL.md").is_file()
+
+    r = run(["agent", "install", "--force"])
+    assert r.exit_code == 0, r.output
+    assert (home / ".gemini/config/skills/shelf/SKILL.md").is_file()
+
+
+def test_empty_or_invalid_antigravity_plugin_dir_does_not_skip_the_gemini_folder(home):
+    plugin_dir = home / ".gemini" / "config" / "plugins" / "shelf"
+    plugin_dir.mkdir(parents=True)
+    cfg = home / ".gemini" / "config" / "config.json"
+    cfg.write_text(json.dumps({"plugins": {"shelf": {"enabled": True}}}))
+    assert agent.agy_plugin_enabled(home) is False
+
+    manifest = plugin_dir / ".antigravity-plugin" / "plugin.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text("{not valid json")
+    assert agent.agy_plugin_enabled(home) is False
+
+    manifest.write_text("[]")
+    assert agent.agy_plugin_enabled(home) is False
+
+    manifest.unlink()
+    r = run(["agent", "install"])
+    assert r.exit_code == 0, r.output
+    assert (home / ".gemini/config/skills/shelf/SKILL.md").is_file()
+    assert (home / ".gemini/config/skills/shelf-reference/SKILL.md").is_file()
+
+
+def test_a_disabled_antigravity_plugin_does_not_skip_the_gemini_folder(home):
+    manifest = home / ".gemini" / "config" / "plugins" / "shelf" / "plugin.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({"name": "shelf"}))
+    cfg = home / ".gemini" / "config" / "config.json"
+    cfg.write_text(json.dumps({"plugins": {"shelf": {"enabled": False}}}))
+    r = run(["agent", "install"])
+    assert r.exit_code == 0, r.output
+    assert (home / ".gemini/config/skills/shelf/SKILL.md").is_file()
+    assert (home / ".gemini/config/skills/shelf-reference/SKILL.md").is_file()
+
+
+def test_antigravity_plugin_manifest_disabled_and_config_override(home):
+    manifest = (
+        home / ".gemini" / "config" / "plugins" / "shelf" / ".antigravity-plugin" / "plugin.json"
+    )
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({"name": "shelf", "disabled": True}))
+    r = run(["agent", "install"])
+    assert r.exit_code == 0, r.output
+    assert (home / ".gemini/config/skills/shelf/SKILL.md").is_file()
+
+    cfg = home / ".gemini" / "config" / "config.json"
+    cfg.write_text(json.dumps({"plugins": {"shelf": {"enabled": True}}}))
+    r = run(["agent", "install"])
+    assert r.exit_code == 1
+    assert "Antigravity plugin" in r.output
 
 
 # --- TS05 safety ------------------------------------------------------------
@@ -327,7 +410,11 @@ def test_dry_run_writes_nothing(home):
     r = run(["agent", "install", "--dry-run"])
     assert r.exit_code == 0, r.output
     assert "would create" in r.output
-    assert not (home / ".claude").exists() and not (home / ".agents").exists()
+    assert (
+        not (home / ".claude").exists()
+        and not (home / ".agents").exists()
+        and not (home / ".gemini").exists()
+    )
 
 
 def test_status_json_reports_kind_version_and_staleness(home, checkout):
@@ -344,6 +431,18 @@ def test_status_json_reports_kind_version_and_staleness(home, checkout):
     assert claude_shelf["version"] == agent.cli_version()
     assert rows[(".agents/skills", "shelf")]["kind"] == "dev-link"
     assert rows[(".claude/skills", "shelf-reference")]["stale"] is True
+    agy_shelf = rows[(".gemini/config/skills", "shelf")]
+    assert agy_shelf["kind"] == "copy" and agy_shelf["stale"] is False
+
+
+def test_status_json_excludes_gemini_folder_at_project_scope(home, tmp_path, monkeypatch):
+    repo = git_repo(tmp_path / "repo")
+    monkeypatch.chdir(repo)
+    assert run(["agent", "install", "--scope", "project"]).exit_code == 0
+    r = run(["agent", "status", "--scope", "project", "--json"])
+    assert r.exit_code == 0, r.output
+    folders = {row["folder"] for row in json.loads(r.output)}
+    assert folders == {".claude/skills", ".agents/skills"}
 
 
 # --- uninstall --------------------------------------------------------------
@@ -358,11 +457,29 @@ def test_uninstall_removes_owned_copies_and_skips_foreign_ones(home):
     r = run(["agent", "uninstall"])
     assert r.exit_code == 1
     assert not (home / ".claude/skills/shelf").exists()
+    assert not (home / ".gemini/config/skills/shelf").exists()
     assert (foreign / "SKILL.md").read_text() == "hand made"
     r = run(["agent", "uninstall", "--force"])
     assert r.exit_code == 0
     assert not foreign.exists()
     backup = home / ".agents/skills" / agent.BACKUP_DIR / "shelf-reference" / "SKILL.md"
+    assert backup.read_text() == "hand made"
+
+
+def test_uninstall_handles_foreign_copy_in_antigravity_folder(home):
+    assert run(["agent", "install"]).exit_code == 0
+    foreign = home / ".gemini/config/skills/shelf"
+    shutil.rmtree(foreign)
+    foreign.mkdir()
+    (foreign / "SKILL.md").write_text("hand made")
+    r = run(["agent", "uninstall"])
+    assert r.exit_code == 1
+    assert (foreign / "SKILL.md").read_text() == "hand made"
+    assert not (home / ".gemini/config/skills/shelf-reference").exists()
+    r = run(["agent", "uninstall", "--force"])
+    assert r.exit_code == 0
+    assert not foreign.exists()
+    backup = home / ".gemini/config/skills" / agent.BACKUP_DIR / "shelf" / "SKILL.md"
     assert backup.read_text() == "hand made"
 
 
@@ -376,7 +493,7 @@ def test_existing_links_to_the_same_checkout_are_left_unchanged(home, checkout):
             d.symlink_to(checkout / "plugins/shelf/skills" / name)
     r = run(["agent", "install", "--dev", "--source", str(checkout)])
     assert r.exit_code == 0, r.output
-    assert r.output.count("unchanged") == 4
+    assert r.output.count("unchanged") == 6
     assert "created" not in r.output and "updated" not in r.output
 
 
@@ -402,6 +519,16 @@ def test_audit_notes_a_stale_user_copy(home):
     assert r.exit_code == 0, r.output
     assert "shelf agent install" in r.output
     assert "shelf agent install" not in run(["-q", "audit"]).output
+
+
+def test_audit_notes_a_stale_antigravity_user_copy(home):
+    assert run(["init"]).exit_code == 0
+    assert run(["agent", "install"]).exit_code == 0
+    stamp = home / ".gemini/config/skills/shelf" / agent.STAMP
+    stamp.write_text(json.dumps({"mode": "copy", "version": "0.0.1"}))
+    r = run(["audit"])
+    assert r.exit_code == 0, r.output
+    assert "shelf agent install" in r.output
 
 
 # --- PR #18 review findings -------------------------------------------------
@@ -455,12 +582,12 @@ def test_project_dev_install_rewrites_an_absolute_link_as_relative(home, tmp_pat
     repo = git_repo(tmp_path / "repo")
     shutil.copytree(PLUGIN_SKILLS, repo / "plugins" / "shelf" / "skills")
     monkeypatch.chdir(repo)
-    for d in dests(repo):
+    for d in dests(repo, scope="project"):
         d.parent.mkdir(parents=True, exist_ok=True)
         d.symlink_to(repo / "plugins/shelf/skills/shelf")
     r = run(["agent", "install", "--scope", "project", "--dev", "--source", str(repo)])
     assert r.exit_code == 0, r.output
-    for d in dests(repo):
+    for d in dests(repo, scope="project"):
         assert not Path(os.readlink(d)).is_absolute()
     assert "updated" in r.output
 
@@ -502,7 +629,8 @@ def test_tty_yes_installs_at_project_scope(project_shelf, home, monkeypatch):
     r = run(["agent", "install"], input="y\n")
     assert r.exit_code == 0, r.output
     assert "This repo has a project shelf" in r.output
-    assert all(d.is_dir() for d in dests(project_shelf))
+    assert all(d.is_dir() for d in dests(project_shelf, scope="project"))
+    assert not (project_shelf / ".gemini").exists()
     assert not any(d.exists() for d in dests(home))
 
 
@@ -512,7 +640,7 @@ def test_tty_no_or_enter_installs_at_user_scope(project_shelf, home, monkeypatch
     r = run(["agent", "install"], input=answer)
     assert r.exit_code == 0, r.output
     assert all(d.is_dir() for d in dests(home))
-    assert not any(d.exists() for d in dests(project_shelf))
+    assert not any(d.exists() for d in dests(project_shelf, scope="project"))
 
 
 def test_no_tty_installs_at_user_scope_and_prints_the_command(project_shelf, home):

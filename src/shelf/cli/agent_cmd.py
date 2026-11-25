@@ -90,7 +90,7 @@ def _choose_scope(ctx: click.Context) -> tuple[str, bool]:
 @click.option("--dry-run", is_flag=True, help="Show what would change; write nothing.")
 @click.pass_context
 def install_cmd(ctx, scope, dev, source, force, dry_run):
-    """Install the shelf skills for Claude Code and Codex/Cursor.
+    """Install the shelf skills for Claude Code, Codex/Cursor, and Antigravity.
 
     \b
     Examples:
@@ -115,7 +115,7 @@ def install_cmd(ctx, scope, dev, source, force, dry_run):
         relative = True
     outcomes = _run_guarded(
         lambda: agent.install(
-            root, dev=skills, relative_links=relative, force=force, dry_run=dry_run
+            root, scope=scope, dev=skills, relative_links=relative, force=force, dry_run=dry_run
         )
     )
     mode = f"dev → {_tilde(skills.parents[2])}" if skills is not None else "copy"
@@ -170,7 +170,9 @@ def status_cmd(ctx, scope, output, json_):
 def uninstall_cmd(scope, force, dry_run):
     """Remove the shelf skills that shelf installed."""
     root = agent.scope_root(scope)
-    outcomes = _run_guarded(lambda: agent.uninstall(root, force=force, dry_run=dry_run))
+    outcomes = _run_guarded(
+        lambda: agent.uninstall(root, scope=scope, force=force, dry_run=dry_run)
+    )
     action = "Would uninstall" if dry_run else "Uninstalled"
     _report(f"{action} shelf agent skills (scope: {scope})", outcomes, dry_run)
     if any(o.skipped for o in outcomes):

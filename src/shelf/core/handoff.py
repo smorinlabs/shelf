@@ -8,27 +8,30 @@ from typing import NoReturn
 
 import click
 
-_VALID_AGENTS = ("claude", "codex")
+VALID_AGENTS = ("claude", "codex", "agy")
 
 
 def in_ai_session() -> str | None:
     """Return the AI session label if running inside one, else None.
 
-    Claude Code sets CLAUDECODE; Codex sets CODEX_THREAD_ID (Codex CLI 0.144.6).
+    Claude Code sets CLAUDECODE; Codex sets CODEX_THREAD_ID (Codex CLI 0.144.6);
+    Antigravity sets ANTIGRAVITY_AGENT=1 and ANTIGRAVITY_CONVERSATION_ID (agy 1.5.16).
     """
     if os.environ.get("CLAUDECODE"):
         return "Claude Code"
     if os.environ.get("CODEX_THREAD_ID"):
         return "Codex"
+    if os.environ.get("ANTIGRAVITY_AGENT") == "1" or os.environ.get("ANTIGRAVITY_CONVERSATION_ID"):
+        return "Antigravity"
     return None
 
 
 def resolve_agent(flag: str | None, cfg_agent: str) -> str:
     """Resolve the handoff agent: flag > config > (config default 'claude')."""
     agent = flag or cfg_agent
-    if agent not in _VALID_AGENTS:
+    if agent not in VALID_AGENTS:
         raise click.ClickException(
-            f"unknown handoff agent '{agent}' — use one of {', '.join(_VALID_AGENTS)}"
+            f"unknown handoff agent '{agent}' — use one of {', '.join(VALID_AGENTS)}"
         )
     return agent
 
@@ -46,8 +49,9 @@ def _launch_handoff(agent: str, prompt: str) -> NoReturn:
     Isolated seam (like core.git._gh) so tests mock os.execvp. On success the
     process image is replaced and nothing after this returns.
     """
+    argv = [agent, "-i", prompt] if agent == "agy" else [agent, prompt]
     try:
-        os.execvp(agent, [agent, prompt])
+        os.execvp(agent, argv)
     except OSError as exc:
         raise click.ClickException(
             f"handoff agent '{agent}' could not be launched: {exc} "
